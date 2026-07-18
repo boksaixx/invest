@@ -1,0 +1,169 @@
+[
+ {
+  "collectedAt": "2026-07-18T23:27:25.014Z",
+  "quotes": {
+   "005930": {
+    "symbol": "005930",
+    "name": "삼성전자",
+    "price": 255000,
+    "prevClose": 279500,
+    "change": -24500,
+    "changePct": -8.765652951699463,
+    "currency": "KRW",
+    "time": "2026-07-16T06:30:24.000Z"
+   },
+   "000660": {
+    "symbol": "000660",
+    "name": "SK하이닉스",
+    "price": 1842000,
+    "prevClose": 2082000,
+    "change": -240000,
+    "changePct": -11.527377521613833,
+    "currency": "KRW",
+    "time": "2026-07-16T06:30:25.000Z"
+   }
+  },
+  "macro": {
+   "usdkrw": {
+    "symbol": "KRW=X",
+    "name": "원/달러 환율",
+    "price": 1487.46,
+    "prevClose": 1498.48,
+    "change": -11.019999999999982,
+    "changePct": -0.7354118840424951,
+    "currency": "KRW",
+    "time": "2026-07-17T21:23:33.000Z"
+   },
+   "kospi": {
+    "symbol": "^KS11",
+    "name": "코스피",
+    "price": 6820.6,
+    "prevClose": 7291.91,
+    "change": -471.3099999999995,
+    "changePct": -6.463464304962615,
+    "currency": "KRW",
+    "time": "2026-07-16T09:05:40.000Z"
+   },
+   "nasdaq": {
+    "symbol": "^IXIC",
+    "name": "나스닥",
+    "price": 25520.244,
+    "prevClose": 26281.61,
+    "change": -761.3660000000018,
+    "changePct": -2.896953421042325,
+    "currency": "USD",
+    "time": "2026-07-17T21:15:59.000Z"
+   },
+   "sox": {
+    "symbol": "^SOX",
+    "name": "필라델피아 반도체",
+    "price": 11673.889,
+    "prevClose": 12967.16,
+    "change": -1293.2710000000006,
+    "changePct": -9.973432887386295,
+    "currency": "USD",
+    "time": "2026-07-17T21:15:59.000Z"
+   },
+   "nikkei": {
+    "symbol": "^N225",
+    "name": "니케이225",
+    "price": 64141.12,
+    "prevClose": 67242.73,
+    "change": -3101.6099999999933,
+    "changePct": -4.612558115947989,
+    "currency": "JPY",
+    "time": "2026-07-17T06:45:03.000Z"
+   },
+   "shanghai": {
+    "symbol": "000001.SS",
+    "name": "상해종합",
+    "price": 3764.155,
+    "prevClose": 3913.794,
+    "change": -149.63899999999967,
+    "changePct": -3.823374454557385,
+    "currency": "CNY",
+    "time": "2026-07-17T07:00:24.000Z"
+   }
+  },
+  "news": [],
+  "signals": [
+   {
+    "ticker": "005930",
+    "name": "삼성전자",
+    "action": "관망",
+    "score": 5,
+    "confidence": "높음",
+    "reasons": [
+     "미 반도체지수(SOX) 급락 -10.0%",
+     "환율 변동성 확대(원화 강세 0.7%) — 외국인 수급 유의"
+    ],
+    "warnings": [
+     "주가가 20일선 아래 (단기 추세 약세)"
+    ],
+    "targetPrice": 332506,
+    "stopPrice": 216247,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 255000,
+    "indicators": {
+     "ma5": 267400,
+     "ma20": 306475,
+     "ma60": 292308.3333333333,
+     "ma20SlopePct": -5.757995079950799,
+     "rsi14": 40.11840004099135,
+     "macd": -13426.75944010634,
+     "macdSignal": -6251.507912399396,
+     "macdHist": -7175.251527706943,
+     "macdHistPrev": -7114.239611276182,
+     "bollingerUpper": 371718.7544903725,
+     "bollingerLower": 241231.2455096275,
+     "percentB": 0.10551779705139623,
+     "atr14": 25835.327780255837,
+     "volumeZ": -0.8511983262111179,
+     "high52w": 374500,
+     "low52w": 60200
+    }
+   },
+   {
+    "ticker": "000660",
+    "name": "SK하이닉스",
+    "action": "관망",
+    "score": 5,
+    "confidence": "높음",
+    "reasons": [
+     "미 반도체지수(SOX) 급락 -10.0%",
+     "환율 변동성 확대(원화 강세 0.7%) — 외국인 수급 유의"
+    ],
+    "warnings": [
+     "주가가 20일선 아래 (단기 추세 약세)"
+    ],
+    "targetPrice": 2561250,
+    "stopPrice": 1482375,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 1842000,
+    "indicators": {
+     "ma5": 1972400,
+     "ma20": 2378350,
+     "ma60": 2036433.3333333333,
+     "ma20SlopePct": -4.351410588968651,
+     "rsi14": 40.43160225083563,
+     "macd": -83442.66094086785,
+     "macdSignal": 803.566394905054,
+     "macdHist": -84246.2273357729,
+     "macdHistPrev": -82617.46301595058,
+     "bollingerUpper": 3040611.058797813,
+     "bollingerLower": 1716088.9412021872,
+     "percentB": 0.09506149963458232,
+     "atr14": 239750.10125148756,
+     "volumeZ": -0.6448196816482912,
+     "high52w": 2987000,
+     "low52w": 245000
+    }
+   }
+  ],
+  "aiSummary": null
+ }
+]
