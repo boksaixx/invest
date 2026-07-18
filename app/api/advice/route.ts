@@ -4,28 +4,14 @@ import { getMacroSnapshot, getStockCandles, getStockQuote } from "@/lib/market";
 import { collectNews } from "@/lib/gemini";
 import { runEngine } from "@/lib/engine";
 import { generateAdvice } from "@/lib/claude";
-import type { CollectedSnapshot, EngineSignal, Portfolio, StockTicker } from "@/lib/types";
+import type { EngineSignal, Portfolio, StockTicker } from "@/lib/types";
+import { fetchLatestSnapshot } from "@/lib/snapshot";
 import eventsData from "@/data/events.json";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const TICKERS: StockTicker[] = ["005930", "000660"];
-
-async function fetchLatestSnapshot(): Promise<CollectedSnapshot | null> {
-  // GitHub Actions가 30분마다 저장하는 최신 스냅샷을 저장소에서 읽어온다
-  const repo = process.env.GITHUB_REPO || "boksaixx/invest";
-  const branch = process.env.GITHUB_DATA_BRANCH || "main";
-  try {
-    const res = await fetch(`https://raw.githubusercontent.com/${repo}/${branch}/data/latest.json`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as CollectedSnapshot;
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(req: Request) {
   try {
