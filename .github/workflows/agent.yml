@@ -64,3 +64,5 @@ jobs:
             git pull --rebase origin ${GITHUB_REF_NAME} || true
             git push origin HEAD:${GITHUB_REF_NAME}
           fi
+
+#테스트
