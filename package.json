@@ -1,0 +1,25 @@
+{
+  "name": "semi-trader-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "국내 반도체 주식(삼성전자·SK하이닉스) 단기 트레이딩 어드바이스 AI 에이전트",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "collect": "tsx scripts/collect.ts",
+    "backfill": "tsx scripts/backfill.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.112.3",
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}
