@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "시세 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해주세요." }, { status: 502 });
     }
 
-    const advice = await generateAdvice({
+    const { advice, error: adviceError } = await generateAdvice({
       signals,
       macro,
       news: effectiveNews,
@@ -63,6 +63,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       signals,
       advice,
+      adviceError,
       news: effectiveNews,
       macro,
       aiAvailable: Boolean(process.env.ANTHROPIC_API_KEY),

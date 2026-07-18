@@ -42,6 +42,7 @@ export async function collectNews(): Promise<NewsItem[]> {
         generationConfig: { temperature: 0.2 },
       }),
       cache: "no-store",
+      signal: AbortSignal.timeout(45_000),
     });
     if (!res.ok) {
       console.error("Gemini API 오류:", res.status, await res.text().catch(() => ""));

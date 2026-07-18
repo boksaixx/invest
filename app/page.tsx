@@ -18,6 +18,7 @@ interface MarketData {
 interface AdviceResponse {
   signals: EngineSignal[];
   advice: AiAdvice | null;
+  adviceError?: string | null;
   news: NewsItem[];
   aiAvailable: boolean;
   newsLive: boolean;
@@ -60,8 +61,10 @@ export default function Home() {
   const [market, setMarket] = useState<MarketData | null>(null);
   const [result, setResult] = useState<AdviceResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [health, setHealth] = useState<Record<string, string> | null>(null);
   const [snapshotTime, setSnapshotTime] = useState<string | null>(null);
 
   // 초기 로드
@@ -93,24 +96,49 @@ export default function Home() {
     } catch {}
   }
 
+  async function runDiagnosis() {
+    try {
+      const res = await fetch("/api/health", { cache: "no-store" });
+      if (res.ok) setHealth((await res.json()) as Record<string, string>);
+    } catch {}
+  }
+
   async function runAnalysis() {
     setLoading(true);
     setError(null);
+    setHealth(null);
+    setElapsed(0);
+    const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
     try {
       const res = await fetch("/api/advice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ portfolio }),
       });
-      const json = (await res.json()) as AdviceResponse;
-      if (!res.ok) {
-        setError(json.error ?? "분석에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      let json: AdviceResponse | null = null;
+      try {
+        json = (await res.json()) as AdviceResponse;
+      } catch {
+        // 타임아웃 등으로 JSON이 아닌 응답이 온 경우
+      }
+      if (!res.ok || !json) {
+        setError(
+          json?.error ??
+            `서버 응답 오류 (HTTP ${res.status}). 분석 시간이 초과되었을 수 있어요. 아래 자가 진단 결과를 확인해주세요.`,
+        );
+        void runDiagnosis();
       } else {
         setResult(json);
+        if (!json.advice && json.adviceError) {
+          setError(`AI 종합 판단 실패: ${json.adviceError}`);
+          void runDiagnosis();
+        }
       }
     } catch {
-      setError("네트워크 오류가 발생했습니다.");
+      setError("네트워크 오류 또는 응답 시간 초과입니다. 아래 자가 진단 결과를 확인해주세요.");
+      void runDiagnosis();
     } finally {
+      clearInterval(timer);
       setLoading(false);
     }
   }
@@ -256,7 +284,7 @@ export default function Home() {
         {loading ? (
           <>
             <span className="spinner" />
-            AI가 시장을 분석하는 중… (30초~2분)
+            AI 분석 중… {elapsed}초 (보통 30초~2분 걸려요)
           </>
         ) : (
           "지금 AI 정밀 분석 받기"
@@ -265,6 +293,17 @@ export default function Home() {
       {error && (
         <div className="card" style={{ color: "var(--red)", fontWeight: 700, fontSize: 14 }}>
           {error}
+        </div>
+      )}
+      {health && (
+        <div className="card">
+          <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 14 }}>🔍 자가 진단 결과</div>
+          {Object.entries(health).map(([k, v]) => (
+            <div className="kv-row" key={k}>
+              <span className="k">{k.replace(/_/g, " ")}</span>
+              <span className="v" style={{ fontSize: 12, textAlign: "right", maxWidth: "62%", fontWeight: 600 }}>{v}</span>
+            </div>
+          ))}
         </div>
       )}
 

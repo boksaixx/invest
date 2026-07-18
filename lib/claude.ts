@@ -49,8 +49,8 @@ const ADVICE_SCHEMA = {
           confidence: { type: "string", enum: ["높음", "중간", "낮음"] },
           headline: { type: "string" },
           rationale: { type: "array", items: { type: "string" } },
-          targetPrice: { type: ["number", "null"] },
-          stopPrice: { type: ["number", "null"] },
+          targetPrice: { anyOf: [{ type: "number" }, { type: "null" }] },
+          stopPrice: { anyOf: [{ type: "number" }, { type: "null" }] },
           checklist: { type: "array", items: { type: "string" } },
         },
         required: ["ticker", "action", "confidence", "headline", "rationale", "targetPrice", "stopPrice", "checklist"],
@@ -68,10 +68,11 @@ export async function generateAdvice(params: {
   portfolio: Portfolio;
   history?: CollectedSnapshot | null; // 자동 수집된 직전 스냅샷 (있으면 맥락 제공)
   events?: { date: string; title: string; note: string }[]; // 과거 주요 이벤트 타임라인
-}): Promise<AiAdvice | null> {
+}): Promise<{ advice: AiAdvice | null; error: string | null }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
-  const client = new Anthropic({ apiKey });
+  if (!apiKey) return { advice: null, error: "ANTHROPIC_API_KEY 미설정 (Vercel 환경변수 확인 필요)" };
+  // 타임아웃(ms) — 웹 요청 안에서 도는 호출이므로 재시도는 1회로 제한
+  const client = new Anthropic({ apiKey, timeout: 150_000, maxRetries: 1 });
 
   const { signals, macro, news, portfolio } = params;
 
@@ -125,7 +126,10 @@ export async function generateAdvice(params: {
       model: MODEL,
       max_tokens: 4000,
       system: SYSTEM,
-      output_config: { format: { type: "json_schema", schema: ADVICE_SCHEMA as unknown as Record<string, unknown> } },
+      output_config: {
+        effort: "medium", // 사용자가 화면에서 기다리는 호출이므로 응답 속도 우선
+        format: { type: "json_schema", schema: ADVICE_SCHEMA as unknown as Record<string, unknown> },
+      },
       messages: [
         {
           role: "user",
@@ -133,15 +137,27 @@ export async function generateAdvice(params: {
         },
       ],
     });
-    if (response.stop_reason === "refusal") return null;
+    if (response.stop_reason === "refusal") {
+      return { advice: null, error: "AI가 이 요청의 응답을 거절했습니다. 잠시 후 다시 시도해주세요." };
+    }
     const text = response.content.find((b) => b.type === "text");
-    if (!text || text.type !== "text") return null;
+    if (!text || text.type !== "text") return { advice: null, error: "AI 응답 형식 오류" };
     const parsed = JSON.parse(text.text) as Omit<AiAdvice, "generatedAt">;
-    return { ...parsed, generatedAt: new Date().toISOString() };
+    return { advice: { ...parsed, generatedAt: new Date().toISOString() }, error: null };
   } catch (e) {
     console.error("Claude 조언 생성 실패:", e);
-    return null;
+    return { advice: null, error: describeAnthropicError(e) };
   }
+}
+
+function describeAnthropicError(e: unknown): string {
+  if (e instanceof Anthropic.AuthenticationError) return "Claude API 키가 잘못되었습니다 (401). Vercel 환경변수의 ANTHROPIC_API_KEY를 확인하세요.";
+  if (e instanceof Anthropic.PermissionDeniedError) return "Claude API 키 권한 오류 (403). console.anthropic.com에서 결제 설정을 확인하세요.";
+  if (e instanceof Anthropic.RateLimitError) return "Claude API 사용량 한도 초과 (429). 잠시 후 다시 시도하거나 크레딧을 확인하세요.";
+  if (e instanceof Anthropic.BadRequestError) return `Claude API 요청 오류 (400): ${e.message?.slice(0, 200)}`;
+  if (e instanceof Anthropic.APIConnectionError) return "Claude API 연결 실패 (네트워크/타임아웃). 다시 시도해주세요.";
+  if (e instanceof Anthropic.APIError) return `Claude API 오류 (${e.status}): ${String(e.message).slice(0, 200)}`;
+  return `AI 분석 중 오류: ${String(e).slice(0, 200)}`;
 }
 
 // 카카오톡/로그용 짧은 요약 텍스트 생성

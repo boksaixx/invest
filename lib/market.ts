@@ -48,6 +48,7 @@ async function fetchYahooChart(symbol: string, range: string, interval: string):
       const res = await fetch(url, {
         headers: { "User-Agent": UA, Accept: "application/json" },
         cache: "no-store",
+        signal: AbortSignal.timeout(8000),
       });
       if (!res.ok) continue;
       const json = (await res.json()) as YahooChart;
@@ -108,7 +109,11 @@ export async function fetchDailyCandles(symbol: string, range = "2y"): Promise<C
 async function fetchNaverRealtime(ticker: StockTicker): Promise<Quote | null> {
   try {
     const url = `https://polling.finance.naver.com/api/realtime/domestic/stock/${ticker}`;
-    const res = await fetch(url, { headers: { "User-Agent": UA }, cache: "no-store" });
+    const res = await fetch(url, {
+      headers: { "User-Agent": UA },
+      cache: "no-store",
+      signal: AbortSignal.timeout(6000),
+    });
     if (!res.ok) return null;
     const json = await res.json();
     const d = json?.datas?.[0];
@@ -137,7 +142,11 @@ async function fetchNaverDaily(ticker: StockTicker, days = 600): Promise<Candle[
     const start = new Date(end.getTime() - days * 86400_000);
     const fmt = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, "");
     const url = `https://api.finance.naver.com/siseJson.naver?symbol=${ticker}&requestType=1&startTime=${fmt(start)}&endTime=${fmt(end)}&timeframe=day`;
-    const res = await fetch(url, { headers: { "User-Agent": UA }, cache: "no-store" });
+    const res = await fetch(url, {
+      headers: { "User-Agent": UA },
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
     if (!res.ok) return [];
     const text = await res.text();
     // 응답: [['날짜','시가','고가','저가','종가','거래량','외국인소진율'], ['20240102', ...], ...]
