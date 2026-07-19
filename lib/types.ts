@@ -55,6 +55,8 @@ export interface Indicators {
   percentB: number; // 볼린저 %B (0~1)
   atr14: number;
   volumeZ: number; // 20일 거래량 z-score
+  lastVolume: number; // 가장 최근 완성된 일봉의 거래량 (원시 수치 — AI가 근거로 직접 인용할 수 있도록)
+  avgVolume20: number; // 최근 20일 평균 거래량 (lastVolume 직전 20일 기준)
   high52w: number;
   low52w: number;
 }
@@ -102,17 +104,7 @@ export interface Portfolio {
   holdings: Holding[];
 }
 
-export type StockTicker =
-  | "005930"
-  | "000660"
-  | "042700"
-  | "009150"
-  | "000990"
-  | "058470"
-  | "240810"
-  | "039030"
-  | "064760"
-  | "005290";
+export type StockTicker = "005930" | "000660" | "042700" | "009150" | "000990";
 
 export type Action =
   | "신규매수"
@@ -144,7 +136,7 @@ export interface EngineSignal {
   invalidation: string | null; // 무효화 조건 — 발생 시 목표가/손절가와 무관하게 즉시 재검토
   scaledEntry: ScaledOrder[]; // 분할 매수 라인
   scaledExit: ScaledOrder[]; // 분할 매도(익절) 라인
-  relativeStrengthNote: string | null; // 반도체 10종목 중 상대강도 순위 코멘트
+  relativeStrengthNote: string | null; // 반도체 5종목 중 상대강도 순위 코멘트
   estimatedRoundTripCostWon: number | null; // 왕복 거래비용(증권거래세+수수료) 추정액 (원)
   backtest: BacktestStats | null; // 3개년 일봉 기준 과거 신호 통계 (참고용, 확정적 예측 아님)
   buyStrength: number; // 0~10, 미보유 시 "지금 얼마나 강하게 사야 하는지" (참고용으로 항상 계산)
@@ -223,11 +215,6 @@ export const STOCKS: Record<StockTicker, { name: string; yahoo: string }> = {
   "042700": { name: "한미반도체", yahoo: "042700.KS" },
   "009150": { name: "삼성전기", yahoo: "009150.KS" },
   "000990": { name: "DB하이텍", yahoo: "000990.KS" },
-  "058470": { name: "리노공업", yahoo: "058470.KQ" },
-  "240810": { name: "원익IPS", yahoo: "240810.KQ" },
-  "039030": { name: "이오테크닉스", yahoo: "039030.KQ" },
-  "064760": { name: "티씨케이", yahoo: "064760.KQ" },
-  "005290": { name: "동진쎄미켐", yahoo: "005290.KQ" },
 };
 
 export const TICKER_LIST: StockTicker[] = [
@@ -236,9 +223,4 @@ export const TICKER_LIST: StockTicker[] = [
   "042700",
   "009150",
   "000990",
-  "058470",
-  "240810",
-  "039030",
-  "064760",
-  "005290",
 ];

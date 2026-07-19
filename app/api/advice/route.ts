@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     const withQuote = stockData.filter((sd): sd is typeof sd & { quote: NonNullable<typeof sd.quote> } => sd.quote != null);
     const rs = computeRelativeStrength(withQuote.map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })));
 
-    // 섹터 집중도 (10종목 모두 반도체 — 분산투자 착시 방지)
+    // 섹터 집중도 (5종목 모두 반도체 — 분산투자 착시 방지)
     const quotesMap = Object.fromEntries(stockData.map((sd) => [sd.ticker, sd.quote]));
     const holdingsValue = portfolio.holdings.reduce((a, h) => a + h.qty * (quotesMap[h.ticker]?.price ?? h.avgPrice), 0);
     const totalAsset = portfolio.cash + holdingsValue;

@@ -96,6 +96,14 @@ export function volumeZScore(volumes: number[], period = 20): number {
   return (volumes[volumes.length - 1] - mean) / sd;
 }
 
+// 가장 최근 완성된 일봉 직전 20일 평균 거래량 — volumeZScore와 동일한 기준 윈도우를 써서
+// "지금 거래량이 평소 대비 얼마나 많은지"를 원시 수치로도 인용할 수 있게 한다.
+export function averageVolume(volumes: number[], period = 20): number {
+  if (volumes.length < period + 1) return NaN;
+  const hist = volumes.slice(-(period + 1), -1);
+  return hist.reduce((a, b) => a + b, 0) / period;
+}
+
 export function computeIndicators(candles: Candle[]): Indicators {
   const closes = candles.map((c) => c.close);
   const volumes = candles.map((c) => c.volume);
@@ -119,6 +127,8 @@ export function computeIndicators(candles: Candle[]): Indicators {
     percentB: boll.percentB,
     atr14: atr(candles),
     volumeZ: volumeZScore(volumes),
+    lastVolume: volumes[volumes.length - 1],
+    avgVolume20: averageVolume(volumes),
     high52w: Math.max(...yearCandles.map((c) => c.high)),
     low52w: Math.min(...yearCandles.map((c) => c.low)),
   };

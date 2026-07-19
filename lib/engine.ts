@@ -617,7 +617,7 @@ export function computeRelativeStrength(
   return { ranked, noteFor, summary };
 }
 
-// 섹터 집중도 점검 — 10종목 모두 반도체라 여러 종목에 나눠 담아도 사실상 단일 섹터 베팅이다.
+// 섹터 집중도 점검 — 5종목 모두 반도체라 여러 종목에 나눠 담아도 사실상 단일 섹터 베팅이다.
 // "비판자" 관점 보완: 분산투자로 착각하게 두지 않고 명시적으로 경고한다.
 export function computeSectorConcentration(
   holdings: Portfolio["holdings"],

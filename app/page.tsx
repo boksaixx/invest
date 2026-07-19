@@ -239,7 +239,7 @@ export default function Home() {
 
   const fearGreed = (market?.macro as { fearGreed?: { value: number; ratingKo: string } } | undefined)?.fearGreed;
 
-  // 10종목 중 "지금 뭘 해야 하나"를 강도순으로 정렬한 요약 — 화면 맨 위에서 바로 판단할 수 있게
+  // 5종목 중 "지금 뭘 해야 하나"를 강도순으로 정렬한 요약 — 화면 맨 위에서 바로 판단할 수 있게
   const summaryRows = useMemo(() => {
     if (!result) return [];
     return TICKERS.map(({ ticker, name }) => {
@@ -260,7 +260,7 @@ export default function Home() {
         <div>
           <h1>반도체 트레이딩 AI</h1>
           <div className="sub">
-            반도체 10종목 단타 어드바이저
+            반도체 5종목 단타 어드바이저
             {snapshotTime && ` · 자동수집 ${new Date(snapshotTime).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`}
           </div>
         </div>
@@ -445,7 +445,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 지금 뭘 해야 하나 — 10종목 강도순 랭킹 (핵심 요약) */}
+      {/* 지금 뭘 해야 하나 — 5종목 강도순 랭킹 (핵심 요약) */}
       {summaryRows.length > 0 && (
         <>
           <div className="section-title">지금 뭘 해야 하나</div>
