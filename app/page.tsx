@@ -78,6 +78,36 @@ function momentumLabel(m: string): string {
   return map[m] ?? m;
 }
 
+// 미보유 시 매수 강도(0~10)의 색상 톤 — 4점 미만은 아직 근거 부족(회색)
+function buyTone(score: number): "buy" | "neutral" {
+  return score >= 4 ? "buy" : "neutral";
+}
+// 보유 중 매도 강도(0~10)의 색상 톤 — 9점 이상은 손절/즉시매도 수준(검정=위험)
+function sellTone(score: number): "danger" | "sell" | "neutral" {
+  if (score >= 9) return "danger";
+  if (score >= 4) return "sell";
+  return "neutral";
+}
+
+interface ScoreInfo {
+  score: number;
+  tone: "buy" | "sell" | "danger" | "neutral";
+  label: string; // "매수 강도" | "매도 강도"
+  oneLiner: string;
+}
+
+// 종목 하나의 최종 표시 점수를 계산 — AI 판단이 있으면 그 값을, 없으면 룰 엔진 1차 계산값을 쓴다.
+function computeScoreInfo(holding: boolean, sig: EngineSignal | undefined, ai: AiAdvice["stocks"][number] | undefined): ScoreInfo | null {
+  if (!sig) return null;
+  if (holding) {
+    const score = ai?.actionScore ?? sig.sellStrength;
+    if (score == null) return null;
+    return { score, tone: sellTone(score), label: "매도 강도", oneLiner: ai?.headline ?? sig.actionSummary };
+  }
+  const score = ai?.actionScore ?? sig.buyStrength;
+  return { score, tone: buyTone(score), label: "매수 강도", oneLiner: ai?.headline ?? sig.actionSummary };
+}
+
 export default function Home() {
   const [portfolio, setPortfolio] = useState<Portfolio>(DEFAULT_PORTFOLIO);
   const [market, setMarket] = useState<MarketData | null>(null);
@@ -88,6 +118,16 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [health, setHealth] = useState<Record<string, string> | null>(null);
   const [snapshotTime, setSnapshotTime] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggleExpand(ticker: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(ticker)) next.delete(ticker);
+      else next.add(ticker);
+      return next;
+    });
+  }
 
   // 초기 로드
   useEffect(() => {
@@ -198,6 +238,21 @@ export default function Home() {
   ];
 
   const fearGreed = (market?.macro as { fearGreed?: { value: number; ratingKo: string } } | undefined)?.fearGreed;
+
+  // 5종목 중 "지금 뭘 해야 하나"를 강도순으로 정렬한 요약 — 화면 맨 위에서 바로 판단할 수 있게
+  const summaryRows = useMemo(() => {
+    if (!result) return [];
+    return TICKERS.map(({ ticker, name }) => {
+      const sig = result.signals.find((s) => s.ticker === ticker);
+      const ai = result.advice?.stocks.find((s) => s.ticker === ticker || s.ticker.includes(ticker));
+      const h = portfolio.holdings.find((x) => x.ticker === ticker);
+      const held = Boolean(h && h.qty > 0);
+      const info = computeScoreInfo(held, sig, ai);
+      return { ticker, name, held, info };
+    })
+      .filter((r) => r.info != null)
+      .sort((a, b) => (b.info!.score ?? 0) - (a.info!.score ?? 0));
+  }, [result, portfolio]);
 
   return (
     <main className="container">
@@ -385,225 +440,45 @@ export default function Home() {
         </div>
       )}
 
-      {/* 종목 카드 */}
-      {TICKERS.map(({ ticker, name }) => {
-        const q = market?.quotes?.[ticker];
-        const sig = result?.signals.find((s) => s.ticker === ticker);
-        const ai = result?.advice?.stocks.find((s) => s.ticker === ticker || s.ticker.includes(ticker));
-        const h = portfolio.holdings.find((x) => x.ticker === ticker);
-        const action = ai?.action ?? sig?.action;
-        return (
-          <div className="card" key={ticker}>
-            <div className="stock-head">
-              <div>
-                <span className="stock-name">{name}</span>
-                <span className="stock-code">{ticker}</span>
-                <div className="stock-price">{won(q?.price ?? sig?.price)}원</div>
-                <div className={`stock-change ${pctClass(q?.changePct)}`}>
-                  {q ? `${q.change >= 0 ? "▲" : "▼"} ${won(Math.abs(q.change))}원 (${q.changePct >= 0 ? "+" : ""}${q.changePct.toFixed(2)}%)` : "시세 로딩 중…"}
+      {/* 지금 뭘 해야 하나 — 5종목 강도순 랭킹 (핵심 요약) */}
+      {summaryRows.length > 0 && (
+        <>
+          <div className="section-title">지금 뭘 해야 하나</div>
+          <div className="card">
+            {summaryRows.map(({ ticker, name, held, info }) => (
+              <div className="summary-row" key={ticker}>
+                <div className="summary-name">
+                  {name}
+                  {held && <span className="held-tag">보유중</span>}
                 </div>
-                {q?.time && <div className="hint" style={{ marginTop: 2 }}>{staleness(q.time)}</div>}
+                <div className="summary-action">{info!.oneLiner}</div>
+                <div className={`summary-score-badge ${info!.tone}`}>
+                  {info!.score}
+                  <span className="denom">/10</span>
+                </div>
               </div>
-              {action && <span className={badgeClass(action)}>{action}</span>}
+            ))}
+            <div className="hint">
+              미보유 종목은 매수 강도, 보유 종목은 매도 강도입니다. 8점 이상이면 강한 신호, 4~7점은 조건부(트리거·목표가 확인), 0~3점은 아직 근거 부족(관망/보유)이에요.
             </div>
-
-            {h && h.qty > 0 && (
-              <div className="kv-row">
-                <span className="k">내 보유</span>
-                <span className="v">
-                  {h.qty}주 · 평단 {won(h.avgPrice)}원
-                  {sig?.pnlPct != null && (
-                    <span className={pctClass(sig.pnlPct)}>
-                      {" "}({sig.pnlPct >= 0 ? "+" : ""}{sig.pnlPct}%)
-                    </span>
-                  )}
-                </span>
-              </div>
-            )}
-
-            {sig && (
-              <>
-                <div className="kv-row">
-                  <span className="k">신호 점수</span>
-                  <span className="v">{sig.score}점 / 100 (신뢰도 {ai?.confidence ?? sig.confidence})</span>
-                </div>
-                {(ai?.targetPrice ?? sig.targetPrice) != null && (
-                  <div className="kv-row">
-                    <span className="k">목표가</span>
-                    <span className="v up">{won(ai?.targetPrice ?? sig.targetPrice)}원</span>
-                  </div>
-                )}
-                {(ai?.stopPrice ?? sig.stopPrice) != null && (
-                  <div className="kv-row">
-                    <span className="k">손절가 (반드시 지키세요)</span>
-                    <span className="v down">{won(ai?.stopPrice ?? sig.stopPrice)}원</span>
-                  </div>
-                )}
-                {sig.suggestedQty != null && (action === "신규매수" || action === "추가매수") && (
-                  <div className="kv-row">
-                    <span className="k">제안 매수 규모</span>
-                    <span className="v">약 {sig.suggestedQty}주 ({won(sig.suggestedBudget)}원)</span>
-                  </div>
-                )}
-                {sig.estimatedRoundTripCostWon != null && (
-                  <div className="kv-row">
-                    <span className="k">예상 거래비용 (세금+수수료)</span>
-                    <span className="v" style={{ color: "var(--text-weak)" }}>약 {won(sig.estimatedRoundTripCostWon)}원</span>
-                  </div>
-                )}
-                <div className="kv-row">
-                  <span className="k">RSI / 20일선</span>
-                  <span className="v">
-                    {sig.indicators.rsi14.toFixed(0)} / {won(sig.indicators.ma20)}원
-                  </span>
-                </div>
-              </>
-            )}
-
-            {sig?.intraday?.available && (
-              <div className="intraday-box">
-                <div className="intraday-box-title">
-                  📊 오늘의 장중 데이터
-                  {!sig.intraday.isToday && <span className="stale-tag">최근 거래일 기준</span>}
-                </div>
-                <div className="intraday-grid">
-                  <div className="intraday-cell">
-                    <div className="ic-label">VWAP (당일 평균단가)</div>
-                    <div className="ic-value">{won(sig.intraday.vwap)}원</div>
-                    <div className={`ic-sub ${pctClass(sig.intraday.distanceFromVwapPct)}`}>
-                      {sig.intraday.distanceFromVwapPct >= 0 ? "+" : ""}
-                      {sig.intraday.distanceFromVwapPct.toFixed(2)}% {sig.intraday.distanceFromVwapPct >= 0 ? "위" : "아래"}
-                    </div>
-                  </div>
-                  <div className="intraday-cell">
-                    <div className="ic-label">시가 갭</div>
-                    <div className="ic-value">{sig.intraday.gapType}</div>
-                    <div className={`ic-sub ${pctClass(sig.intraday.gapPct)}`}>
-                      {sig.intraday.gapPct >= 0 ? "+" : ""}
-                      {sig.intraday.gapPct.toFixed(2)}%
-                    </div>
-                  </div>
-                  <div className="intraday-cell">
-                    <div className="ic-label">오프닝레인지(첫 30분)</div>
-                    <div className="ic-value" style={{ fontSize: 13 }}>
-                      {sig.intraday.orbStatus}
-                    </div>
-                    <div className="ic-sub">
-                      {won(sig.intraday.openingRangeLow)}~{won(sig.intraday.openingRangeHigh)}원
-                    </div>
-                  </div>
-                  <div className="intraday-cell">
-                    <div className="ic-label">당일 모멘텀</div>
-                    <div className="ic-value" style={{ fontSize: 13 }}>
-                      {momentumLabel(sig.intraday.momentum)}
-                    </div>
-                    <div className="ic-sub">당일 레인지 {sig.intraday.rangePositionPct.toFixed(0)}% 지점</div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {sig && !sig.intraday?.available && (
-              <div className="reason warn" style={{ marginTop: 10 }}>
-                ⚠️ 장중 데이터 수집 실패 — 일봉 지표만으로 판단했습니다. 신뢰도가 낮으니 보수적으로 접근하세요.
-              </div>
-            )}
-
-            {sig &&
-              ((ai?.entryTriggers ?? sig.entryTriggers).length > 0 ||
-                sig.scaledEntry.length > 0 ||
-                sig.scaledExit.length > 0 ||
-                (ai?.invalidation ?? sig.invalidation)) && (
-                <div className="plan-box">
-                  <div className="plan-title">🎯 오늘의 매매 플랜</div>
-                  {(ai?.entryTriggers ?? sig.entryTriggers).length > 0 && (
-                    <div className="plan-block">
-                      <div className="plan-block-title">진입 조건 (이게 충족되면)</div>
-                      {(ai?.entryTriggers ?? sig.entryTriggers).map((t, i) => (
-                        <div className="plan-item" key={i}>▸ {t}</div>
-                      ))}
-                    </div>
-                  )}
-                  {sig.scaledEntry.length > 0 && (
-                    <div className="plan-block">
-                      <div className="plan-block-title">분할 매수 라인</div>
-                      {sig.scaledEntry.map((o, i) => (
-                        <div className="plan-item" key={i}>
-                          ▸ {won(o.price)}원 · {o.qty}주 — {o.note}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {sig.scaledExit.length > 0 && (
-                    <div className="plan-block">
-                      <div className="plan-block-title">분할 매도(익절) 라인</div>
-                      {sig.scaledExit.map((o, i) => (
-                        <div className="plan-item" key={i}>
-                          ▸ {won(o.price)}원 · {o.qty}주 — {o.note}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {(ai?.invalidation ?? sig.invalidation) && (
-                    <div className="plan-block plan-invalidation">
-                      <div className="plan-block-title">⛔ 무효화 조건 (목표가·손절가와 무관하게 즉시 재검토)</div>
-                      <div className="plan-item">{ai?.invalidation ?? sig.invalidation}</div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-            {sig?.backtest && sig.backtest.sampleSignals > 0 && (
-              <div className="kv-row" style={{ marginTop: 8 }}>
-                <span className="k">과거 유사신호 통계 (참고용)</span>
-                <span className="v" style={{ fontSize: 13, textAlign: "right" }}>
-                  5일 승률 {sig.backtest.winRate5d}% · 평균 {sig.backtest.avgReturn5d}% ({sig.backtest.sampleSignals}회 표본)
-                </span>
-              </div>
-            )}
-
-            {ai && (
-              <div className="reason-list">
-                <div className="reason" style={{ background: "var(--blue-weak)", color: "#1b64da", fontWeight: 700 }}>
-                  💡 {ai.headline}
-                </div>
-                {ai.rationale.map((r, i) => (
-                  <div className="reason" key={i}>{r}</div>
-                ))}
-                {ai.checklist.length > 0 && (
-                  <div className="reason warn">
-                    ✅ 실행 전 체크: {ai.checklist.join(" · ")}
-                  </div>
-                )}
-              </div>
-            )}
-            {!ai && sig && (
-              <div className="reason-list">
-                {sig.reasons.slice(0, 4).map((r, i) => (
-                  <div className="reason" key={i}>{r}</div>
-                ))}
-                {sig.warnings.slice(0, 3).map((w, i) => (
-                  <div className="reason warn" key={i}>⚠️ {w}</div>
-                ))}
-              </div>
-            )}
-            {!sig && !loading && (
-              <div className="hint">위의 &quot;AI 정밀 분석&quot; 버튼을 누르면 매수/매도 타이밍 조언이 표시됩니다.</div>
-            )}
           </div>
-        );
-      })}
+        </>
+      )}
 
-      {/* 뉴스 */}
+      {/* 실시간 뉴스·속보 — 판단 근거를 바로 확인할 수 있도록 종목 카드보다 먼저 노출 */}
       {result && result.news.length > 0 && (
         <>
           <div className="section-title">
-            주요 뉴스·이슈
+            실시간 뉴스·속보
             <span className="meta">{result.newsLive ? "실시간 수집" : "최근 자동수집분"}</span>
           </div>
           <div className="card">
             {result.news.map((n, i) => (
               <div className="news-item" key={i}>
-                <div className="news-title">{n.title}</div>
+                <div className="news-title">
+                  {n.isBreaking && <span className="tag tag-breaking" style={{ marginRight: 6 }}>🔴 속보</span>}
+                  {n.title}
+                </div>
                 <div className="news-summary">{n.summary}</div>
                 <div className="news-meta">
                   <span className={`tag ${n.sentiment === "긍정" ? "tag-pos" : n.sentiment === "부정" ? "tag-neg" : "tag-neu"}`}>
@@ -630,6 +505,259 @@ export default function Home() {
           ))}
         </div>
       )}
+
+      {/* 종목 카드 */}
+      {TICKERS.map(({ ticker, name }) => {
+        const q = market?.quotes?.[ticker];
+        const sig = result?.signals.find((s) => s.ticker === ticker);
+        const ai = result?.advice?.stocks.find((s) => s.ticker === ticker || s.ticker.includes(ticker));
+        const h = portfolio.holdings.find((x) => x.ticker === ticker);
+        const held = Boolean(h && h.qty > 0);
+        const action = ai?.action ?? sig?.action;
+        const info = computeScoreInfo(held, sig, ai);
+        const isOpen = expanded.has(ticker);
+        return (
+          <div className="card" key={ticker}>
+            <div className="stock-head">
+              <div>
+                <span className="stock-name">{name}</span>
+                <span className="stock-code">{ticker}</span>
+                <div className="stock-price">{won(q?.price ?? sig?.price)}원</div>
+                <div className={`stock-change ${pctClass(q?.changePct)}`}>
+                  {q ? `${q.change >= 0 ? "▲" : "▼"} ${won(Math.abs(q.change))}원 (${q.changePct >= 0 ? "+" : ""}${q.changePct.toFixed(2)}%)` : "시세 로딩 중…"}
+                </div>
+                {q?.time && <div className="hint" style={{ marginTop: 2 }}>{staleness(q.time)}</div>}
+              </div>
+              {action && <span className={badgeClass(action)}>{action}</span>}
+            </div>
+
+            {held && (
+              <div className="kv-row">
+                <span className="k">내 보유</span>
+                <span className="v">
+                  {h!.qty}주 · 평단 {won(h!.avgPrice)}원
+                  {sig?.pnlPct != null && (
+                    <span className={pctClass(sig.pnlPct)}>
+                      {" "}({sig.pnlPct >= 0 ? "+" : ""}{sig.pnlPct}%)
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
+
+            {/* 0~10점 매수/매도 강도 — 가장 먼저 봐야 하는 숫자 */}
+            {info && (
+              <div className="score-panel">
+                <div className={`score-circle ${info.tone}`}>
+                  <span className="num">{info.score}</span>
+                  <span className="denom">/10 {info.label}</span>
+                </div>
+                <div className="score-text">
+                  <div className="score-action">{info.oneLiner}</div>
+                  <div className="score-bar-track">
+                    <div className={`score-bar-fill ${info.tone}`} style={{ width: `${info.score * 10}%` }} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {sig && (
+              <>
+                {(ai?.targetPrice ?? sig.targetPrice) != null && (
+                  <div className="kv-row">
+                    <span className="k">{held ? "목표가 (여기서 매도 고려)" : "매수 시 목표가"}</span>
+                    <span className="v up">{won(ai?.targetPrice ?? sig.targetPrice)}원</span>
+                  </div>
+                )}
+                {(ai?.stopPrice ?? sig.stopPrice) != null && (
+                  <div className="kv-row">
+                    <span className="k">손절가 (반드시 지키세요)</span>
+                    <span className="v down">{won(ai?.stopPrice ?? sig.stopPrice)}원</span>
+                  </div>
+                )}
+                {sig.suggestedQty != null && (action === "신규매수" || action === "추가매수") && (
+                  <div className="kv-row">
+                    <span className="k">제안 매수 규모</span>
+                    <span className="v">약 {sig.suggestedQty}주 ({won(sig.suggestedBudget)}원)</span>
+                  </div>
+                )}
+              </>
+            )}
+
+            {ai && (
+              <div className="reason-list">
+                {ai.rationale.slice(0, 2).map((r, i) => (
+                  <div className="reason" key={i}>{r}</div>
+                ))}
+              </div>
+            )}
+            {!ai && sig && (
+              <div className="reason-list">
+                {sig.reasons.slice(0, 2).map((r, i) => (
+                  <div className="reason" key={i}>{r}</div>
+                ))}
+              </div>
+            )}
+
+            {sig && (
+              <button className="detail-toggle-btn" onClick={() => toggleExpand(ticker)}>
+                {isOpen ? "자세한 지표 숨기기 ▲" : "자세한 지표 보기 (VWAP·매매플랜·백테스트 등) ▼"}
+              </button>
+            )}
+
+            {sig && isOpen && (
+              <>
+                <div className="kv-row" style={{ marginTop: 10 }}>
+                  <span className="k">신호 점수 (엔진 0~100)</span>
+                  <span className="v">{sig.score}점 (신뢰도 {ai?.confidence ?? sig.confidence})</span>
+                </div>
+                {sig.estimatedRoundTripCostWon != null && (
+                  <div className="kv-row">
+                    <span className="k">예상 거래비용 (세금+수수료)</span>
+                    <span className="v" style={{ color: "var(--text-weak)" }}>약 {won(sig.estimatedRoundTripCostWon)}원</span>
+                  </div>
+                )}
+                <div className="kv-row">
+                  <span className="k">RSI / 20일선</span>
+                  <span className="v">
+                    {sig.indicators.rsi14.toFixed(0)} / {won(sig.indicators.ma20)}원
+                  </span>
+                </div>
+
+                {sig.intraday?.available && (
+                  <div className="intraday-box">
+                    <div className="intraday-box-title">
+                      📊 오늘의 장중 데이터
+                      {!sig.intraday.isToday && <span className="stale-tag">최근 거래일 기준</span>}
+                    </div>
+                    <div className="intraday-grid">
+                      <div className="intraday-cell">
+                        <div className="ic-label">VWAP (당일 평균단가)</div>
+                        <div className="ic-value">{won(sig.intraday.vwap)}원</div>
+                        <div className={`ic-sub ${pctClass(sig.intraday.distanceFromVwapPct)}`}>
+                          {sig.intraday.distanceFromVwapPct >= 0 ? "+" : ""}
+                          {sig.intraday.distanceFromVwapPct.toFixed(2)}% {sig.intraday.distanceFromVwapPct >= 0 ? "위" : "아래"}
+                        </div>
+                      </div>
+                      <div className="intraday-cell">
+                        <div className="ic-label">시가 갭</div>
+                        <div className="ic-value">{sig.intraday.gapType}</div>
+                        <div className={`ic-sub ${pctClass(sig.intraday.gapPct)}`}>
+                          {sig.intraday.gapPct >= 0 ? "+" : ""}
+                          {sig.intraday.gapPct.toFixed(2)}%
+                        </div>
+                      </div>
+                      <div className="intraday-cell">
+                        <div className="ic-label">오프닝레인지(첫 30분)</div>
+                        <div className="ic-value" style={{ fontSize: 13 }}>
+                          {sig.intraday.orbStatus}
+                        </div>
+                        <div className="ic-sub">
+                          {won(sig.intraday.openingRangeLow)}~{won(sig.intraday.openingRangeHigh)}원
+                        </div>
+                      </div>
+                      <div className="intraday-cell">
+                        <div className="ic-label">당일 모멘텀</div>
+                        <div className="ic-value" style={{ fontSize: 13 }}>
+                          {momentumLabel(sig.intraday.momentum)}
+                        </div>
+                        <div className="ic-sub">당일 레인지 {sig.intraday.rangePositionPct.toFixed(0)}% 지점</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {!sig.intraday?.available && (
+                  <div className="reason warn" style={{ marginTop: 10 }}>
+                    ⚠️ 장중 데이터 수집 실패 — 일봉 지표만으로 판단했습니다. 신뢰도가 낮으니 보수적으로 접근하세요.
+                  </div>
+                )}
+
+                {((ai?.entryTriggers ?? sig.entryTriggers).length > 0 ||
+                  sig.scaledEntry.length > 0 ||
+                  sig.scaledExit.length > 0 ||
+                  (ai?.invalidation ?? sig.invalidation)) && (
+                  <div className="plan-box">
+                    <div className="plan-title">🎯 오늘의 매매 플랜</div>
+                    {(ai?.entryTriggers ?? sig.entryTriggers).length > 0 && (
+                      <div className="plan-block">
+                        <div className="plan-block-title">진입 조건 (이게 충족되면)</div>
+                        {(ai?.entryTriggers ?? sig.entryTriggers).map((t, i) => (
+                          <div className="plan-item" key={i}>▸ {t}</div>
+                        ))}
+                      </div>
+                    )}
+                    {sig.scaledEntry.length > 0 && (
+                      <div className="plan-block">
+                        <div className="plan-block-title">분할 매수 라인</div>
+                        {sig.scaledEntry.map((o, i) => (
+                          <div className="plan-item" key={i}>
+                            ▸ {won(o.price)}원 · {o.qty}주 — {o.note}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {sig.scaledExit.length > 0 && (
+                      <div className="plan-block">
+                        <div className="plan-block-title">분할 매도(익절) 라인</div>
+                        {sig.scaledExit.map((o, i) => (
+                          <div className="plan-item" key={i}>
+                            ▸ {won(o.price)}원 · {o.qty}주 — {o.note}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {(ai?.invalidation ?? sig.invalidation) && (
+                      <div className="plan-block plan-invalidation">
+                        <div className="plan-block-title">⛔ 무효화 조건 (목표가·손절가와 무관하게 즉시 재검토)</div>
+                        <div className="plan-item">{ai?.invalidation ?? sig.invalidation}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {sig.backtest && sig.backtest.sampleSignals > 0 && (
+                  <div className="kv-row" style={{ marginTop: 8 }}>
+                    <span className="k">과거 유사신호 통계 (참고용)</span>
+                    <span className="v" style={{ fontSize: 13, textAlign: "right" }}>
+                      5일 승률 {sig.backtest.winRate5d}% · 평균 {sig.backtest.avgReturn5d}% ({sig.backtest.sampleSignals}회 표본)
+                    </span>
+                  </div>
+                )}
+
+                {ai && (
+                  <div className="reason-list">
+                    <div className="reason" style={{ background: "var(--blue-weak)", color: "#1b64da", fontWeight: 700 }}>
+                      💡 {ai.headline}
+                    </div>
+                    {ai.rationale.map((r, i) => (
+                      <div className="reason" key={i}>{r}</div>
+                    ))}
+                    {ai.checklist.length > 0 && (
+                      <div className="reason warn">
+                        ✅ 실행 전 체크: {ai.checklist.join(" · ")}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!ai && (
+                  <div className="reason-list">
+                    {sig.reasons.slice(0, 4).map((r, i) => (
+                      <div className="reason" key={i}>{r}</div>
+                    ))}
+                    {sig.warnings.slice(0, 3).map((w, i) => (
+                      <div className="reason warn" key={i}>⚠️ {w}</div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {!sig && !loading && (
+              <div className="hint">위의 &quot;AI 정밀 분석&quot; 버튼을 누르면 매수/매도 타이밍 조언이 표시됩니다.</div>
+            )}
+          </div>
+        );
+      })}
 
       <div className="disclaimer">
         본 서비스는 투자 판단을 돕는 참고 정보이며, 투자 권유나 수익 보장이 아닙니다.

@@ -137,6 +137,9 @@ export interface EngineSignal {
   relativeStrengthNote: string | null; // 반도체 5종목 중 상대강도 순위 코멘트
   estimatedRoundTripCostWon: number | null; // 왕복 거래비용(증권거래세+수수료) 추정액 (원)
   backtest: BacktestStats | null; // 3개년 일봉 기준 과거 신호 통계 (참고용, 확정적 예측 아님)
+  buyStrength: number; // 0~10, 미보유 시 "지금 얼마나 강하게 사야 하는지" (참고용으로 항상 계산)
+  sellStrength: number | null; // 0~10, 보유 중일 때만 계산 — "지금 얼마나 강하게 팔아야 하는지"
+  actionSummary: string; // 위 점수를 한 문장으로 요약 (초보자용 헤드라인)
 }
 
 // 3개년 일봉만으로 재현한 단순 백테스트 통계 (장중/뉴스/매크로는 과거 재현 불가하므로 제외).
@@ -167,6 +170,7 @@ export interface NewsItem {
   relatedTo: string; // 삼성전자 | SK하이닉스 | 매크로 | 반도체업황 등
   source?: string;
   publishedAt?: string;
+  isBreaking?: boolean; // 최근 몇 시간 내 발생한 속보성 뉴스인지
 }
 
 export interface AiAdvice {
@@ -180,6 +184,7 @@ export interface AiAdvice {
     ticker: string;
     action: Action;
     confidence: "높음" | "중간" | "낮음";
+    actionScore: number; // 0~10. 미보유 시 매수 강도, 보유 중이면 매도 강도 (사용자가 가장 먼저 보는 숫자)
     headline: string;
     rationale: string[];
     targetPrice: number | null;

@@ -306,6 +306,62 @@ function buildScaledExit(entryPrice: number, targetPrice: number | null, qty: nu
   ];
 }
 
+// 룰 엔진의 0~100점 종합 점수를 "미보유 시 매수 강도" 0~10점으로 환산.
+// 엔진의 실제 진입 임계값(58=근접 관망, 68=신규매수)에 눈금을 맞춰 초보자도
+// "7점 이상이면 엔진 기준 진짜 매수 신호"라고 바로 알 수 있게 한다.
+function scoreToBuyStrength(score: number): number {
+  if (score >= 88) return 10;
+  if (score >= 80) return 9;
+  if (score >= 72) return 8;
+  if (score >= 68) return 7; // 엔진 신규매수 임계값
+  if (score >= 63) return 6;
+  if (score >= 58) return 4; // 매수 근접(관망)
+  if (score >= 52) return 2;
+  if (score >= 45) return 1;
+  return 0;
+}
+
+// 보유 중일 때 "지금 얼마나 강하게 팔아야 하는가" 0~10점.
+// 손절선 이탈/큰 손실은 즉시 10점, 그 외엔 종합 점수·목표가 도달·과열 여부로 판단.
+function computeSellStrength(params: {
+  price: number;
+  stopPrice: number | null;
+  targetPrice: number | null;
+  score: number;
+  pnlPct: number;
+  rsi14: number;
+}): number {
+  const { price, stopPrice, targetPrice, score, pnlPct, rsi14 } = params;
+  if (stopPrice != null && price <= stopPrice) return 10; // 손절선 이탈 — 즉시
+  if (pnlPct <= -7) return 10; // 손실 -7% 초과 — 즉시
+  if (score <= 25) return 9;
+  if (score <= 32) return 8; // 엔진 전량매도 임계값
+  if (targetPrice != null && price >= targetPrice && score < 60) return 8; // 목표가 도달 + 모멘텀 둔화
+  if (targetPrice != null && price >= targetPrice) return 6; // 목표가 도달, 모멘텀은 유지
+  if (rsi14 >= 75 && pnlPct > 3) return 5; // 과열 + 수익 중 — 일부 차익실현 고려
+  if (score <= 40) return 5;
+  if (score <= 48) return 3;
+  if (score <= 55) return 1;
+  return 0; // 보유 유지 (신호 양호)
+}
+
+function buyStrengthSummary(buyStrength: number, price: number): string {
+  if (buyStrength >= 7) return `지금 매수 강도 ${buyStrength}/10 — 엔진 기준 진입 신호 충족`;
+  if (buyStrength >= 4) return `매수 대기 강도 ${buyStrength}/10 — ${won0(price)}원 부근, 트리거 확인 필요`;
+  return `관망 강도(매수 아님) ${buyStrength}/10 — 아직 근거 부족`;
+}
+
+function sellStrengthSummary(sellStrength: number, stopPrice: number | null, targetPrice: number | null): string {
+  if (sellStrength >= 9) return `즉시 매도 강도 ${sellStrength}/10 — 손절선(${won0(stopPrice)}원) 기준 원칙대로 정리`;
+  if (sellStrength >= 6) return `매도 강도 ${sellStrength}/10 — 목표가(${won0(targetPrice)}원) 부근, 분할 매도 고려`;
+  if (sellStrength >= 3) return `일부 경계 강도 ${sellStrength}/10 — 손절선(${won0(stopPrice)}원) 주시하며 보유`;
+  return `보유 유지 강도(매도 아님) ${sellStrength}/10 — 신호 양호`;
+}
+
+function won0(n: number | null): string {
+  return n == null ? "-" : Math.round(n).toLocaleString("ko-KR");
+}
+
 export function runEngine(params: {
   ticker: StockTicker;
   price: number;
@@ -449,6 +505,15 @@ export function runEngine(params: {
   const confidence: EngineSignal["confidence"] =
     score >= 72 || score <= 28 ? "높음" : score >= 60 || score <= 40 ? "중간" : "낮음";
 
+  // 초보자도 한눈에 판단할 수 있도록 0~10점 단일 지표로 환산.
+  // 미보유 시: "지금 얼마나 강하게 사야 하는가" (buyStrength)
+  // 보유 중: "지금 얼마나 강하게 팔아야 하는가" (sellStrength)
+  const buyStrength = scoreToBuyStrength(score);
+  const sellStrength = holding ? computeSellStrength({ price, stopPrice, targetPrice, score, pnlPct: pnlPct ?? 0, rsi14: ind.rsi14 }) : null;
+  const actionSummary = holding
+    ? sellStrengthSummary(sellStrength as number, stopPrice, targetPrice)
+    : buyStrengthSummary(buyStrength, price);
+
   return {
     ticker,
     name,
@@ -473,6 +538,9 @@ export function runEngine(params: {
     relativeStrengthNote: params.relativeStrengthNote ?? null,
     estimatedRoundTripCostWon,
     backtest: params.backtest ?? null,
+    buyStrength,
+    sellStrength,
+    actionSummary,
   };
 }
 

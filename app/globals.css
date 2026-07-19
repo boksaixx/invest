@@ -506,3 +506,128 @@ body {
   margin-top: 8px;
   line-height: 1.5;
 }
+
+/* 0~10점 매수/매도 강도 — 앱을 처음 보는 사람도 바로 알아보는 핵심 지표 */
+.score-panel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0 14px;
+}
+.score-circle {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #fff;
+}
+.score-circle .num { font-size: 22px; line-height: 1; letter-spacing: -0.5px; }
+.score-circle .denom { font-size: 10px; opacity: 0.85; margin-top: 1px; }
+.score-circle.buy { background: linear-gradient(135deg, #ff8a8d, var(--red)); }
+.score-circle.sell { background: linear-gradient(135deg, #6bb1ff, var(--blue)); }
+.score-circle.danger { background: linear-gradient(135deg, #4a505a, #191f28); }
+.score-circle.neutral { background: linear-gradient(135deg, #c7ccd3, var(--text-weak)); }
+
+.score-text { flex: 1; min-width: 0; }
+.score-action {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.score-sub {
+  font-size: 12px;
+  color: var(--text-weak);
+  margin-top: 3px;
+  line-height: 1.45;
+}
+.score-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--gray-weak);
+  margin-top: 8px;
+  overflow: hidden;
+}
+.score-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+.score-bar-fill.buy { background: var(--red); }
+.score-bar-fill.sell { background: var(--blue); }
+.score-bar-fill.danger { background: #191f28; }
+.score-bar-fill.neutral { background: var(--text-weak); }
+
+/* 지금 뭘 해야 하는지 — 5종목 랭킹 요약 (맨 위) */
+.summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  border-bottom: 1px solid #f5f6f8;
+  gap: 10px;
+}
+.summary-row:last-child { border-bottom: none; }
+.summary-name {
+  font-weight: 800;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.summary-name .held-tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-weak);
+  background: var(--gray-weak);
+  padding: 2px 6px;
+  border-radius: 999px;
+  margin-left: 5px;
+}
+.summary-action {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-sub);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.summary-score-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-weight: 900;
+  font-size: 16px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #fff;
+}
+.summary-score-badge .denom { font-size: 10px; font-weight: 700; opacity: 0.85; }
+.summary-score-badge.buy { background: var(--red); }
+.summary-score-badge.sell { background: var(--blue); }
+.summary-score-badge.danger { background: #191f28; }
+.summary-score-badge.neutral { background: var(--text-weak); }
+
+/* 뉴스 속보 태그 */
+.tag-breaking {
+  background: var(--red);
+  color: #fff;
+}
+
+.detail-toggle-btn {
+  margin-top: 12px;
+  width: 100%;
+  background: var(--gray-weak);
+  color: var(--text-sub);
+  border: none;
+  border-radius: 12px;
+  padding: 11px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.detail-toggle-btn:active { transform: scale(0.99); }
