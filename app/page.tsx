@@ -116,6 +116,7 @@ export default function Home() {
   const [elapsed, setElapsed] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [newsNotice, setNewsNotice] = useState<string | null>(null);
   const [health, setHealth] = useState<Record<string, string> | null>(null);
   const [snapshotTime, setSnapshotTime] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -168,6 +169,7 @@ export default function Home() {
   async function runAnalysis() {
     setLoading(true);
     setError(null);
+    setNewsNotice(null);
     setHealth(null);
     setElapsed(0);
     const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
@@ -191,11 +193,9 @@ export default function Home() {
         void runDiagnosis();
       } else {
         setResult(json);
+        setNewsNotice(!json.newsLive && json.newsError ? "지금은 실시간 속보 대신 최근 자동수집된 뉴스를 보여드리고 있어요 (일시적인 수집 지연)." : null);
         if (!json.advice && json.adviceError) {
           setError(`AI 종합 판단 실패: ${json.adviceError}`);
-          void runDiagnosis();
-        } else if (!json.newsLive && json.newsError) {
-          setError(`실시간 뉴스 수집 실패(${json.newsError}) — 자동수집분으로 대체했습니다.`);
           void runDiagnosis();
         }
       }
@@ -239,7 +239,7 @@ export default function Home() {
 
   const fearGreed = (market?.macro as { fearGreed?: { value: number; ratingKo: string } } | undefined)?.fearGreed;
 
-  // 5종목 중 "지금 뭘 해야 하나"를 강도순으로 정렬한 요약 — 화면 맨 위에서 바로 판단할 수 있게
+  // 10종목 중 "지금 뭘 해야 하나"를 강도순으로 정렬한 요약 — 화면 맨 위에서 바로 판단할 수 있게
   const summaryRows = useMemo(() => {
     if (!result) return [];
     return TICKERS.map(({ ticker, name }) => {
@@ -260,7 +260,7 @@ export default function Home() {
         <div>
           <h1>반도체 트레이딩 AI</h1>
           <div className="sub">
-            반도체 5종목 단타 어드바이저
+            반도체 10종목 단타 어드바이저
             {snapshotTime && ` · 자동수집 ${new Date(snapshotTime).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`}
           </div>
         </div>
@@ -414,6 +414,11 @@ export default function Home() {
           {error}
         </div>
       )}
+      {!error && newsNotice && (
+        <div className="card" style={{ color: "var(--text-sub)", fontSize: 13, fontWeight: 600 }}>
+          ℹ️ {newsNotice}
+        </div>
+      )}
       {health && (
         <div className="card">
           <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 14 }}>🔍 자가 진단 결과</div>
@@ -440,7 +445,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 지금 뭘 해야 하나 — 5종목 강도순 랭킹 (핵심 요약) */}
+      {/* 지금 뭘 해야 하나 — 10종목 강도순 랭킹 (핵심 요약) */}
       {summaryRows.length > 0 && (
         <>
           <div className="section-title">지금 뭘 해야 하나</div>
@@ -557,6 +562,7 @@ export default function Home() {
                   <div className="score-bar-track">
                     <div className={`score-bar-fill ${info.tone}`} style={{ width: `${info.score * 10}%` }} />
                   </div>
+                  {sig?.verdict && <div className="score-sub">{sig.verdict}</div>}
                 </div>
               </div>
             )}

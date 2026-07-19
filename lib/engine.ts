@@ -9,6 +9,7 @@
 //  - 단타는 "지금 사라/팔아라"만으로는 부족하다 — 진입 트리거(조건), 분할 매매,
 //    무효화 조건(목표가/손절가와 별개로 논리 자체가 깨지는 지점)까지 함께 제시한다.
 import type {
+  Action,
   BacktestStats,
   Candle,
   EngineSignal,
@@ -362,6 +363,49 @@ function won0(n: number | null): string {
   return n == null ? "-" : Math.round(n).toLocaleString("ko-KR");
 }
 
+// 전문가가 초보자에게 말하듯 쉬운 한 문장 + 구체적 근거(추세선/거래량/환율 등)를 결합한 판정문.
+// AI 없이도(또는 AI 실패 시 대체용으로) 항상 "학습된 엔진 기반"으로 일관되게 나오도록 순수 계산으로만 만든다.
+function verbPhrase(
+  held: boolean,
+  action: Action,
+  buyStrength: number,
+  sellStrength: number,
+  overheated: boolean,
+): { text: string; tone: "buy" | "sell" | "danger" | "neutral" } {
+  if (!held) {
+    if (overheated) return { text: "지금은 추격 매수하지 마세요 (절대 금지)", tone: "danger" };
+    if (action === "신규매수" && buyStrength >= 8) return { text: "지금 사도 좋아요", tone: "buy" };
+    if (action === "신규매수") return { text: "매수를 고려해볼 만해요", tone: "buy" };
+    if (buyStrength >= 4) return { text: "조건이 갖춰지면 매수를 고려하세요", tone: "neutral" };
+    return { text: "지금은 매수하지 마세요", tone: "neutral" };
+  }
+  if (action === "손절") return { text: "지금 즉시 매도하세요 (손절 원칙)", tone: "danger" };
+  if (action === "전량매도") return { text: "지금 전량 매도를 고려하세요", tone: "sell" };
+  if (action === "부분매도") return { text: "일부만 매도하는 것을 고려하세요", tone: "sell" };
+  if (action === "추가매수") return { text: "추가 매수를 고려해볼 만해요", tone: "buy" };
+  if (sellStrength <= 2) return { text: "계속 보유하세요", tone: "neutral" };
+  return { text: "보유하되 주의 깊게 지켜보세요", tone: "neutral" };
+}
+
+function buildVerdict(params: {
+  held: boolean;
+  action: Action;
+  buyStrength: number;
+  sellStrength: number | null;
+  reasons: string[];
+  warnings: string[];
+}): string {
+  const { held, action, buyStrength, reasons, warnings } = params;
+  const sellStrength = params.sellStrength ?? 0;
+  const overheated = !held && warnings.some((w) => w.includes("추격 매수 위험"));
+  const { text, tone } = verbPhrase(held, action, buyStrength, sellStrength, overheated);
+  // 근거 문장 선택: 매수 쪽 판정이면 긍정 근거(reasons)를, 위험/매도 쪽 판정이면 경고(warnings)를 우선 인용한다.
+  const groundingPool = tone === "buy" ? [...reasons, ...warnings] : [...warnings, ...reasons];
+  const grounding = groundingPool[0];
+  const icon = tone === "buy" ? "🟢" : tone === "sell" ? "🔵" : tone === "danger" ? "🔴" : "⚪";
+  return grounding ? `${icon} ${text} — ${grounding}` : `${icon} ${text}`;
+}
+
 export function runEngine(params: {
   ticker: StockTicker;
   price: number;
@@ -513,6 +557,7 @@ export function runEngine(params: {
   const actionSummary = holding
     ? sellStrengthSummary(sellStrength as number, stopPrice, targetPrice)
     : buyStrengthSummary(buyStrength, price);
+  const verdict = buildVerdict({ held: Boolean(holding), action, buyStrength, sellStrength, reasons, warnings });
 
   return {
     ticker,
@@ -541,6 +586,7 @@ export function runEngine(params: {
     buyStrength,
     sellStrength,
     actionSummary,
+    verdict,
   };
 }
 
@@ -571,7 +617,7 @@ export function computeRelativeStrength(
   return { ranked, noteFor, summary };
 }
 
-// 섹터 집중도 점검 — 5종목 모두 반도체라 여러 종목에 나눠 담아도 사실상 단일 섹터 베팅이다.
+// 섹터 집중도 점검 — 10종목 모두 반도체라 여러 종목에 나눠 담아도 사실상 단일 섹터 베팅이다.
 // "비판자" 관점 보완: 분산투자로 착각하게 두지 않고 명시적으로 경고한다.
 export function computeSectorConcentration(
   holdings: Portfolio["holdings"],

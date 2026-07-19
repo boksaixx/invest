@@ -4,16 +4,15 @@ import type { NewsItem } from "./types";
 
 const PROMPT = `당신은 한국 주식 단기 트레이더를 위한 실시간 속보 수집 애널리스트입니다. 사용자는 이 정보를 보고 지금 당장 매수/매도를 결정하므로, 오래되거나 이미 다 아는 뉴스보다 "방금 나온 새로운 정보"가 훨씬 중요합니다.
 
-구글 검색을 여러 차례 나눠서 수행하세요 — 한 번의 검색으로 뭉뚱그리지 말고, 아래 각 항목마다 별도로 검색해 최신 결과를 확인하세요:
+구글 검색으로 아래 주제들에 대한 "지금 이 순간" 기준 최신 정보를 확인하세요. 검색 API 호출 횟수는 비용이 드니 꼭 필요한 만큼만 효율적으로 사용하고(주제가 겹치면 검색을 재사용), 결과가 부실하면 그 항목은 비워두세요:
 
-1. 삼성전자(005930) 속보/공시/실적/수주 — "삼성전자 속보", "삼성전자 오늘" 등으로 검색
-2. SK하이닉스(000660) 속보/공시/실적/수주 (HBM, 낸드, D램 포함) — "SK하이닉스 속보", "SK하이닉스 오늘"
-3. 한미반도체(042700)/삼성전기(009150)/DB하이텍(000990) 속보/실적/수주
-4. 반도체 업황 최신 동향: D램/낸드 가격, HBM 수요, 엔비디아·TSMC·마이크론 등 글로벌 테크 최신 뉴스
-5. 매크로 실시간: 원/달러 환율 지금 시세와 급변동, 미국 금리/CPI 관련 최신 발언, 코스피 수급(외국인/기관 실시간 매매동향)
-6. 파생시장 실시간: 코스피200 선물 외국인 순매수/순매도 동향, 옵션 풋콜비율, VIX·공포탐욕지수 최신값 관련 뉴스, 프로그램매매(차익/비차익) 동향
-7. 지정학 리스크 속보: 미중 갈등, 반도체 수출 규제, 관세 관련 최신 발표
-8. 오늘 장중 특징주/이슈: "코스피 반도체 특징주 오늘", "반도체 급등 급락" 등으로 검색해 시장이 지금 실제로 반응하고 있는 이슈를 확인
+1. 삼성전자(005930)/SK하이닉스(000660) 속보/공시/실적/수주 (HBM, 낸드, D램 포함)
+2. 한미반도체(042700)/삼성전기(009150)/DB하이텍(000990)/리노공업(058470)/원익IPS(240810)/이오테크닉스(039030)/티씨케이(064760)/동진쎄미켐(005290) 속보/실적/수주
+3. 반도체 업황 최신 동향: D램/낸드 가격, HBM 수요, 엔비디아·TSMC·마이크론 등 글로벌 테크 최신 뉴스
+4. 매크로 실시간: 원/달러 환율 지금 시세와 급변동, 미국 금리/CPI 관련 최신 발언, 코스피 수급(외국인/기관 실시간 매매동향)
+5. 파생시장 실시간: 코스피200 선물 외국인 순매수/순매도 동향, 옵션 풋콜비율, VIX·공포탐욕지수 최신값 관련 뉴스, 프로그램매매(차익/비차익) 동향
+6. 지정학 리스크 속보: 미중 갈등, 반도체 수출 규제, 관세 관련 최신 발표
+7. 오늘 장중 특징주/이슈: 코스피/코스닥 반도체 관련주가 지금 실제로 급등락하고 있는지
 
 우선순위 규칙:
 - 각 검색에서 가장 최근 발행 시각의 결과를 우선 채택한다. 같은 주제라도 오래된 기사보다 방금 갱신된 기사를 쓴다.
@@ -112,9 +111,25 @@ async function callGeminiGenerate(
   return { ok: false, status: res.status, body: text };
 }
 
+// Gemini 무료 등급은 구글 검색 그라운딩 자체에 별도의(매우 빡빡한) 쿼터가 있다 — 일반 텍스트 호출은
+// 성공해도 그라운딩 호출만 429(쿼터 초과)로 실패할 수 있다. 이 경우 모델을 바꿔가며 재시도해도
+// 계정/쿼터 단위 문제라 대부분 똑같이 실패하고, 오히려 시도할수록 쿼터만 더 소모한다.
+// 그래서 (1) 401/403/429는 즉시 재시도를 중단하고, (2) 결과를 짧게 캐시해 자동수집(15분 간격)과
+// 사용자의 수동 클릭이 겹칠 때 같은 요청을 중복으로 쏘지 않도록 한다.
+let newsCache: { news: NewsItem[]; error: string | null; expiresAt: number } | null = null;
+const NEWS_CACHE_TTL_OK_MS = 5 * 60_000; // 성공 결과 재사용 기간
+const NEWS_CACHE_TTL_FAIL_MS = 60_000; // 실패 결과도 잠깐은 캐시해 연속 재시도로 쿼터를 낭비하지 않음
+
+function isQuotaOrAuthError(status: number): boolean {
+  return status === 401 || status === 403 || status === 429;
+}
+
 export async function collectNews(): Promise<{ news: NewsItem[]; error: string | null }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { news: [], error: "GEMINI_API_KEY 미설정" };
+
+  const now = Date.now();
+  if (newsCache && newsCache.expiresAt > now) return { news: newsCache.news, error: newsCache.error };
 
   const candidates = await resolveModelCandidates(apiKey);
   let lastError = "사용 가능한 Gemini 모델을 찾지 못했습니다";
@@ -130,17 +145,19 @@ export async function collectNews(): Promise<{ news: NewsItem[]; error: string |
         const parts: { text?: string }[] = (result.json as any)?.candidates?.[0]?.content?.parts ?? [];
         const text = parts.map((p) => p.text ?? "").join("\n");
         const news = parseNewsJson(text);
-        return { news, error: news.length === 0 ? "Gemini 응답에서 뉴스를 파싱하지 못했습니다" : null };
+        const error = news.length === 0 ? "Gemini 응답에서 뉴스를 파싱하지 못했습니다" : null;
+        newsCache = { news, error, expiresAt: Date.now() + NEWS_CACHE_TTL_OK_MS };
+        return { news, error };
       }
       lastError = `Gemini API 오류 (모델 ${model}, ${result.status}): ${result.body.slice(0, 200)}`;
       console.error(lastError);
-      // 401/403(키/과금 문제)·429(레이트리밋)는 모델을 바꿔도 대부분 동일하게 실패하지만,
-      // 그래도 모델별 쿼터가 분리되어 있을 수 있으니 다음 후보를 마저 시도한다.
+      if (isQuotaOrAuthError(result.status)) break; // 계정/쿼터 문제 — 다른 모델도 대부분 동일하게 실패, 즉시 중단
     } catch (e) {
       lastError = `Gemini 호출 실패 (모델 ${model}): ${String(e).slice(0, 150)}`;
       console.error(lastError);
     }
   }
+  newsCache = { news: [], error: lastError, expiresAt: Date.now() + NEWS_CACHE_TTL_FAIL_MS };
   return { news: [], error: lastError };
 }
 
@@ -155,6 +172,7 @@ export async function testGeminiConnection(apiKey: string): Promise<{ ok: boolea
       return { ok: true, detail: `정상 (모델: ${model})` };
     }
     lastDetail = `HTTP ${result.status} (모델: ${model}) ${result.body.slice(0, 150)}`;
+    if (isQuotaOrAuthError(result.status)) break; // 계정/쿼터 문제 — 진단 중에도 쿼터를 아낀다
   }
   return { ok: false, detail: lastDetail };
 }
