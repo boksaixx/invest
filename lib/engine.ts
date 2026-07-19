@@ -9,6 +9,7 @@
 //  - 단타는 "지금 사라/팔아라"만으로는 부족하다 — 진입 트리거(조건), 분할 매매,
 //    무효화 조건(목표가/손절가와 별개로 논리 자체가 깨지는 지점)까지 함께 제시한다.
 import type {
+  BacktestStats,
   Candle,
   EngineSignal,
   Indicators,
@@ -118,7 +119,7 @@ function macroScore(macro: MacroSnapshot, marketPhase: MarketPhaseInfo): { score
   return { score, notes, warnings };
 }
 
-function technicalScore(ind: Indicators, price: number): { score: number; reasons: string[]; warnings: string[] } {
+export function technicalScore(ind: Indicators, price: number): { score: number; reasons: string[]; warnings: string[] } {
   let score = 50;
   const reasons: string[] = [];
   const warnings: string[] = [];
@@ -315,6 +316,7 @@ export function runEngine(params: {
   intraday: IntradayInsight | null;
   marketPhase: MarketPhaseInfo;
   relativeStrengthNote?: string | null;
+  backtest?: BacktestStats | null;
 }): EngineSignal {
   const { ticker, price, candles, macro, news, portfolio, intraday, marketPhase } = params;
   const name = STOCKS[ticker].name;
@@ -470,6 +472,7 @@ export function runEngine(params: {
     scaledExit,
     relativeStrengthNote: params.relativeStrengthNote ?? null,
     estimatedRoundTripCostWon,
+    backtest: params.backtest ?? null,
   };
 }
 

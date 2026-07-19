@@ -9,6 +9,7 @@ import { generateAdvice } from "@/lib/claude";
 import type { EngineSignal, Portfolio } from "@/lib/types";
 import { TICKER_LIST } from "@/lib/types";
 import { fetchLatestSnapshot } from "@/lib/snapshot";
+import { fetchBacktestSnapshot } from "@/lib/backtest";
 import eventsData from "@/data/events.json";
 
 export const dynamic = "force-dynamic";
@@ -19,10 +20,11 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as { portfolio?: Portfolio };
     const portfolio: Portfolio = body.portfolio ?? { cash: 20_000_000, holdings: [] };
 
-    const [macro, newsResult, snapshot, ...stockData] = await Promise.all([
+    const [macro, newsResult, snapshot, backtest, ...stockData] = await Promise.all([
       getMacroSnapshot(),
       collectNews(),
       fetchLatestSnapshot(),
+      fetchBacktestSnapshot(),
       ...TICKER_LIST.map(async (t) => {
         const quote = await getStockQuote(t);
         const [candles, rawIntraday] = await Promise.all([getStockCandles(t), getStockIntradayCandles(t)]);
@@ -60,6 +62,7 @@ export async function POST(req: Request) {
           intraday,
           marketPhase,
           relativeStrengthNote: rs.noteFor(sd.ticker),
+          backtest: backtest?.perTicker[sd.ticker] ?? null,
         }),
       );
     }
@@ -89,6 +92,7 @@ export async function POST(req: Request) {
       marketPhase,
       relativeStrengthSummary: rs.summary,
       sectorConcentrationWarning: concentration.warning,
+      backtestDisclaimer: backtest?.disclaimer ?? null,
       aiAvailable: Boolean(process.env.ANTHROPIC_API_KEY),
       newsLive: news.length > 0,
       generatedAt: new Date().toISOString(),

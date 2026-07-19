@@ -221,6 +221,23 @@ body {
   flex: 0 0 auto;
 }
 
+.login-input {
+  border: none;
+  background: var(--gray-weak);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  width: 100%;
+  outline: none;
+  font-family: inherit;
+}
+.login-input:focus {
+  box-shadow: 0 0 0 2px var(--blue);
+  background: #fff;
+}
+
 .btn {
   display: block;
   width: 100%;

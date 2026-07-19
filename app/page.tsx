@@ -209,9 +209,21 @@ export default function Home() {
             {snapshotTime && ` · 자동수집 ${new Date(snapshotTime).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`}
           </div>
         </div>
-        <button className="btn-ghost btn" style={{ width: "auto" }} onClick={() => setEditOpen((v) => !v)}>
-          {editOpen ? "닫기" : "내 자산 입력"}
-        </button>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button className="btn-ghost btn" style={{ width: "auto" }} onClick={() => setEditOpen((v) => !v)}>
+            {editOpen ? "닫기" : "내 자산 입력"}
+          </button>
+          <button
+            className="btn-ghost btn"
+            style={{ width: "auto" }}
+            onClick={async () => {
+              await fetch("/api/auth", { method: "DELETE" });
+              window.location.href = "/login";
+            }}
+          >
+            로그아웃
+          </button>
+        </div>
       </div>
 
       {/* 총 자산 */}
@@ -539,6 +551,15 @@ export default function Home() {
                   )}
                 </div>
               )}
+
+            {sig?.backtest && sig.backtest.sampleSignals > 0 && (
+              <div className="kv-row" style={{ marginTop: 8 }}>
+                <span className="k">과거 유사신호 통계 (참고용)</span>
+                <span className="v" style={{ fontSize: 13, textAlign: "right" }}>
+                  5일 승률 {sig.backtest.winRate5d}% · 평균 {sig.backtest.avgReturn5d}% ({sig.backtest.sampleSignals}회 표본)
+                </span>
+              </div>
+            )}
 
             {ai && (
               <div className="reason-list">

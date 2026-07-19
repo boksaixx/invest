@@ -8,6 +8,7 @@ import { computeRelativeStrength, runEngine } from "../lib/engine";
 import { computeIntradayInsight } from "../lib/intraday";
 import { getMarketPhase } from "../lib/marketPhase";
 import { generateShortSummary } from "../lib/claude";
+import { fetchBacktestSnapshot } from "../lib/backtest";
 import type { CollectedSnapshot, EngineSignal, Portfolio } from "../lib/types";
 import { TICKER_LIST } from "../lib/types";
 
@@ -23,9 +24,10 @@ async function main() {
   console.log("=== 수집 시작:", new Date().toISOString(), "===");
   mkdirSync(join(DATA_DIR, "log"), { recursive: true });
 
-  const [macro, newsResult, ...stockData] = await Promise.all([
+  const [macro, newsResult, backtest, ...stockData] = await Promise.all([
     getMacroSnapshot(),
     collectNews(),
+    fetchBacktestSnapshot(),
     ...TICKER_LIST.map(async (t) => {
       const quote = await getStockQuote(t);
       const [candles, rawIntraday] = await Promise.all([getStockCandles(t), getStockIntradayCandles(t)]);
@@ -60,6 +62,7 @@ async function main() {
         intraday,
         marketPhase,
         relativeStrengthNote: rs.noteFor(sd.ticker),
+        backtest: backtest?.perTicker[sd.ticker] ?? null,
       }),
     );
   }

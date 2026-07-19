@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "collect": "tsx scripts/collect.ts",
-    "backfill": "tsx scripts/backfill.ts"
+    "backfill": "tsx scripts/backfill.ts",
+    "backtest": "tsx scripts/backtest.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",

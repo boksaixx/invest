@@ -136,6 +136,20 @@ export interface EngineSignal {
   scaledExit: ScaledOrder[]; // 분할 매도(익절) 라인
   relativeStrengthNote: string | null; // 반도체 5종목 중 상대강도 순위 코멘트
   estimatedRoundTripCostWon: number | null; // 왕복 거래비용(증권거래세+수수료) 추정액 (원)
+  backtest: BacktestStats | null; // 3개년 일봉 기준 과거 신호 통계 (참고용, 확정적 예측 아님)
+}
+
+// 3개년 일봉만으로 재현한 단순 백테스트 통계 (장중/뉴스/매크로는 과거 재현 불가하므로 제외).
+// 룰 엔진의 technicalScore(일봉 기술적 점수)가 68점 이상이었던 과거 시점들을
+// "진입 신호"로 보고, N거래일 후 종가 기준 수익률을 집계한 값이다.
+export interface BacktestStats {
+  periodStart: string;
+  periodEnd: string;
+  sampleSignals: number; // 표본으로 잡힌 과거 진입 신호 횟수
+  winRate5d: number | null; // 5거래일 후 수익 마감 비율 (%)
+  avgReturn5d: number | null; // 5거래일 후 평균 수익률 (%)
+  winRate10d: number | null; // 10거래일 후 수익 마감 비율 (%)
+  avgReturn10d: number | null; // 10거래일 후 평균 수익률 (%)
 }
 
 export interface RankedStock {

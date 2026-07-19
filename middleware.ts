@@ -1,0 +1,33 @@
+// 간단 비밀번호 게이트. 정식 계정 시스템은 아니며, 배포 주소를 아는 타인이
+// 내 Claude/Gemini API 크레딧을 함부로 소모하지 못하게 막는 최소한의 방어선이다.
+// APP_PASSWORD 환경변수가 없으면 보호는 자동으로 비활성화된다(설치 초기에도 앱이 막히지 않도록).
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { AUTH_COOKIE_NAME, computeAuthToken } from "@/lib/authToken";
+
+const PUBLIC_PATHS = ["/login", "/api/auth"];
+
+export async function middleware(req: NextRequest) {
+  const appPassword = process.env.APP_PASSWORD;
+  if (!appPassword) return NextResponse.next();
+
+  const { pathname } = req.nextUrl;
+  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.next();
+  }
+
+  const cookie = req.cookies.get(AUTH_COOKIE_NAME)?.value;
+  const expected = await computeAuthToken(appPassword);
+  if (cookie === expected) return NextResponse.next();
+
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "비밀번호 인증이 필요합니다." }, { status: 401 });
+  }
+  const loginUrl = new URL("/login", req.url);
+  loginUrl.searchParams.set("next", pathname);
+  return NextResponse.redirect(loginUrl);
+}
+
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+};
