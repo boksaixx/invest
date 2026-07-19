@@ -1,5 +1,5 @@
 {
- "collectedAt": "2026-07-19T01:25:24.076Z",
+ "collectedAt": "2026-07-19T05:44:12.451Z",
  "quotes": {
   "005930": {
    "symbol": "005930",
@@ -106,10 +106,10 @@
   "shanghai": {
    "symbol": "000001.SS",
    "name": "상해종합",
-   "price": 3764.155,
+   "price": 3764.1548,
    "prevClose": 3913.794,
-   "change": -149.63899999999967,
-   "changePct": -3.823374454557385,
+   "change": -149.63920000000007,
+   "changePct": -3.823379564688384,
    "currency": "CNY",
    "time": "2026-07-17T07:00:24.000Z"
   },
@@ -214,7 +214,7 @@
    },
    "marketPhase": {
     "phase": "휴장(주말)",
-    "kstTime": "10:25",
+    "kstTime": "14:44",
     "note": "주말은 국내 증시가 열리지 않습니다. 다음 개장일 전략을 준비하세요."
    },
    "entryTriggers": [
@@ -227,7 +227,15 @@
    "scaledExit": [],
    "relativeStrengthNote": "반도체 5종목 중 등락률 1위(-8.77%) — 오늘 가장 강한 종목, 단타 우선순위 상위",
    "estimatedRoundTripCostWon": null,
-   "backtest": null
+   "backtest": {
+    "periodStart": "2023-07-17",
+    "periodEnd": "2026-07-16",
+    "sampleSignals": 234,
+    "winRate5d": 55.1,
+    "avgReturn5d": 1.82,
+    "winRate10d": 63.2,
+    "avgReturn10d": 3.56
+   }
   },
   {
    "ticker": "000660",
@@ -291,7 +299,7 @@
    },
    "marketPhase": {
     "phase": "휴장(주말)",
-    "kstTime": "10:25",
+    "kstTime": "14:44",
     "note": "주말은 국내 증시가 열리지 않습니다. 다음 개장일 전략을 준비하세요."
    },
    "entryTriggers": [
@@ -304,7 +312,15 @@
    "scaledExit": [],
    "relativeStrengthNote": "반도체 5종목 중 등락률 최하위(-11.53%) — 상대적으로 약세, 진입 시 더 보수적으로 접근",
    "estimatedRoundTripCostWon": null,
-   "backtest": null
+   "backtest": {
+    "periodStart": "2023-07-17",
+    "periodEnd": "2026-07-16",
+    "sampleSignals": 263,
+    "winRate5d": 57.8,
+    "avgReturn5d": 2.71,
+    "winRate10d": 58.6,
+    "avgReturn10d": 4.52
+   }
   },
   {
    "ticker": "042700",
@@ -371,7 +387,7 @@
    },
    "marketPhase": {
     "phase": "휴장(주말)",
-    "kstTime": "10:25",
+    "kstTime": "14:44",
     "note": "주말은 국내 증시가 열리지 않습니다. 다음 개장일 전략을 준비하세요."
    },
    "entryTriggers": [
@@ -447,7 +463,7 @@
    },
    "marketPhase": {
     "phase": "휴장(주말)",
-    "kstTime": "10:25",
+    "kstTime": "14:44",
     "note": "주말은 국내 증시가 열리지 않습니다. 다음 개장일 전략을 준비하세요."
    },
    "entryTriggers": [
@@ -525,7 +541,7 @@
    },
    "marketPhase": {
     "phase": "휴장(주말)",
-    "kstTime": "10:25",
+    "kstTime": "14:44",
     "note": "주말은 국내 증시가 열리지 않습니다. 다음 개장일 전략을 준비하세요."
    },
    "entryTriggers": [
