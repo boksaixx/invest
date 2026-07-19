@@ -2,7 +2,7 @@
 
 // 토스 스타일 대시보드: 현금/보유 입력 → 실시간 시세 → AI 매매 조언
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { AiAdvice, EngineSignal, NewsItem, Portfolio, Quote } from "@/lib/types";
+import type { AiAdvice, EngineSignal, MasterScore, NewsItem, Portfolio, Quote } from "@/lib/types";
 import { STOCKS, TICKER_LIST } from "@/lib/types";
 
 const TICKERS = TICKER_LIST.map((ticker) => ({ ticker, name: STOCKS[ticker].name }));
@@ -17,6 +17,7 @@ interface AdviceResponse {
   signals: EngineSignal[];
   advice: AiAdvice | null;
   adviceError?: string | null;
+  masterScore?: MasterScore | null;
   news: NewsItem[];
   newsError?: string | null;
   aiAvailable: boolean;
@@ -119,6 +120,7 @@ export default function Home() {
   const [newsNotice, setNewsNotice] = useState<string | null>(null);
   const [health, setHealth] = useState<Record<string, string> | null>(null);
   const [snapshotTime, setSnapshotTime] = useState<string | null>(null);
+  const [snapshotMasterScore, setSnapshotMasterScore] = useState<MasterScore | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   function toggleExpand(ticker: string) {
@@ -138,6 +140,7 @@ export default function Home() {
       .then((r) => r.json())
       .then((j) => {
         if (j?.snapshot?.collectedAt) setSnapshotTime(j.snapshot.collectedAt);
+        if (j?.snapshot?.masterScore) setSnapshotMasterScore(j.snapshot.masterScore as MasterScore);
       })
       .catch(() => {});
     const t = setInterval(() => void refreshMarket(), 60_000);
@@ -255,6 +258,10 @@ export default function Home() {
       .sort((a, b) => (b.info!.score ?? 0) - (a.info!.score ?? 0));
   }, [result, portfolio]);
 
+  // "AI 정밀 분석"을 누르기 전에는 자동수집 스냅샷의 마스터 스코어를, 누른 뒤에는 방금 계산된 것을 보여준다.
+  const displayMasterScore = result?.masterScore ?? snapshotMasterScore;
+  const masterScoreIsLive = Boolean(result?.masterScore);
+
   return (
     <main className="container">
       <div className="header">
@@ -281,6 +288,18 @@ export default function Home() {
           </button>
         </div>
       </div>
+
+      {/* 마스터 스코어: 5종목+매크로 종합 "오늘의 매수 매력도" — AI 호출 없이 항상 즉시 계산됨 */}
+      {displayMasterScore && (
+        <div className={`card master-score master-score-${displayMasterScore.tone}`}>
+          <div className="master-score-top">
+            <div className="master-score-label">오늘의 매수 매력도{!masterScoreIsLive && " (자동수집 기준)"}</div>
+            <div className="master-score-pct">{displayMasterScore.attractivenessPct}%</div>
+          </div>
+          <div className="master-score-tag">{displayMasterScore.label}</div>
+          <div className="master-score-headline">{displayMasterScore.headline}</div>
+        </div>
+      )}
 
       {/* 총 자산 */}
       <div className="card">
@@ -382,6 +401,18 @@ export default function Home() {
             <div className="name">공포탐욕지수</div>
             <div className="val" style={{ fontSize: 14 }}>{fearGreed.ratingKo}</div>
             <div className="pct flat">{fearGreed.value}/100</div>
+          </div>
+        )}
+        {result?.signals?.[0] && (
+          <div className="macro-chip">
+            <div className="name">매크로 영향도</div>
+            <div className="val" style={{ fontSize: 14 }}>
+              {result.signals[0].macroScore > 0 ? "우호적" : result.signals[0].macroScore < 0 ? "비우호적" : "중립"}
+            </div>
+            <div className={`pct ${pctClass(result.signals[0].macroScore)}`}>
+              {result.signals[0].macroScore >= 0 ? "+" : ""}
+              {result.signals[0].macroScore}점
+            </div>
           </div>
         )}
       </div>
@@ -737,6 +768,7 @@ export default function Home() {
                   <div className="reason-list">
                     <div className="reason" style={{ background: "var(--blue-weak)", color: "#1b64da", fontWeight: 700 }}>
                       💡 {ai.headline}
+                      {ai.timeHorizon && <span className="time-horizon-tag">{ai.timeHorizon}</span>}
                     </div>
                     {ai.rationale.map((r, i) => (
                       <div className="reason" key={i}>{r}</div>

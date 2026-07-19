@@ -59,6 +59,13 @@ export interface Indicators {
   avgVolume20: number; // 최근 20일 평균 거래량 (lastVolume 직전 20일 기준)
   high52w: number;
   low52w: number;
+  stochK: number; // 스토캐스틱 슬로우 %K (14,3,3) — RSI 보완용 단기 모멘텀, 80+ 과매수 / 20- 과매도
+  stochD: number; // 스토캐스틱 %D (%K의 3일 평균, 시그널선)
+  pivotPP: number; // 클래식 피벗 포인트 (직전 거래일 고저종 기준)
+  pivotR1: number; // 1차 저항선
+  pivotS1: number; // 1차 지지선
+  pivotR2: number; // 2차 저항선
+  pivotS2: number; // 2차 지지선
 }
 
 // 장중(인트라데이) 인사이트 — "오늘 지금" 판단의 핵심 데이터
@@ -143,6 +150,8 @@ export interface EngineSignal {
   sellStrength: number | null; // 0~10, 보유 중일 때만 계산 — "지금 얼마나 강하게 팔아야 하는지"
   actionSummary: string; // 위 점수를 한 문장으로 요약 (초보자용 헤드라인)
   verdict: string; // 전문가가 쉽게 풀어 말하듯 한 문장 판정 + 구체적 근거(추세선/거래량/환율 등). AI 없이도 항상 엔진이 계산 (정합성 보장)
+  macroScore: number; // 매크로(환율·SOX·나스닥·코스피·선물·VIX) 전체 시장 영향도 점수. 양수=우호적, 음수=비우호적 — 개별 종목 점수에 이미 가산/감산되어 있는 값을 그대로 노출 (같은 시점 5종목 모두 동일)
+  disclosures: DartFiling[]; // 최근 DART 공시 (DART_API_KEY 미설정 시 항상 빈 배열)
 }
 
 // 3개년 일봉만으로 재현한 단순 백테스트 통계 (장중/뉴스/매크로는 과거 재현 불가하므로 제외).
@@ -163,6 +172,29 @@ export interface RankedStock {
   name: string;
   changePct: number;
   rank: number;
+}
+
+// 5종목 + 매크로를 종합한 "오늘의 매수 매력도" 마스터 요약 — 개별 종목 판단과 별개로
+// 화면 최상단에서 "오늘 전체적으로 살만한 날인가"를 한눈에 보여준다. AI 없이 엔진이 항상 계산.
+export interface MasterScore {
+  attractivenessPct: number; // 0~100, 5종목 평균 점수 기반 "매수 매력도"
+  label: string; // "매수 우위" | "중립/관망" | "방어적(매도 우위)"
+  tone: "buy" | "neutral" | "sell";
+  headline: string; // 오늘의 종합 추천 행동 한 문장
+  buyCount: number; // 매수 신호권(점수 68+) 종목 수
+  sellCount: number; // 매도/경계 신호권(점수 32 이하) 종목 수
+  strongestTicker: StockTicker | null;
+  strongestName: string | null;
+}
+
+// DART(전자공시시스템) 공시 — 기업이 법적 의무로 직접 올리는 원천 정보라 뉴스보다 신뢰도가 높고 빠르다.
+// DART_API_KEY 미설정 시 항상 빈 배열(선택 기능, 없어도 나머지 파이프라인은 정상 동작).
+export interface DartFiling {
+  title: string; // 공시 제목 (예: "자기주식취득결정")
+  date: string; // 접수일자 YYYYMMDD
+  reporterName: string; // 제출인
+  url: string; // DART 원문 링크
+  sentiment: "긍정" | "부정" | "중립"; // 제목 키워드 기반 단순 분류 (본문 분석 아님 — 참고용, 최종 해석은 AI가 함)
 }
 
 export interface NewsItem {
@@ -188,6 +220,7 @@ export interface AiAdvice {
     action: Action;
     confidence: "높음" | "중간" | "낮음";
     actionScore: number; // 0~10. 미보유 시 매수 강도, 보유 중이면 매도 강도 (사용자가 가장 먼저 보는 숫자)
+    timeHorizon: "당일" | "수일내(스윙)"; // 지금 액션이 겨냥하는 투자 시계열 — 당일 중 트리거 충족 예상인지, 며칠에 걸친 스윙 성격인지
     headline: string;
     rationale: string[];
     targetPrice: number | null;
@@ -207,6 +240,7 @@ export interface CollectedSnapshot {
   news: NewsItem[];
   signals: EngineSignal[] | null;
   aiSummary: string | null;
+  masterScore: MasterScore | null;
 }
 
 export const STOCKS: Record<StockTicker, { name: string; yahoo: string }> = {

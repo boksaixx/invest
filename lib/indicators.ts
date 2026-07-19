@@ -104,6 +104,46 @@ export function averageVolume(volumes: number[], period = 20): number {
   return hist.reduce((a, b) => a + b, 0) / period;
 }
 
+// 스토캐스틱 슬로우(%K, %D) — RSI를 보완하는 단기 모멘텀 지표. RSI는 가격 변화의 평균 크기를,
+// 스토캐스틱은 최근 N일 고저 레인지 내 종가 위치를 본다 — 레인지 장세에서 특히 RSI보다 민감하게 반응한다.
+export function stochastic(
+  candles: Candle[],
+  period = 14,
+  kSmooth = 3,
+  dSmooth = 3,
+): { k: number; d: number } {
+  if (candles.length < period + kSmooth + dSmooth) return { k: NaN, d: NaN };
+  const rawK: number[] = [];
+  for (let i = period - 1; i < candles.length; i++) {
+    const window = candles.slice(i - period + 1, i + 1);
+    const highest = Math.max(...window.map((c) => c.high));
+    const lowest = Math.min(...window.map((c) => c.low));
+    const close = candles[i].close;
+    rawK.push(highest === lowest ? 50 : ((close - lowest) / (highest - lowest)) * 100);
+  }
+  const slowK: number[] = [];
+  for (let i = kSmooth - 1; i < rawK.length; i++) {
+    const slice = rawK.slice(i - kSmooth + 1, i + 1);
+    slowK.push(slice.reduce((a, b) => a + b, 0) / kSmooth);
+  }
+  const d: number[] = [];
+  for (let i = dSmooth - 1; i < slowK.length; i++) {
+    const slice = slowK.slice(i - dSmooth + 1, i + 1);
+    d.push(slice.reduce((a, b) => a + b, 0) / dSmooth);
+  }
+  return { k: slowK[slowK.length - 1] ?? NaN, d: d[d.length - 1] ?? NaN };
+}
+
+// 클래식 피벗 포인트 — 직전 거래일 고가/저가/종가만으로 계산하는 표준 단타 지지/저항 프레임워크.
+// 별도 데이터 없이 순수 계산이라 항상 즉시 나오고, 데이트레이더들이 실제로 가장 흔히 참고하는 레벨이다.
+export function pivotPoints(candles: Candle[]): { pp: number; r1: number; r2: number; s1: number; s2: number } {
+  if (candles.length === 0) return { pp: NaN, r1: NaN, r2: NaN, s1: NaN, s2: NaN };
+  const last = candles[candles.length - 1];
+  const pp = (last.high + last.low + last.close) / 3;
+  const range = last.high - last.low;
+  return { pp, r1: 2 * pp - last.low, s1: 2 * pp - last.high, r2: pp + range, s2: pp - range };
+}
+
 export function computeIndicators(candles: Candle[]): Indicators {
   const closes = candles.map((c) => c.close);
   const volumes = candles.map((c) => c.volume);
@@ -111,6 +151,8 @@ export function computeIndicators(candles: Candle[]): Indicators {
   const ma20Ago = sma(closes.slice(0, -5), 20);
   const boll = bollinger(closes);
   const m = macd(closes);
+  const stoch = stochastic(candles);
+  const pivots = pivotPoints(candles);
   const yearCandles = candles.slice(-252);
   return {
     ma5: sma(closes, 5),
@@ -131,5 +173,12 @@ export function computeIndicators(candles: Candle[]): Indicators {
     avgVolume20: averageVolume(volumes),
     high52w: Math.max(...yearCandles.map((c) => c.high)),
     low52w: Math.min(...yearCandles.map((c) => c.low)),
+    stochK: stoch.k,
+    stochD: stoch.d,
+    pivotPP: pivots.pp,
+    pivotR1: pivots.r1,
+    pivotS1: pivots.s1,
+    pivotR2: pivots.r2,
+    pivotS2: pivots.s2,
   };
 }

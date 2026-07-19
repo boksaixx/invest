@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { fetchQuote } from "@/lib/market";
 import { fetchLatestSnapshot } from "@/lib/snapshot";
 import { testGeminiConnection } from "@/lib/gemini";
+import { fetchDartDisclosures } from "@/lib/dart";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,14 @@ export async function GET() {
   if (process.env.GEMINI_API_KEY) {
     const r = await testGeminiConnection(process.env.GEMINI_API_KEY);
     result["Gemini_호출테스트"] = r.ok ? r.detail : `❌ 실패: ${r.detail}`;
+  }
+
+  // 4-1. DART API (선택 기능 — 미설정이어도 실패로 취급하지 않음)
+  if (process.env.DART_API_KEY) {
+    const r = await fetchDartDisclosures();
+    result["DART_공시연동"] = r.error ? `❌ 실패: ${r.error}` : `정상 (${Object.keys(r.data).length}종목 조회됨)`;
+  } else {
+    result["DART_공시연동"] = "미설정 (선택 기능 — README '③ DART API 키' 참고)";
   }
 
   // 5. GitHub 자동 수집 데이터

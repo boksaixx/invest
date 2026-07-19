@@ -12,11 +12,13 @@ import type {
   Action,
   BacktestStats,
   Candle,
+  DartFiling,
   EngineSignal,
   Indicators,
   IntradayInsight,
   MacroSnapshot,
   MarketPhaseInfo,
+  MasterScore,
   NewsItem,
   Portfolio,
   RankedStock,
@@ -49,6 +51,28 @@ export function newsSentimentScore(news: NewsItem[], stockName: string): { score
     }
   }
   return { score: Math.max(-15, Math.min(15, score)), notes };
+}
+
+// DART 전자공시는 기업이 법적 의무로 직접 올리는 원천 정보라 뉴스보다 신뢰도가 높다 —
+// 최근 것부터 최대 2건만 반영해 과중복을 막고, 뉴스(최대 5점)에 준하는 가중치를 준다.
+// 제목 키워드 기반 단순 분류일 뿐(본문 분석 아님)이므로 "중립"(내용 확인 필요)도 근거로 남긴다.
+function disclosureScore(filings: DartFiling[] | undefined): { score: number; notes: string[]; warnings: string[] } {
+  const notes: string[] = [];
+  const warnings: string[] = [];
+  if (!filings || filings.length === 0) return { score: 0, notes, warnings };
+  let score = 0;
+  for (const f of filings.slice(0, 2)) {
+    if (f.sentiment === "긍정") {
+      score += 4;
+      notes.push(`공시 호재: ${f.title} (${f.date})`);
+    } else if (f.sentiment === "부정") {
+      score -= 4;
+      warnings.push(`공시 주의: ${f.title} (${f.date}) — 내용 확인 필요`);
+    } else {
+      notes.push(`공시: ${f.title} (${f.date}) — 내용 확인 필요`);
+    }
+  }
+  return { score: Math.max(-8, Math.min(8, score)), notes, warnings };
 }
 
 function macroScore(macro: MacroSnapshot, marketPhase: MarketPhaseInfo): { score: number; notes: string[]; warnings: string[] } {
@@ -152,6 +176,22 @@ export function technicalScore(ind: Indicators, price: number): { score: number;
     warnings.push(`RSI ${ind.rsi14.toFixed(0)} — 단기 과열, 추격 매수 위험`);
   }
 
+  // 스토캐스틱(%K/%D) — RSI는 가격 변화의 평균 크기를 보지만, 스토캐스틱은 최근 레인지 내 종가
+  // 위치를 봐서 %K/%D 크로스라는 RSI에 없는 신호를 준다. 가중치는 작게 둬서 RSI와의 중복 과열
+  // 페널티가 과도해지지 않게 한다.
+  if (!isNaN(ind.stochK) && !isNaN(ind.stochD)) {
+    if (ind.stochK > 80 && ind.stochD > 80) {
+      score -= 4;
+      warnings.push(`스토캐스틱 %K ${ind.stochK.toFixed(0)} — 과매수 구간, RSI와 과열 신호 중첩`);
+    } else if (ind.stochK < 20 && ind.stochK > ind.stochD) {
+      score += 4;
+      reasons.push(`스토캐스틱 %K ${ind.stochK.toFixed(0)} — 과매도 구간에서 %D 상향 돌파 (단기 반등 신호)`);
+    } else if (ind.stochK > ind.stochD && ind.stochK < 80) {
+      score += 2;
+      reasons.push("스토캐스틱 %K가 %D 위 — 단기 모멘텀 양호");
+    }
+  }
+
   // MACD
   if (ind.macdHist > 0 && ind.macdHist > ind.macdHistPrev) {
     score += 7;
@@ -185,6 +225,18 @@ export function technicalScore(ind: Indicators, price: number): { score: number;
   if (range > 0) {
     const pos = (price - ind.low52w) / range;
     if (pos > 0.92) warnings.push("52주 신고가 부근 — 차익실현 매물 유의");
+  }
+
+  // 피벗 포인트(직전 거래일 고저종 기준 지지/저항) — 점수에는 반영하지 않고 근접 시 참고 문구만 추가.
+  // 이미 볼린저/52주 레인지로 과열·과매도 구간은 점수화하고 있어, 중복 가산 대신 정보성으로만 제공한다.
+  if (!isNaN(ind.pivotR1) && !isNaN(ind.pivotS1) && price > 0) {
+    const distToR1Pct = ((ind.pivotR1 - price) / price) * 100;
+    const distToS1Pct = ((price - ind.pivotS1) / price) * 100;
+    if (distToR1Pct >= 0 && distToR1Pct < 1.2) {
+      warnings.push(`피벗 저항선 R1(${Math.round(ind.pivotR1).toLocaleString()}원) 근접 — 돌파 실패 시 되돌림 유의`);
+    } else if (distToS1Pct >= 0 && distToS1Pct < 1.2) {
+      reasons.push(`피벗 지지선 S1(${Math.round(ind.pivotS1).toLocaleString()}원) 부근 — 지지 확인되면 반등 매수 후보`);
+    }
   }
 
   return { score: Math.max(0, Math.min(100, score)), reasons, warnings };
@@ -394,11 +446,11 @@ function buildVerdict(params: {
   sellStrength: number | null;
   reasons: string[];
   warnings: string[];
+  overheated: boolean;
 }): string {
-  const { held, action, buyStrength, reasons, warnings } = params;
+  const { held, action, buyStrength, reasons, warnings, overheated } = params;
   const sellStrength = params.sellStrength ?? 0;
-  const overheated = !held && warnings.some((w) => w.includes("추격 매수 위험"));
-  const { text, tone } = verbPhrase(held, action, buyStrength, sellStrength, overheated);
+  const { text, tone } = verbPhrase(held, action, buyStrength, sellStrength, !held && overheated);
   // 근거 문장 선택: 매수 쪽 판정이면 긍정 근거(reasons)를, 위험/매도 쪽 판정이면 경고(warnings)를 우선 인용한다.
   const groundingPool = tone === "buy" ? [...reasons, ...warnings] : [...warnings, ...reasons];
   const grounding = groundingPool[0];
@@ -417,6 +469,7 @@ export function runEngine(params: {
   marketPhase: MarketPhaseInfo;
   relativeStrengthNote?: string | null;
   backtest?: BacktestStats | null;
+  disclosures?: DartFiling[];
 }): EngineSignal {
   const { ticker, price, candles, macro, news, portfolio, intraday, marketPhase } = params;
   const name = STOCKS[ticker].name;
@@ -426,16 +479,17 @@ export function runEngine(params: {
   const mac = macroScore(macro, marketPhase);
   const sent = newsSentimentScore(news, name);
   const intra = intradayScore(intraday);
+  const disc = disclosureScore(params.disclosures);
 
   // 장초반/점심시간대는 신호 신뢰도가 낮으므로 가중치를 낮춘다 (과최적화된 진입 방지)
   const phaseDampener = marketPhase.phase === "장초반" || marketPhase.phase === "점심시간대" ? 0.7 : 1;
 
   let score = Math.max(
     0,
-    Math.min(100, 50 + (tech.score - 50 + mac.score + sent.score + intra.score) * phaseDampener),
+    Math.min(100, 50 + (tech.score - 50 + mac.score + sent.score + intra.score + disc.score) * phaseDampener),
   );
-  const reasons = [...intra.reasons, ...tech.reasons, ...mac.notes];
-  const warnings = [...intra.warnings, ...tech.warnings, ...mac.warnings, ...sent.notes];
+  const reasons = [...intra.reasons, ...tech.reasons, ...mac.notes, ...disc.notes];
+  const warnings = [...intra.warnings, ...tech.warnings, ...mac.warnings, ...sent.notes, ...disc.warnings];
   if (phaseDampener < 1) {
     warnings.push(`현재 시간대(${marketPhase.phase})는 신호 신뢰도가 평소보다 낮습니다 — ${marketPhase.note}`);
   }
@@ -451,6 +505,10 @@ export function runEngine(params: {
       ? intraday.openingRangeHigh - intraday.openingRangeLow
       : null;
   const atrStopDist = orRangeDist && orRangeDist > price * 0.005 ? Math.min(dailyAtrDist, orRangeDist * 1.3) : dailyAtrDist;
+
+  // 기술적/기본적 교차 검증 보정: 뉴스·매크로가 아무리 우호적이어도 RSI 과매수(72+) 또는
+  // 당일 고가권(레인지 상위 95%+) 근접이면 신규 진입을 보류한다 (미보유 시에만 의미 있는 판단).
+  const overheatedNow = ind.rsi14 > 72 || (intraday?.available === true && intraday.rangePositionPct >= 95);
 
   let action: EngineSignal["action"] = "관망";
   let targetPrice: number | null = null;
@@ -512,7 +570,12 @@ export function runEngine(params: {
     targetPrice = Math.round(price + atrStopDist * 2);
     entryTriggers = buildEntryTriggers(intraday, ind);
 
-    if (score >= 68 && portfolio.cash > price) {
+    if (score >= 68 && overheatedNow) {
+      action = "관망";
+      warnings.unshift(
+        `기술적 과열 보정 — 종합 점수(${Math.round(score)}점)는 매수 신호였지만 RSI ${ind.rsi14.toFixed(0)}(과매수) 또는 당일 고가권 근접으로 신규 진입을 보류합니다. 뉴스·매크로가 우호적이어도 추격 매수는 금지, 눌림목 또는 과열 해소 후 재진입 검토`,
+      );
+    } else if (score >= 68 && portfolio.cash > price) {
       action = "신규매수";
       const budget = Math.min(portfolio.cash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist);
       suggestedBudget = Math.floor(budget);
@@ -557,7 +620,7 @@ export function runEngine(params: {
   const actionSummary = holding
     ? sellStrengthSummary(sellStrength as number, stopPrice, targetPrice)
     : buyStrengthSummary(buyStrength, price);
-  const verdict = buildVerdict({ held: Boolean(holding), action, buyStrength, sellStrength, reasons, warnings });
+  const verdict = buildVerdict({ held: Boolean(holding), action, buyStrength, sellStrength, reasons, warnings, overheated: overheatedNow });
 
   return {
     ticker,
@@ -587,7 +650,55 @@ export function runEngine(params: {
     sellStrength,
     actionSummary,
     verdict,
+    macroScore: Math.round(mac.score),
+    disclosures: params.disclosures ?? [],
   };
+}
+
+// 5종목 + 매크로를 종합한 "오늘의 매수 매력도" 마스터 스코어.
+// 개별 종목 score(이미 기술적+장중+매크로+뉴스를 반영)의 평균을 그대로 "매력도 %"로 쓴다 —
+// AI 호출 없이 순수 계산이라 항상 즉시·일관되게 나오고, 개별 종목 판단과 모순되지 않는다.
+export function computeMasterScore(signals: EngineSignal[]): MasterScore {
+  if (signals.length === 0) {
+    return {
+      attractivenessPct: 50,
+      label: "데이터 부족",
+      tone: "neutral",
+      headline: "시세/신호 데이터를 가져오지 못해 종합 판단을 할 수 없습니다.",
+      buyCount: 0,
+      sellCount: 0,
+      strongestTicker: null,
+      strongestName: null,
+    };
+  }
+  const attractivenessPct = Math.round(signals.reduce((a, s) => a + s.score, 0) / signals.length);
+  const buyCount = signals.filter((s) => s.score >= 68).length;
+  const sellCount = signals.filter((s) => s.score <= 32).length;
+  const strongest = [...signals].sort((a, b) => b.score - a.score)[0];
+
+  let label: string;
+  let tone: MasterScore["tone"];
+  if (attractivenessPct >= 68) {
+    label = "매수 우위";
+    tone = "buy";
+  } else if (attractivenessPct >= 45) {
+    label = "중립/관망";
+    tone = "neutral";
+  } else {
+    label = "방어적(매도 우위)";
+    tone = "sell";
+  }
+
+  let headline: string;
+  if (buyCount > 0) {
+    headline = `${signals.length}종목 중 ${buyCount}종목이 매수 신호권 — 가장 강한 종목은 ${strongest.name}(${strongest.score}점)`;
+  } else if (sellCount > 0) {
+    headline = `${signals.length}종목 중 ${sellCount}종목이 매도/경계 신호권 — 신규 진입보다 리스크 관리를 우선하세요`;
+  } else {
+    headline = `뚜렷한 매수·매도 신호 없이 관망 우위 — 가장 근접한 종목은 ${strongest.name}(${strongest.score}점)`;
+  }
+
+  return { attractivenessPct, label, tone, headline, buyCount, sellCount, strongestTicker: strongest.ticker, strongestName: strongest.name };
 }
 
 // 반도체 N종목 상대강도 순위 — 단타에서는 "가장 강한 놈"을 골라 타는 게 원칙.

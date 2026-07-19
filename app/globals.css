@@ -63,6 +63,48 @@ body {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
+.master-score {
+  border: 1.5px solid transparent;
+}
+.master-score-buy { border-color: var(--red-weak); background: linear-gradient(180deg, var(--red-weak) 0%, var(--card) 60%); }
+.master-score-sell { border-color: var(--blue-weak); background: linear-gradient(180deg, var(--blue-weak) 0%, var(--card) 60%); }
+.master-score-neutral { border-color: var(--gray-weak); }
+.master-score-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.master-score-label {
+  font-size: 13px;
+  color: var(--text-weak);
+  font-weight: 600;
+}
+.master-score-pct {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+.master-score-buy .master-score-pct { color: var(--red); }
+.master-score-sell .master-score-pct { color: var(--blue); }
+.master-score-tag {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.master-score-buy .master-score-tag { background: var(--red); color: #fff; }
+.master-score-sell .master-score-tag { background: var(--blue); color: #fff; }
+.master-score-neutral .master-score-tag { background: var(--gray-weak); color: var(--text-sub); }
+.master-score-headline {
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-sub);
+  line-height: 1.4;
+}
+
 .asset-total {
   font-size: 30px;
   font-weight: 800;
@@ -182,6 +224,17 @@ body {
 .reason.warn {
   background: var(--red-weak);
   color: #c9353f;
+}
+.time-horizon-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.6);
+  color: #1b64da;
+  vertical-align: middle;
 }
 
 .input-row {
