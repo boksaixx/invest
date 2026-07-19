@@ -259,6 +259,134 @@ body {
   color: var(--text-weak);
 }
 
+.phase-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--card);
+  border-radius: 14px;
+  padding: 11px 14px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.phase-tag {
+  background: #191f28;
+  color: #fff;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+.phase-time {
+  font-weight: 700;
+  color: var(--text-sub);
+  flex: 0 0 auto;
+}
+.phase-note {
+  color: var(--text-weak);
+  line-height: 1.4;
+}
+
+.rs-banner {
+  background: var(--blue-weak);
+  color: #1b64da;
+  border-radius: 14px;
+  padding: 11px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.intraday-box {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f0f1f3;
+}
+.intraday-box-title {
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.stale-tag {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--gray-weak);
+  color: var(--text-weak);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.intraday-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.intraday-cell {
+  background: var(--gray-weak);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.ic-label {
+  font-size: 11px;
+  color: var(--text-weak);
+  font-weight: 600;
+}
+.ic-value {
+  font-size: 15px;
+  font-weight: 800;
+  margin-top: 2px;
+}
+.ic-sub {
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 2px;
+  color: var(--text-weak);
+}
+
+.plan-box {
+  margin-top: 14px;
+  padding: 14px;
+  background: #fff8ec;
+  border: 1px solid #ffe4ab;
+  border-radius: 14px;
+}
+.plan-title {
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 10px;
+  color: #94660a;
+}
+.plan-block {
+  margin-bottom: 10px;
+}
+.plan-block:last-child { margin-bottom: 0; }
+.plan-block-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #7a5205;
+  margin-bottom: 4px;
+}
+.plan-item {
+  font-size: 13px;
+  color: #4e3c0f;
+  line-height: 1.5;
+  padding: 2px 0;
+}
+.plan-invalidation {
+  background: var(--red-weak);
+  margin: 10px -14px -14px;
+  padding: 10px 14px;
+  border-radius: 0 0 13px 13px;
+}
+.plan-invalidation .plan-block-title { color: #c9353f; }
+.plan-invalidation .plan-item { color: #9c1f28; font-weight: 600; }
+
 .news-item {
   padding: 12px 0;
   border-bottom: 1px solid #f5f6f8;

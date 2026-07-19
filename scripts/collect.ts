@@ -1,10 +1,12 @@
 // 자동 수집 에이전트 (GitHub Actions에서 30분 간격 실행)
-// 시세/환율/해외지수 + Gemini 뉴스 수집 → 룰 엔진 → Claude 요약 → data/ 저장 → (선택) 카카오톡 전송
+// 시세/환율/해외지수(일봉+장중) + Gemini 뉴스 수집 → 룰 엔진 → Claude 요약 → data/ 저장 → (선택) 카카오톡 전송
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { getMacroSnapshot, getStockCandles, getStockQuote } from "../lib/market";
+import { getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote } from "../lib/market";
 import { collectNews } from "../lib/gemini";
-import { runEngine } from "../lib/engine";
+import { computeRelativeStrength, runEngine } from "../lib/engine";
+import { computeIntradayInsight } from "../lib/intraday";
+import { getMarketPhase } from "../lib/marketPhase";
 import { generateShortSummary } from "../lib/claude";
 import { sendKakaoMemo } from "../lib/kakao";
 import type { CollectedSnapshot, EngineSignal, Portfolio, StockTicker } from "../lib/types";
@@ -29,15 +31,27 @@ async function main() {
   const [macro, newsResult, ...stockData] = await Promise.all([
     getMacroSnapshot(),
     collectNews(),
-    ...TICKERS.map(async (t) => ({
-      ticker: t,
-      quote: await getStockQuote(t),
-      candles: await getStockCandles(t),
-    })),
+    ...TICKERS.map(async (t) => {
+      const quote = await getStockQuote(t);
+      const [candles, rawIntraday] = await Promise.all([getStockCandles(t), getStockIntradayCandles(t)]);
+      return { ticker: t, quote, candles, rawIntraday };
+    }),
   ]);
   const { news, error: newsError } = newsResult;
+  const marketPhase = getMarketPhase();
 
   console.log("뉴스 수집:", news.length, "건", newsError ? `(오류: ${newsError})` : "");
+  console.log("장 상태:", marketPhase.phase, marketPhase.kstTime);
+
+  const withQuote = stockData.filter((sd): sd is typeof sd & { quote: NonNullable<typeof sd.quote> } => sd.quote != null);
+  let relativeStrengthNote: string | null = null;
+  if (withQuote.length === 2) {
+    const [a, b] = withQuote;
+    relativeStrengthNote = computeRelativeStrength(
+      { ticker: a.ticker, changePct: a.quote.changePct },
+      { ticker: b.ticker, changePct: b.quote.changePct },
+    ).note;
+  }
 
   const signals: EngineSignal[] = [];
   for (const sd of stockData) {
@@ -45,6 +59,7 @@ async function main() {
       console.warn(`${sd.ticker}: 시세/캔들 수집 실패 (quote=${!!sd.quote}, candles=${sd.candles.length})`);
       continue;
     }
+    const intraday = computeIntradayInsight(sd.rawIntraday, sd.quote.prevClose, sd.quote.price);
     signals.push(
       runEngine({
         ticker: sd.ticker,
@@ -53,6 +68,9 @@ async function main() {
         macro,
         news,
         portfolio: NEUTRAL_PORTFOLIO,
+        intraday,
+        marketPhase,
+        relativeStrengthNote,
       }),
     );
   }
@@ -89,7 +107,7 @@ async function main() {
   const force = process.env.FORCE_KAKAO === "1";
 
   if (aiSummary && (force || (changed && strong) || (changed && prev !== null))) {
-    const header = `📈 반도체 트레이딩 AI (${kstNow().toISOString().slice(11, 16)} KST)`;
+    const header = `📈 반도체 트레이딩 AI (${marketPhase.kstTime} KST · ${marketPhase.phase})`;
     const lines = signals
       .map((s) => `· ${s.name} ${s.price.toLocaleString()}원 → [${s.action}] 점수 ${s.score}`)
       .join("\n");

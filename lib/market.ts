@@ -83,6 +83,30 @@ export async function fetchQuote(symbol: string, name?: string): Promise<Quote |
   };
 }
 
+export interface RawIntradayCandle {
+  time: string; // ISO
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+// 장중 분봉 수집 (야후 파이낸스). range는 최근 며칠치를 요청할지(주말/휴장 대비 여유있게).
+export async function fetchIntradayCandles(symbol: string, range = "5d", interval = "5m"): Promise<RawIntradayCandle[]> {
+  const json = await fetchYahooChart(symbol, range, interval);
+  const r = json?.chart.result?.[0];
+  if (!r?.timestamp) return [];
+  const q = r.indicators.quote[0];
+  const out: RawIntradayCandle[] = [];
+  for (let i = 0; i < r.timestamp.length; i++) {
+    const [o, h, l, c, v] = [q.open[i], q.high[i], q.low[i], q.close[i], q.volume[i]];
+    if (o == null || h == null || l == null || c == null) continue;
+    out.push({ time: new Date(r.timestamp[i] * 1000).toISOString(), open: o, high: h, low: l, close: c, volume: v ?? 0 });
+  }
+  return out;
+}
+
 export async function fetchDailyCandles(symbol: string, range = "2y"): Promise<Candle[]> {
   const json = await fetchYahooChart(symbol, range, "1d");
   const r = json?.chart.result?.[0];
@@ -171,6 +195,41 @@ async function fetchNaverDaily(ticker: StockTicker, days = 600): Promise<Candle[
   }
 }
 
+// 네이버 분봉 폴백 (야후 장중 데이터 수집 실패 시에만 사용). 형식이 불안정할 수 있어
+// 파싱 결과가 의심스러우면(캔들 3개 미만 등) 아예 버리고 "데이터 없음"으로 처리한다 —
+// 실전 매매 판단에는 틀린 데이터보다 데이터 없음이 낫다.
+async function fetchNaverIntraday(ticker: StockTicker): Promise<RawIntradayCandle[]> {
+  try {
+    const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${ticker}&timeframe=minute&count=200&requestType=0`;
+    const res = await fetch(url, { headers: { "User-Agent": UA }, cache: "no-store", signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return [];
+    const text = await res.text();
+    const rows = [...text.matchAll(/data="([^"]+)"/g)].map((m) => m[1]);
+    const out: RawIntradayCandle[] = [];
+    for (const row of rows) {
+      const parts = row.split("|");
+      if (parts.length < 6) continue;
+      const [ts, o, h, l, c, v] = parts;
+      const open = Number(o);
+      const high = Number(h);
+      const low = Number(l);
+      const close = Number(c);
+      const volume = Number(v);
+      if ([open, high, low, close, volume].some((n) => Number.isNaN(n))) continue;
+      // ts 형식: YYYYMMDDHHmm (KST) — KST 기준이므로 UTC로 9시간 빼서 ISO 생성
+      const m = ts.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/);
+      if (!m) continue;
+      const [, yy, mo, dd, hh, mi] = m;
+      const kstMs = Date.UTC(Number(yy), Number(mo) - 1, Number(dd), Number(hh), Number(mi));
+      const utcMs = kstMs - 9 * 3600_000;
+      out.push({ time: new Date(utcMs).toISOString(), open, high, low, close, volume });
+    }
+    return out.length >= 3 ? out : [];
+  } catch {
+    return [];
+  }
+}
+
 // ---- 통합 진입점 ----
 
 export async function getStockQuote(ticker: StockTicker): Promise<Quote | null> {
@@ -183,6 +242,12 @@ export async function getStockCandles(ticker: StockTicker): Promise<Candle[]> {
   const y = await fetchDailyCandles(STOCKS[ticker].yahoo, "2y");
   if (y.length > 100) return y;
   return fetchNaverDaily(ticker);
+}
+
+export async function getStockIntradayCandles(ticker: StockTicker): Promise<RawIntradayCandle[]> {
+  const y = await fetchIntradayCandles(STOCKS[ticker].yahoo, "5d", "5m");
+  if (y.length >= 3) return y;
+  return fetchNaverIntraday(ticker);
 }
 
 export async function getMacroSnapshot(): Promise<MacroSnapshot> {

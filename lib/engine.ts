@@ -1,16 +1,23 @@
-// 매매 판단 엔진: 기술적 지표 + 매크로 + 뉴스 감성을 종합한 룰 기반 신호 생성.
+// 매매 판단 엔진: 일봉 기술적 지표 + 장중(인트라데이) 데이터 + 매크로 + 뉴스 감성을 종합한
+// 단기(단타) 트레이딩 신호 생성.
+//
 // 원칙:
 //  - 손실 제한이 최우선 (1회 매매 리스크 = 총자산의 1% 이내)
-//  - 신규 진입은 복수 지표가 동시에 확인될 때만
+//  - 신규 진입은 복수 지표(일봉 추세 + 장중 모멘텀 + 수급/뉴스)가 동시에 확인될 때만
 //  - 물타기(하락 추매)는 원칙적으로 금지, 피라미딩(수익 중 추매)만 허용
 //  - 손절가는 ATR 기반, 도달 시 무조건 실행 권고
+//  - 단타는 "지금 사라/팔아라"만으로는 부족하다 — 진입 트리거(조건), 분할 매매,
+//    무효화 조건(목표가/손절가와 별개로 논리 자체가 깨지는 지점)까지 함께 제시한다.
 import type {
   Candle,
   EngineSignal,
   Indicators,
+  IntradayInsight,
   MacroSnapshot,
+  MarketPhaseInfo,
   NewsItem,
   Portfolio,
+  ScaledOrder,
   StockTicker,
 } from "./types";
 import { STOCKS } from "./types";
@@ -137,6 +144,123 @@ function technicalScore(ind: Indicators, price: number): { score: number; reason
   return { score: Math.max(0, Math.min(100, score)), reasons, warnings };
 }
 
+// 단타의 핵심: 일봉만으로는 "오늘 지금" 사야 할지 알 수 없다.
+// VWAP·갭·오프닝레인지·당일 모멘텀을 점수화한다.
+function intradayScore(id: IntradayInsight | null): { score: number; reasons: string[]; warnings: string[] } {
+  const reasons: string[] = [];
+  const warnings: string[] = [];
+  if (!id || !id.available) {
+    warnings.push("장중(분봉) 데이터를 가져오지 못해 일봉 지표만으로 판단했습니다 — 단타 신뢰도가 낮으니 보수적으로 접근하세요");
+    return { score: 0, reasons, warnings };
+  }
+  if (!id.isToday) {
+    warnings.push(`장중 데이터가 오늘 것이 아닙니다(기준일: ${id.sessionDate}) — 휴장 중이거나 개장 전일 수 있습니다`);
+  }
+
+  let score = 0;
+
+  // VWAP 위/아래
+  if (id.distanceFromVwapPct > 0.15) {
+    score += 8;
+    reasons.push(`VWAP(${Math.round(id.vwap).toLocaleString()}원) 위 +${id.distanceFromVwapPct.toFixed(2)}% — 당일 매수세 우위`);
+  } else if (id.distanceFromVwapPct < -0.15) {
+    score -= 8;
+    warnings.push(`VWAP(${Math.round(id.vwap).toLocaleString()}원) 아래 ${id.distanceFromVwapPct.toFixed(2)}% — 당일 매도세 우위`);
+  }
+
+  // 갭 방향 + 갭 유지/실패 여부
+  if (id.gapType === "갭상승") {
+    if (id.current >= id.todayOpen) {
+      score += 6;
+      reasons.push(`갭상승(+${id.gapPct.toFixed(2)}%) 출발 후 시가 지지 — 상승 갭 유지 중`);
+    } else {
+      score -= 6;
+      warnings.push(`갭상승(+${id.gapPct.toFixed(2)}%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행, 상승 실패 신호`);
+    }
+  } else if (id.gapType === "갭하락") {
+    if (id.current <= id.todayOpen) {
+      score -= 6;
+      warnings.push(`갭하락(${id.gapPct.toFixed(2)}%) 출발 후 반등 없이 약세 지속`);
+    } else {
+      score += 4;
+      reasons.push(`갭하락(${id.gapPct.toFixed(2)}%) 출발했지만 시가 위로 반등 — 낙폭과대 반발매수 유입`);
+    }
+  }
+
+  // 오프닝레인지 브레이크아웃
+  if (id.orbStatus === "상단돌파") {
+    score += 7;
+    reasons.push(`오프닝레인지 상단(${id.openingRangeHigh ? Math.round(id.openingRangeHigh).toLocaleString() : "-"}원) 돌파 — 상승 전환 시그널`);
+  } else if (id.orbStatus === "하단이탈") {
+    score -= 7;
+    warnings.push(`오프닝레인지 하단(${id.openingRangeLow ? Math.round(id.openingRangeLow).toLocaleString() : "-"}원) 이탈 — 하락 전환 시그널`);
+  }
+
+  // 당일 모멘텀 (최근 약 30분)
+  if (id.momentum === "강한상승") {
+    score += 6;
+    reasons.push("최근 30분 캔들 대부분 양봉 — 강한 단기 상승 모멘텀");
+  } else if (id.momentum === "상승") score += 3;
+  else if (id.momentum === "강한하락") {
+    score -= 6;
+    warnings.push("최근 30분 캔들 대부분 음봉 — 강한 단기 하락 모멘텀");
+  } else if (id.momentum === "하락") score -= 3;
+
+  // 당일 레인지 내 위치 (과열/과매도, 일봉 RSI와 별개로 "오늘" 기준)
+  if (id.rangePositionPct >= 95) warnings.push("당일 고가권 — 단기 눌림 유의, 추격 매수 자제");
+  else if (id.rangePositionPct <= 5) reasons.push("당일 저가권 — 단기 반등 시도 가능 구간");
+
+  return { score, reasons, warnings };
+}
+
+function buildEntryTriggers(id: IntradayInsight | null, ind: Indicators): string[] {
+  const triggers: string[] = [];
+  if (!id || !id.available) {
+    triggers.push(`20일선(${Math.round(ind.ma20).toLocaleString()}원) 회복 확인 후 진입 검토 (장중 데이터 미확보로 보수적 접근)`);
+    return triggers;
+  }
+  triggers.push(`VWAP(${Math.round(id.vwap).toLocaleString()}원) 상향 돌파 + 거래량 증가 동반 시 1차 진입`);
+  if (id.openingRangeHigh) {
+    triggers.push(`오프닝레인지 상단(${Math.round(id.openingRangeHigh).toLocaleString()}원) 돌파 후 되돌림(눌림목)에서 진입`);
+  }
+  if (id.gapType === "갭하락") {
+    triggers.push(`당일 저가(${Math.round(id.todayLow).toLocaleString()}원) 지지 확인(이탈 없이 반등) 시 반발매수 진입`);
+  }
+  return triggers;
+}
+
+function buildInvalidation(id: IntradayInsight | null, macro: MacroSnapshot): string | null {
+  const parts: string[] = [];
+  if (id?.available && id.openingRangeLow) {
+    parts.push(`오프닝레인지 하단(${Math.round(id.openingRangeLow).toLocaleString()}원) 재이탈`);
+  }
+  if (macro.sox) parts.push("미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락");
+  if (parts.length === 0) return null;
+  return `${parts.join(" 또는 ")} 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.`;
+}
+
+function buildScaledEntry(price: number, qty: number | null): ScaledOrder[] {
+  if (!qty || qty < 2) {
+    return qty ? [{ price: Math.round(price), qty, note: "1회 매수 (수량이 적어 분할 실익 없음)" }] : [];
+  }
+  const q1 = Math.ceil(qty * 0.6);
+  const q2 = qty - q1;
+  return [
+    { price: Math.round(price), qty: q1, note: "1차 진입 (60%) — 진입 트리거 충족 즉시" },
+    { price: Math.round(price * 0.985), qty: q2, note: "2차 진입 (40%) — 추가 눌림 시 (물타기 아닌 사전 계획된 분할매수)" },
+  ];
+}
+
+function buildScaledExit(entryPrice: number, targetPrice: number | null, qty: number | null): ScaledOrder[] {
+  if (!targetPrice || !qty) return [];
+  const t1 = Math.round(entryPrice + (targetPrice - entryPrice) * 0.5);
+  const q1 = Math.ceil(qty * 0.5);
+  return [
+    { price: t1, qty: q1, note: "1차 익절 (50%) — 손익비 1:1 도달 시 우선 실현" },
+    { price: targetPrice, qty: qty - q1, note: "2차 익절 (나머지) — 목표가 도달 또는 트레일링 스탑으로 관리" },
+  ];
+}
+
 export function runEngine(params: {
   ticker: StockTicker;
   price: number;
@@ -144,24 +268,43 @@ export function runEngine(params: {
   macro: MacroSnapshot;
   news: NewsItem[];
   portfolio: Portfolio;
+  intraday: IntradayInsight | null;
+  marketPhase: MarketPhaseInfo;
+  relativeStrengthNote?: string | null;
 }): EngineSignal {
-  const { ticker, price, candles, macro, news, portfolio } = params;
+  const { ticker, price, candles, macro, news, portfolio, intraday, marketPhase } = params;
   const name = STOCKS[ticker].name;
   const ind = computeIndicators(candles);
 
   const tech = technicalScore(ind, price);
   const mac = macroScore(macro);
   const sent = newsSentimentScore(news, name);
+  const intra = intradayScore(intraday);
 
-  let score = Math.max(0, Math.min(100, tech.score + mac.score + sent.score));
-  const reasons = [...tech.reasons, ...mac.notes];
-  const warnings = [...tech.warnings, ...sent.notes];
+  // 장초반/점심시간대는 신호 신뢰도가 낮으므로 가중치를 낮춘다 (과최적화된 진입 방지)
+  const phaseDampener = marketPhase.phase === "장초반" || marketPhase.phase === "점심시간대" ? 0.7 : 1;
+
+  let score = Math.max(
+    0,
+    Math.min(100, 50 + (tech.score - 50 + mac.score + sent.score + intra.score) * phaseDampener),
+  );
+  const reasons = [...intra.reasons, ...tech.reasons, ...mac.notes];
+  const warnings = [...intra.warnings, ...tech.warnings, ...sent.notes];
+  if (phaseDampener < 1) {
+    warnings.push(`현재 시간대(${marketPhase.phase})는 신호 신뢰도가 평소보다 낮습니다 — ${marketPhase.note}`);
+  }
 
   const holding = portfolio.holdings.find((h) => h.ticker === ticker && h.qty > 0) ?? null;
   const totalHoldingValue = portfolio.holdings.reduce((a, h) => a + h.qty * price, 0);
   const totalAsset = portfolio.cash + totalHoldingValue;
 
-  const atrStopDist = isNaN(ind.atr14) ? price * 0.03 : Math.max(ind.atr14 * 1.5, price * 0.02);
+  // 단타용 손절폭: 일봉 ATR과 당일 오프닝레인지 폭 중 더 타이트한 쪽을 우선 사용
+  const dailyAtrDist = isNaN(ind.atr14) ? price * 0.03 : Math.max(ind.atr14 * 1.5, price * 0.02);
+  const orRangeDist =
+    intraday?.available && intraday.openingRangeHigh != null && intraday.openingRangeLow != null
+      ? intraday.openingRangeHigh - intraday.openingRangeLow
+      : null;
+  const atrStopDist = orRangeDist && orRangeDist > price * 0.005 ? Math.min(dailyAtrDist, orRangeDist * 1.3) : dailyAtrDist;
 
   let action: EngineSignal["action"] = "관망";
   let targetPrice: number | null = null;
@@ -169,6 +312,9 @@ export function runEngine(params: {
   let suggestedBudget: number | null = null;
   let suggestedQty: number | null = null;
   let pnlPct: number | null = null;
+  let entryTriggers: string[] = [];
+  let scaledEntry: ScaledOrder[] = [];
+  let scaledExit: ScaledOrder[] = [];
 
   if (holding) {
     pnlPct = ((price - holding.avgPrice) / holding.avgPrice) * 100;
@@ -213,23 +359,30 @@ export function runEngine(params: {
     } else {
       action = "보유";
     }
+    scaledExit = buildScaledExit(holding.avgPrice, targetPrice, holding.qty);
   } else {
-    // 미보유
+    // 미보유 — 단타용 진입 트리거를 항상 제시 (지금 조건 미충족이어도 "무엇을 봐야 하는지" 알려줌)
     stopPrice = Math.round(price - atrStopDist);
     targetPrice = Math.round(price + atrStopDist * 2);
+    entryTriggers = buildEntryTriggers(intraday, ind);
+
     if (score >= 68 && portfolio.cash > price) {
       action = "신규매수";
       const budget = Math.min(portfolio.cash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist);
       suggestedBudget = Math.floor(budget);
       suggestedQty = Math.max(1, Math.floor(budget / price));
-      reasons.unshift(`진입 신호 충족 (점수 ${score}) — 분할 매수 권장, 진입 즉시 손절가 설정`);
+      reasons.unshift(`진입 신호 충족 (점수 ${Math.round(score)}) — 분할 매수 권장, 진입 즉시 손절가 설정`);
+      scaledEntry = buildScaledEntry(price, suggestedQty);
+      scaledExit = buildScaledExit(price, targetPrice, suggestedQty);
     } else if (score >= 58) {
       action = "관망";
-      reasons.unshift("매수 근접 구간 — 추가 확인(거래량·해외지수) 후 진입 권장");
+      reasons.unshift("매수 근접 구간 — 아래 진입 트리거 충족 시까지 대기");
     } else {
       action = "관망";
     }
   }
+
+  const invalidation = buildInvalidation(intraday, macro);
 
   const confidence: EngineSignal["confidence"] =
     score >= 72 || score <= 28 ? "높음" : score >= 60 || score <= 40 ? "중간" : "낮음";
@@ -249,5 +402,32 @@ export function runEngine(params: {
     pnlPct: pnlPct == null ? null : Math.round(pnlPct * 100) / 100,
     price,
     indicators: ind,
+    intraday,
+    marketPhase,
+    entryTriggers,
+    invalidation,
+    scaledEntry,
+    scaledExit,
+    relativeStrengthNote: params.relativeStrengthNote ?? null,
+  };
+}
+
+// 삼성전자 vs SK하이닉스 상대강도 — 단타에서는 "둘 중 더 강한 놈"을 골라 타는 게 원칙.
+export function computeRelativeStrength(
+  a: { ticker: StockTicker; changePct: number },
+  b: { ticker: StockTicker; changePct: number },
+): { leader: StockTicker; note: string } {
+  const diff = a.changePct - b.changePct;
+  if (Math.abs(diff) < 0.3) {
+    return {
+      leader: a.ticker,
+      note: `${STOCKS[a.ticker].name}·${STOCKS[b.ticker].name} 등락률 차이가 크지 않아(${Math.abs(diff).toFixed(2)}%p) 상대강도 우위가 뚜렷하지 않습니다.`,
+    };
+  }
+  const leader = diff > 0 ? a.ticker : b.ticker;
+  const laggard = diff > 0 ? b.ticker : a.ticker;
+  return {
+    leader,
+    note: `${STOCKS[leader].name}가 ${STOCKS[laggard].name} 대비 상대적으로 강세(${Math.abs(diff).toFixed(2)}%p 우위) — 단타는 상대적으로 강한 종목 위주로 접근하는 것이 유리합니다.`,
   };
 }

@@ -23,6 +23,7 @@ interface AdviceResponse {
   newsError?: string | null;
   aiAvailable: boolean;
   newsLive: boolean;
+  marketPhase?: { phase: string; kstTime: string; note: string };
   generatedAt: string;
   error?: string;
 }
@@ -55,6 +56,17 @@ function badgeClass(action: string): string {
   if (action === "부분매도" || action === "전량매도") return "badge badge-sell";
   if (action === "손절") return "badge badge-danger";
   return "badge badge-hold";
+}
+
+function momentumLabel(m: string): string {
+  const map: Record<string, string> = {
+    강한상승: "🔥 강한 상승",
+    상승: "↗ 상승",
+    중립: "→ 중립",
+    하락: "↘ 하락",
+    강한하락: "🧊 강한 하락",
+  };
+  return map[m] ?? m;
 }
 
 export default function Home() {
@@ -283,6 +295,18 @@ export default function Home() {
         })}
       </div>
 
+      {/* 장 상태 + 상대강도 배너 */}
+      {result?.marketPhase && (
+        <div className="phase-banner">
+          <span className="phase-tag">{result.marketPhase.phase}</span>
+          <span className="phase-time">{result.marketPhase.kstTime} KST</span>
+          <span className="phase-note">{result.marketPhase.note}</span>
+        </div>
+      )}
+      {result?.signals[0]?.relativeStrengthNote && (
+        <div className="rs-banner">⚖️ {result.signals[0].relativeStrengthNote}</div>
+      )}
+
       {/* AI 분석 버튼 */}
       <button className="btn btn-primary" onClick={() => void runAnalysis()} disabled={loading} style={{ marginBottom: 14 }}>
         {loading ? (
@@ -392,6 +416,98 @@ export default function Home() {
                 </div>
               </>
             )}
+
+            {sig?.intraday?.available && (
+              <div className="intraday-box">
+                <div className="intraday-box-title">
+                  📊 오늘의 장중 데이터
+                  {!sig.intraday.isToday && <span className="stale-tag">최근 거래일 기준</span>}
+                </div>
+                <div className="intraday-grid">
+                  <div className="intraday-cell">
+                    <div className="ic-label">VWAP (당일 평균단가)</div>
+                    <div className="ic-value">{won(sig.intraday.vwap)}원</div>
+                    <div className={`ic-sub ${pctClass(sig.intraday.distanceFromVwapPct)}`}>
+                      {sig.intraday.distanceFromVwapPct >= 0 ? "+" : ""}
+                      {sig.intraday.distanceFromVwapPct.toFixed(2)}% {sig.intraday.distanceFromVwapPct >= 0 ? "위" : "아래"}
+                    </div>
+                  </div>
+                  <div className="intraday-cell">
+                    <div className="ic-label">시가 갭</div>
+                    <div className="ic-value">{sig.intraday.gapType}</div>
+                    <div className={`ic-sub ${pctClass(sig.intraday.gapPct)}`}>
+                      {sig.intraday.gapPct >= 0 ? "+" : ""}
+                      {sig.intraday.gapPct.toFixed(2)}%
+                    </div>
+                  </div>
+                  <div className="intraday-cell">
+                    <div className="ic-label">오프닝레인지(첫 30분)</div>
+                    <div className="ic-value" style={{ fontSize: 13 }}>
+                      {sig.intraday.orbStatus}
+                    </div>
+                    <div className="ic-sub">
+                      {won(sig.intraday.openingRangeLow)}~{won(sig.intraday.openingRangeHigh)}원
+                    </div>
+                  </div>
+                  <div className="intraday-cell">
+                    <div className="ic-label">당일 모멘텀</div>
+                    <div className="ic-value" style={{ fontSize: 13 }}>
+                      {momentumLabel(sig.intraday.momentum)}
+                    </div>
+                    <div className="ic-sub">당일 레인지 {sig.intraday.rangePositionPct.toFixed(0)}% 지점</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {sig && !sig.intraday?.available && (
+              <div className="reason warn" style={{ marginTop: 10 }}>
+                ⚠️ 장중 데이터 수집 실패 — 일봉 지표만으로 판단했습니다. 신뢰도가 낮으니 보수적으로 접근하세요.
+              </div>
+            )}
+
+            {sig &&
+              ((ai?.entryTriggers ?? sig.entryTriggers).length > 0 ||
+                sig.scaledEntry.length > 0 ||
+                sig.scaledExit.length > 0 ||
+                (ai?.invalidation ?? sig.invalidation)) && (
+                <div className="plan-box">
+                  <div className="plan-title">🎯 오늘의 매매 플랜</div>
+                  {(ai?.entryTriggers ?? sig.entryTriggers).length > 0 && (
+                    <div className="plan-block">
+                      <div className="plan-block-title">진입 조건 (이게 충족되면)</div>
+                      {(ai?.entryTriggers ?? sig.entryTriggers).map((t, i) => (
+                        <div className="plan-item" key={i}>▸ {t}</div>
+                      ))}
+                    </div>
+                  )}
+                  {sig.scaledEntry.length > 0 && (
+                    <div className="plan-block">
+                      <div className="plan-block-title">분할 매수 라인</div>
+                      {sig.scaledEntry.map((o, i) => (
+                        <div className="plan-item" key={i}>
+                          ▸ {won(o.price)}원 · {o.qty}주 — {o.note}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {sig.scaledExit.length > 0 && (
+                    <div className="plan-block">
+                      <div className="plan-block-title">분할 매도(익절) 라인</div>
+                      {sig.scaledExit.map((o, i) => (
+                        <div className="plan-item" key={i}>
+                          ▸ {won(o.price)}원 · {o.qty}주 — {o.note}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {(ai?.invalidation ?? sig.invalidation) && (
+                    <div className="plan-block plan-invalidation">
+                      <div className="plan-block-title">⛔ 무효화 조건 (목표가·손절가와 무관하게 즉시 재검토)</div>
+                      <div className="plan-item">{ai?.invalidation ?? sig.invalidation}</div>
+                    </div>
+                  )}
+                </div>
+              )}
 
             {ai && (
               <div className="reason-list">
