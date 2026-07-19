@@ -1,15 +1,14 @@
 // 간단 비밀번호 게이트. 정식 계정 시스템은 아니며, 배포 주소를 아는 타인이
 // 내 Claude/Gemini API 크레딧을 함부로 소모하지 못하게 막는 최소한의 방어선이다.
-// APP_PASSWORD 환경변수가 없으면 보호는 자동으로 비활성화된다(설치 초기에도 앱이 막히지 않도록).
+// APP_PASSWORD 환경변수를 따로 설정하지 않아도 기본 비밀번호(lib/authToken.ts)로 항상 켜져 있다.
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { AUTH_COOKIE_NAME, computeAuthToken } from "@/lib/authToken";
+import { AUTH_COOKIE_NAME, computeAuthToken, resolveAppPassword } from "@/lib/authToken";
 
 const PUBLIC_PATHS = ["/login", "/api/auth"];
 
 export async function middleware(req: NextRequest) {
-  const appPassword = process.env.APP_PASSWORD;
-  if (!appPassword) return NextResponse.next();
+  const appPassword = resolveAppPassword();
 
   const { pathname } = req.nextUrl;
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {

@@ -11,3 +11,11 @@ export async function computeAuthToken(password: string): Promise<string> {
 }
 
 export const AUTH_COOKIE_NAME = "auth";
+
+// APP_PASSWORD 환경변수를 따로 설정하지 않아도 바로 보호가 켜지도록 기본 비밀번호를 둔다.
+// Vercel 환경변수에 APP_PASSWORD를 추가하면 이 기본값 대신 그 값이 쓰인다.
+export const DEFAULT_APP_PASSWORD = "0815";
+
+export function resolveAppPassword(): string {
+  return process.env.APP_PASSWORD || DEFAULT_APP_PASSWORD;
+}
