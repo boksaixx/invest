@@ -6,7 +6,7 @@ import { computeRelativeStrength, computeSectorConcentration, runEngine } from "
 import { computeIntradayInsight } from "@/lib/intraday";
 import { getMarketPhase } from "@/lib/marketPhase";
 import { generateAdvice } from "@/lib/claude";
-import type { EngineSignal, Portfolio } from "@/lib/types";
+import type { EngineSignal, NewsItem, Portfolio } from "@/lib/types";
 import { TICKER_LIST } from "@/lib/types";
 import { fetchLatestSnapshot } from "@/lib/snapshot";
 import { fetchBacktestSnapshot } from "@/lib/backtest";
@@ -20,9 +20,8 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as { portfolio?: Portfolio };
     const portfolio: Portfolio = body.portfolio ?? { cash: 20_000_000, holdings: [] };
 
-    const [macro, newsResult, snapshot, backtest, ...stockData] = await Promise.all([
+    const [macro, snapshot, backtest, ...stockData] = await Promise.all([
       getMacroSnapshot(),
-      collectNews(),
       fetchLatestSnapshot(),
       fetchBacktestSnapshot(),
       ...TICKER_LIST.map(async (t) => {
@@ -31,11 +30,28 @@ export async function POST(req: Request) {
         return { ticker: t, quote, candles, rawIntraday };
       }),
     ]);
-    const { news, error: newsError } = newsResult;
     const marketPhase = getMarketPhase();
 
-    // 실시간 뉴스 수집 실패 시 자동수집 스냅샷의 뉴스로 폴백
-    const effectiveNews = news.length > 0 ? news : (snapshot?.news ?? []);
+    // 뉴스 수집·분석 분리: 크론이 15분 간격으로 이미 Gemini를 호출해 data/latest.json에 저장해두므로,
+    // 그 캐시가 충분히 신선하면 그대로 재사용하고, 없거나 오래됐을 때만 라이브로 다시 호출한다.
+    // Gemini 그라운딩 호출은 사용자 클릭마다 중복으로 쏘면 그만큼 과금이 배가되므로 여기서 아낀다.
+    const NEWS_CACHE_FRESH_MS = 20 * 60_000; // 자동수집 간격(15분)보다 여유를 둔 신선도 기준
+    const snapshotAgeMs = snapshot?.collectedAt ? Date.now() - new Date(snapshot.collectedAt).getTime() : Infinity;
+    const cacheIsFresh = Boolean(snapshot) && (snapshot?.news.length ?? 0) > 0 && snapshotAgeMs < NEWS_CACHE_FRESH_MS;
+
+    let news: NewsItem[];
+    let newsError: string | null;
+    let newsLive: boolean;
+    if (cacheIsFresh) {
+      news = snapshot!.news;
+      newsError = null;
+      newsLive = false;
+    } else {
+      const liveResult = await collectNews();
+      newsLive = liveResult.news.length > 0;
+      news = newsLive ? liveResult.news : (snapshot?.news ?? []);
+      newsError = liveResult.news.length === 0 ? liveResult.error : null;
+    }
 
     // 상대강도 랭킹 (시세 확보된 종목 기준)
     const withQuote = stockData.filter((sd): sd is typeof sd & { quote: NonNullable<typeof sd.quote> } => sd.quote != null);
@@ -57,7 +73,7 @@ export async function POST(req: Request) {
           price: sd.quote.price,
           candles: sd.candles,
           macro,
-          news: effectiveNews,
+          news,
           portfolio,
           intraday,
           marketPhase,
@@ -74,7 +90,7 @@ export async function POST(req: Request) {
     const { advice, error: adviceError } = await generateAdvice({
       signals,
       macro,
-      news: effectiveNews,
+      news,
       portfolio,
       history: snapshot,
       events: eventsData.events,
@@ -86,15 +102,15 @@ export async function POST(req: Request) {
       signals,
       advice,
       adviceError,
-      news: effectiveNews,
-      newsError: news.length === 0 ? newsError : null,
+      news,
+      newsError,
       macro,
       marketPhase,
       relativeStrengthSummary: rs.summary,
       sectorConcentrationWarning: concentration.warning,
       backtestDisclaimer: backtest?.disclaimer ?? null,
       aiAvailable: Boolean(process.env.ANTHROPIC_API_KEY),
-      newsLive: news.length > 0,
+      newsLive,
       generatedAt: new Date().toISOString(),
     });
   } catch (e) {

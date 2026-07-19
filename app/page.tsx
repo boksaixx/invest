@@ -177,7 +177,8 @@ export default function Home() {
       const res = await fetch("/api/advice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ portfolio }),
+        // 평단가만 입력하고 수량은 아직 안 넣은 임시 항목(qty=0)은 "실제 보유"가 아니므로 서버에는 제외하고 보낸다.
+        body: JSON.stringify({ portfolio: { ...portfolio, holdings: portfolio.holdings.filter((h) => h.qty > 0) } }),
       });
       let json: AdviceResponse | null = null;
       try {
@@ -318,8 +319,10 @@ export default function Home() {
             const h = portfolio.holdings.find((x) => x.ticker === ticker);
             const update = (avgPrice: number, qty: number) => {
               const rest = portfolio.holdings.filter((x) => x.ticker !== ticker);
+              // qty가 아직 0이어도(평단가만 먼저 입력한 상태) 항목을 유지해야 입력값이 화면에서
+              // 사라지지 않는다 — "실제 보유중"인지는 소비하는 쪽에서 항상 qty>0으로 별도 판단한다.
               const next =
-                qty > 0 ? [...rest, { ticker, avgPrice, qty }] : rest;
+                avgPrice > 0 || qty > 0 ? [...rest, { ticker, avgPrice, qty }] : rest;
               savePortfolio({ ...portfolio, holdings: next });
             };
             return (

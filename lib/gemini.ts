@@ -2,64 +2,58 @@
 // GEMINI_API_KEY 필요 (https://aistudio.google.com 에서 무료 발급).
 import type { NewsItem } from "./types";
 
-const PROMPT = `당신은 한국 주식 단기 트레이더를 위한 실시간 속보 수집 애널리스트입니다. 사용자는 이 정보를 보고 지금 당장 매수/매도를 결정하므로, 오래되거나 이미 다 아는 뉴스보다 "방금 나온 새로운 정보"가 훨씬 중요합니다.
+const PROMPT = `한국 주식 단타 트레이더용 실시간 속보 수집. 오래된 뉴스보다 방금 나온 뉴스가 중요.
 
-구글 검색으로 아래 주제들에 대한 "지금 이 순간" 기준 최신 정보를 확인하세요. 검색 횟수는 한 번의 호출 안에서 필요한 만큼만 효율적으로 쓰고(주제가 겹치면 검색을 재사용), 검색해도 실제로 결과가 없는 항목은 지어내지 말고 비워두세요:
+아래 주제의 "지금 이 순간" 기준 최신 정보만 구글 검색으로 확인 (주제가 겹치면 검색 재사용, 결과 없으면 지어내지 말고 생략):
+1. 삼성전자(005930)/SK하이닉스(000660)/한미반도체(042700)/삼성전기(009150)/DB하이텍(000990) 속보·공시·실적
+2. 반도체 업황: D램/낸드/HBM 가격·수요, 엔비디아·TSMC·마이크론 뉴스
+3. 매크로: 원/달러 환율 급변동, 금리/CPI, 코스피 수급
+4. 파생시장: 코스피200 선물 수급, VIX·공포탐욕지수
+5. 레버리지/인버스 ETF(KODEX 레버리지·인버스2X 등): 수급, 괴리율·롤오버, 반대매매 이슈
+6. 지정학: 미중 갈등, 반도체 수출규제·관세
+7. 오늘 반도체 관련주 특징주/급등락 이슈
 
-1. 삼성전자(005930)/SK하이닉스(000660) 속보/공시/실적/수주 (HBM, 낸드, D램 포함)
-2. 한미반도체(042700)/삼성전기(009150)/DB하이텍(000990) 속보/실적/수주
-3. 반도체 업황 최신 동향: D램/낸드 가격, HBM 수요, 엔비디아·TSMC·마이크론 등 글로벌 테크 최신 뉴스
-4. 매크로 실시간: 원/달러 환율 지금 시세와 급변동, 미국 금리/CPI 관련 최신 발언, 코스피 수급(외국인/기관 실시간 매매동향)
-5. 파생시장 실시간: 코스피200 선물 외국인 순매수/순매도 동향, 옵션 풋콜비율, VIX·공포탐욕지수 최신값 관련 뉴스, 프로그램매매(차익/비차익) 동향
-6. 레버리지/인버스 ETF 동향: KODEX 레버리지·KODEX 200선물인버스2X 등 국내 레버리지·인버스 상품의 최근 수급(순매수/순매도), 괴리율·롤오버 이슈, 반대매매(강제청산) 관련 뉴스, 반도체 관련 레버리지 상품(예: TIGER 반도체 레버리지 등)의 최근 동향과 투자자 주의 경고
-7. 지정학 리스크 속보: 미중 갈등, 반도체 수출 규제, 관세 관련 최신 발표
-8. 오늘 장중 특징주/이슈: 코스피/코스닥 반도체 관련주가 지금 실제로 급등락하고 있는지
+규칙: 최신 발행 우선. 3시간 이내+impact "높음"만 isBreaking=true, 배열 맨 앞. 24시간 초과 뉴스 제외(단 결과 부족하면 비교적 최근 것으로 채우고 그 사실을 짧게 남김). publishedAt은 실제 시각/상대시각(예: "1시간 전") 또는 "시점 불명".
 
-우선순위 규칙:
-- 각 검색에서 가장 최근 발행 시각의 결과를 우선 채택한다. 같은 주제라도 오래된 기사보다 방금 갱신된 기사를 쓴다.
-- 발행 후 3시간 이내이고 impact가 "높음"인 뉴스는 isBreaking을 true로 표시하고 배열의 맨 앞쪽에 배치한다.
-- 24시간을 넘은 뉴스는 제외한다. 단, 검색 결과가 부족해 항목을 채울 수 없으면 그 사실을 요약에 짧게 남기고 비교적 최근 것으로 채운다.
-- publishedAt에는 검색 결과에 나온 실제 시각/상대시각을 최대한 정확히 적는다(예: "1시간 전", "오늘 14:30", "3시간 전"). 확인 불가하면 "시점 불명"으로 적는다.
-
-반드시 아래 JSON 배열 형식으로만 답하세요 (다른 텍스트 금지, 최대 25건, 최신순 정렬):
-
-[
-  {
-    "title": "뉴스 제목 (한국어)",
-    "summary": "핵심 내용 1~2문장 (한국어) — 숫자·구체적 수치가 있으면 반드시 포함",
-    "sentiment": "긍정" | "부정" | "중립",
-    "impact": "높음" | "중간" | "낮음",
-    "relatedTo": "삼성전자" | "SK하이닉스" | "한미반도체" | "삼성전기" | "DB하이텍" | "반도체업황" | "매크로" | "레버리지ETF" | "파생시장" | "지정학",
-    "source": "출처 매체명",
-    "publishedAt": "실제 시각/상대시각",
-    "isBreaking": true | false
-  }
-]`;
+summary는 숫자를 포함한 한국어 1문장(60자 이내)으로 압축. 아래 JSON 배열만 출력(다른 텍스트 금지, 최대 15건, 최신순):
+[{"title":"","summary":"","sentiment":"긍정"|"부정"|"중립","impact":"높음"|"중간"|"낮음","relatedTo":"삼성전자"|"SK하이닉스"|"한미반도체"|"삼성전기"|"DB하이텍"|"반도체업황"|"매크로"|"레버리지ETF"|"파생시장"|"지정학","source":"","publishedAt":"","isBreaking":true|false}]`;
 
 // 구글이 특정 모델의 신규 지원을 중단하거나(예: "gemini-2.5-flash is no longer available
 // to new users") 계정별로 접근을 제한해도, 모델 목록 API에는 여전히 노출되는 경우가 있다.
 // 즉 "목록에 있음" != "이 키로 실제 호출 가능". 그래서 한 모델만 골라 실패하면 바로 포기하지 않고,
 // 최신 모델부터 순서대로 실제 호출을 시도해 처음 성공하는 모델을 쓴다.
-// (뉴스 수집은 의사결정 품질에 직결되므로, 토큰 절약보다 "어떻게든 최신 모델로 풍부한 정보를 가져오는 것"을 우선한다.)
+// 비용 우선순위: flash-lite(가장 저렴) > flash > pro. pro는 토큰 단가가 flash 대비 훨씬 비싸므로,
+// 버전이 아무리 최신이어도 flash 계열이 하나라도 남아있으면 절대 먼저 시도하지 않는다
+// (다른 후보가 전부 실패했을 때만 쓰는 최후의 수단).
 let candidateCache: { models: string[]; expiresAt: number } | null = null;
 let workingModelCache: { name: string; expiresAt: number } | null = null;
 
 function scoreModel(name: string): number {
-  let score = 0;
-  if (/-latest$/i.test(name)) score += 1000; // 별칭 모델은 구글이 항상 최신 버전으로 갱신해줌 → 최우선
+  let familyScore = 0;
+  if (/flash-lite/i.test(name)) familyScore = 3000;
+  else if (/flash/i.test(name)) familyScore = 2000;
+  else if (/pro/i.test(name)) familyScore = 100; // 비용이 훨씬 높아 최후순위 — 버전 보너스로도 flash를 못 넘도록 격차를 크게 둠
+  let bonus = 0;
+  if (/-latest$/i.test(name)) bonus += 50; // 별칭 모델은 구글이 항상 최신 버전으로 갱신해줌
   const verMatch = name.match(/(\d+(?:\.\d+)?)/);
-  if (verMatch) score += parseFloat(verMatch[1]) * 10; // 버전 숫자가 높을수록(최신일수록) 우선
-  if (/flash/i.test(name)) score += 5; // 검색 그라운딩 + 빈번한 자동수집엔 flash가 속도/할당량 면에서 안정적
-  if (/pro/i.test(name)) score += 3; // pro는 후순위지만 완전히 배제하지 않음 (다른 후보가 다 실패할 때 대비)
-  if (/exp|preview/i.test(name)) score -= 50; // 실험/프리뷰는 불안정하므로 후순위 (배제는 아님)
-  return score;
+  if (verMatch) bonus += parseFloat(verMatch[1]); // 같은 계열 내에서는 최신 버전 우선 (타이브레이커일 뿐)
+  if (/exp|preview/i.test(name)) bonus -= 500; // 실험/프리뷰는 불안정하므로 후순위 (배제는 아님)
+  return familyScore + bonus;
 }
 
 async function listCandidateModels(apiKey: string): Promise<string[]> {
   const now = Date.now();
   if (candidateCache && candidateCache.expiresAt > now) return candidateCache.models;
 
-  const fallbacks = ["gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-pro-latest"];
+  const fallbacks = [
+    "gemini-flash-lite-latest",
+    "gemini-flash-latest",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-pro-latest",
+  ];
   try {
     const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
       headers: { "x-goog-api-key": apiKey },
@@ -140,7 +134,8 @@ export async function collectNews(): Promise<{ news: NewsItem[]; error: string |
       const result = await callGeminiGenerate(apiKey, model, {
         contents: [{ parts: [{ text: PROMPT }] }],
         tools: [{ google_search: {} }],
-        generationConfig: { temperature: 0.2 },
+        // maxOutputTokens: 뉴스 15건 + 검색 스니펫 근거 정도로 충분한 상한을 걸어 출력 토큰 폭주를 방지
+        generationConfig: { temperature: 0.2, maxOutputTokens: 3000 },
       });
       if (result.ok) {
         workingModelCache = { name: model, expiresAt: Date.now() + 30 * 60_000 };
@@ -204,7 +199,7 @@ function parseNewsJson(text: string): NewsItem[] {
       }))
       // 속보(isBreaking)를 최상단으로, 그 안에서는 원래 순서(최신순) 유지
       .sort((a, b) => Number(b.isBreaking) - Number(a.isBreaking))
-      .slice(0, 25);
+      .slice(0, 15);
   } catch {
     return [];
   }
