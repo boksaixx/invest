@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote } from "@/lib/market";
 import { collectNews } from "@/lib/gemini";
 import { fetchDartDisclosures } from "@/lib/dart";
+import { fetchInvestorFlows } from "@/lib/investorFlow";
 import { computeMasterScore, computeRelativeStrength, computeSectorConcentration, runEngine } from "@/lib/engine";
 import { computeIntradayInsight } from "@/lib/intraday";
 import { getMarketPhase } from "@/lib/marketPhase";
@@ -21,11 +22,12 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as { portfolio?: Portfolio };
     const portfolio: Portfolio = body.portfolio ?? { cash: 20_000_000, holdings: [] };
 
-    const [macro, snapshot, backtest, disclosureResult, ...stockData] = await Promise.all([
+    const [macro, snapshot, backtest, disclosureResult, flowResult, ...stockData] = await Promise.all([
       getMacroSnapshot(),
       fetchLatestSnapshot(),
       fetchBacktestSnapshot(),
       fetchDartDisclosures(),
+      fetchInvestorFlows(),
       ...TICKER_LIST.map(async (t) => {
         const quote = await getStockQuote(t);
         const [candles, rawIntraday] = await Promise.all([getStockCandles(t), getStockIntradayCandles(t)]);
@@ -81,10 +83,14 @@ export async function POST(req: Request) {
           marketPhase,
           relativeStrengthNote: rs.noteFor(sd.ticker),
           backtest: backtest?.perTicker[sd.ticker] ?? null,
-          // DART 라이브 호출이 비었으면(키 미설정/일시 오류) 자동수집 스냅샷의 직전 공시로 대체
+          // DART/KRX 라이브 호출이 비었으면(키 미설정/일시 오류) 자동수집 스냅샷의 직전 값으로 대체
           disclosures:
             disclosureResult.data[sd.ticker] ??
             snapshot?.signals?.find((s) => s.ticker === sd.ticker)?.disclosures ??
+            [],
+          investorFlow:
+            flowResult.data[sd.ticker] ??
+            snapshot?.signals?.find((s) => s.ticker === sd.ticker)?.investorFlow ??
             [],
         }),
       );

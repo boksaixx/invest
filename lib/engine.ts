@@ -16,6 +16,7 @@ import type {
   EngineSignal,
   Indicators,
   IntradayInsight,
+  InvestorFlowDay,
   MacroSnapshot,
   MarketPhaseInfo,
   MasterScore,
@@ -73,6 +74,33 @@ function disclosureScore(filings: DartFiling[] | undefined): { score: number; no
     }
   }
   return { score: Math.max(-8, Math.min(8, score)), notes, warnings };
+}
+
+// 전일까지의 외국인+기관 순매수(KRX 공개 데이터)를 반영한다. 종목마다 유동성이 크게 달라
+// 절대 주수로는 비교가 안 되므로, 해당 종목의 20일 평균거래량 대비 비율로 정규화해서 점수화한다.
+function investorFlowScore(
+  flows: InvestorFlowDay[] | undefined,
+  avgVolume20: number,
+): { score: number; notes: string[]; warnings: string[] } {
+  const notes: string[] = [];
+  const warnings: string[] = [];
+  if (!flows || flows.length === 0 || isNaN(avgVolume20) || avgVolume20 <= 0) return { score: 0, notes, warnings };
+  const latest = flows[flows.length - 1]; // 가장 최근(전일) 확정 데이터
+  const combined = latest.foreignNet + latest.institutionNet;
+  const pctOfAvgVol = (combined / avgVolume20) * 100;
+  let score = 0;
+  if (pctOfAvgVol > 3) {
+    score = Math.max(-8, Math.min(8, Math.round(pctOfAvgVol / 2)));
+    notes.push(
+      `전일(${latest.date}) 외국인+기관 순매수 ${combined.toLocaleString()}주(20일평균거래량 대비 +${pctOfAvgVol.toFixed(1)}%) — 수급 우호적`,
+    );
+  } else if (pctOfAvgVol < -3) {
+    score = Math.max(-8, Math.min(8, Math.round(pctOfAvgVol / 2)));
+    warnings.push(
+      `전일(${latest.date}) 외국인+기관 순매도 ${Math.abs(combined).toLocaleString()}주(20일평균거래량 대비 ${pctOfAvgVol.toFixed(1)}%) — 수급 이탈 주의`,
+    );
+  }
+  return { score, notes, warnings };
 }
 
 function macroScore(macro: MacroSnapshot, marketPhase: MarketPhaseInfo): { score: number; notes: string[]; warnings: string[] } {
@@ -311,6 +339,31 @@ function intradayScore(id: IntradayInsight | null): { score: number; reasons: st
   return { score, reasons, warnings };
 }
 
+// 미보유 종목의 "매수 진입가"를 명확한 근거와 함께 하나의 숫자로 제시한다.
+// 목표가·손절가는 이미 확정 숫자로 보여주면서 정작 "얼마에 사야 하는지"가 트리거 문장 속에
+// 묻혀 있던 문제를 보완 — 신규매수 신호면 현재가(즉시 진입), 관망(매수 근접) 상태면 가장
+// 우선순위 높은 진입 트리거의 가격 레벨을 대표 진입가로 노출한다.
+function computeSuggestedEntryPrice(
+  action: Action,
+  price: number,
+  intraday: IntradayInsight | null,
+  ind: Indicators,
+): { price: number; basis: string } | null {
+  if (action === "신규매수") {
+    return { price: Math.round(price), basis: "현재가 기준 즉시 진입 (분할매수 1차 라인 참고)" };
+  }
+  if (action === "관망") {
+    if (intraday?.available) {
+      return {
+        price: Math.round(intraday.vwap),
+        basis: `VWAP(${Math.round(intraday.vwap).toLocaleString()}원) 상향 돌파 + 거래량 증가 확인 시 진입`,
+      };
+    }
+    return { price: Math.round(ind.ma20), basis: `20일선(${Math.round(ind.ma20).toLocaleString()}원) 회복 확인 시 진입 검토 (장중 데이터 미확보)` };
+  }
+  return null;
+}
+
 function buildEntryTriggers(id: IntradayInsight | null, ind: Indicators): string[] {
   const triggers: string[] = [];
   if (!id || !id.available) {
@@ -470,6 +523,7 @@ export function runEngine(params: {
   relativeStrengthNote?: string | null;
   backtest?: BacktestStats | null;
   disclosures?: DartFiling[];
+  investorFlow?: InvestorFlowDay[];
 }): EngineSignal {
   const { ticker, price, candles, macro, news, portfolio, intraday, marketPhase } = params;
   const name = STOCKS[ticker].name;
@@ -480,16 +534,17 @@ export function runEngine(params: {
   const sent = newsSentimentScore(news, name);
   const intra = intradayScore(intraday);
   const disc = disclosureScore(params.disclosures);
+  const flow = investorFlowScore(params.investorFlow, ind.avgVolume20);
 
   // 장초반/점심시간대는 신호 신뢰도가 낮으므로 가중치를 낮춘다 (과최적화된 진입 방지)
   const phaseDampener = marketPhase.phase === "장초반" || marketPhase.phase === "점심시간대" ? 0.7 : 1;
 
   let score = Math.max(
     0,
-    Math.min(100, 50 + (tech.score - 50 + mac.score + sent.score + intra.score + disc.score) * phaseDampener),
+    Math.min(100, 50 + (tech.score - 50 + mac.score + sent.score + intra.score + disc.score + flow.score) * phaseDampener),
   );
-  const reasons = [...intra.reasons, ...tech.reasons, ...mac.notes, ...disc.notes];
-  const warnings = [...intra.warnings, ...tech.warnings, ...mac.warnings, ...sent.notes, ...disc.warnings];
+  const reasons = [...intra.reasons, ...tech.reasons, ...mac.notes, ...disc.notes, ...flow.notes];
+  const warnings = [...intra.warnings, ...tech.warnings, ...mac.warnings, ...sent.notes, ...disc.warnings, ...flow.warnings];
   if (phaseDampener < 1) {
     warnings.push(`현재 시간대(${marketPhase.phase})는 신호 신뢰도가 평소보다 낮습니다 — ${marketPhase.note}`);
   }
@@ -591,6 +646,8 @@ export function runEngine(params: {
     }
   }
 
+  const suggestedEntryPrice = holding ? null : computeSuggestedEntryPrice(action, price, intraday, ind);
+
   const invalidation = buildInvalidation(intraday, macro);
 
   // 왕복 거래비용(증권거래세+수수료) 추정 — 목표가가 비용 대비 실익이 얇으면 경고
@@ -652,6 +709,9 @@ export function runEngine(params: {
     verdict,
     macroScore: Math.round(mac.score),
     disclosures: params.disclosures ?? [],
+    investorFlow: params.investorFlow ?? [],
+    suggestedEntryPrice: suggestedEntryPrice?.price ?? null,
+    entryPriceBasis: suggestedEntryPrice?.basis ?? null,
   };
 }
 

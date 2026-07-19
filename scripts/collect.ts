@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote } from "../lib/market";
 import { collectNews } from "../lib/gemini";
 import { fetchDartDisclosures } from "../lib/dart";
+import { fetchInvestorFlows } from "../lib/investorFlow";
 import { computeMasterScore, computeRelativeStrength, runEngine } from "../lib/engine";
 import { computeIntradayInsight } from "../lib/intraday";
 import { getMarketPhase } from "../lib/marketPhase";
@@ -25,11 +26,12 @@ async function main() {
   console.log("=== 수집 시작:", new Date().toISOString(), "===");
   mkdirSync(join(DATA_DIR, "log"), { recursive: true });
 
-  const [macro, newsResult, backtest, disclosureResult, ...stockData] = await Promise.all([
+  const [macro, newsResult, backtest, disclosureResult, flowResult, ...stockData] = await Promise.all([
     getMacroSnapshot(),
     collectNews(),
     fetchBacktestSnapshot(),
     fetchDartDisclosures(),
+    fetchInvestorFlows(),
     ...TICKER_LIST.map(async (t) => {
       const quote = await getStockQuote(t);
       const [candles, rawIntraday] = await Promise.all([getStockCandles(t), getStockIntradayCandles(t)]);
@@ -39,6 +41,7 @@ async function main() {
   let { news, error: newsError } = newsResult;
   const marketPhase = getMarketPhase();
   if (disclosureResult.error) console.warn("DART 공시 수집 경고:", disclosureResult.error);
+  if (flowResult.error) console.warn("KRX 수급 수집 경고:", flowResult.error);
 
   // Gemini 그라운딩은 무료 등급 쿼터가 빡빡해 이번 수집 주기엔 실패할 수 있다. 그 경우 뉴스를
   // 비워서 덮어쓰지 않고, 직전 성공한 수집분(너무 오래되지 않았다면)을 그대로 이어서 사용한다.
@@ -85,6 +88,7 @@ async function main() {
         relativeStrengthNote: rs.noteFor(sd.ticker),
         backtest: backtest?.perTicker[sd.ticker] ?? null,
         disclosures: disclosureResult.data[sd.ticker] ?? [],
+        investorFlow: flowResult.data[sd.ticker] ?? [],
       }),
     );
   }

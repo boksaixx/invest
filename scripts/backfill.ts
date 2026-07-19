@@ -1,4 +1,4 @@
-// 3개년 과거 데이터 백필: 삼성전자/SK하이닉스/코스피/환율/해외지수 일봉을 저장소에 적재
+// 5개년 과거 데이터 백필: 삼성전자/SK하이닉스/코스피/환율/해외지수 일봉을 저장소에 적재
 // GitHub Actions에서 data/market-history.json 이 없을 때 자동 실행됨
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -21,10 +21,10 @@ const SYMBOLS: { symbol: string; name: string }[] = [
 ];
 
 async function main() {
-  console.log("=== 3개년 데이터 백필 시작 ===");
+  console.log("=== 5개년 데이터 백필 시작 ===");
   const out: Record<string, { name: string; candles: Candle[] }> = {};
   for (const { symbol, name } of SYMBOLS) {
-    const candles = await fetchDailyCandles(symbol, "3y");
+    const candles = await fetchDailyCandles(symbol, "5y");
     console.log(`${name} (${symbol}): ${candles.length}개 일봉`);
     out[symbol] = { name, candles };
     await new Promise((r) => setTimeout(r, 800)); // 요청 간격 (rate limit 예방)

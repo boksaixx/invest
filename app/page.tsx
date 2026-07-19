@@ -603,6 +603,12 @@ export default function Home() {
 
             {sig && (
               <>
+                {!held && (ai?.entryPrice ?? sig.suggestedEntryPrice) != null && (
+                  <div className="kv-row">
+                    <span className="k">매수 진입가</span>
+                    <span className="v">{won(ai?.entryPrice ?? sig.suggestedEntryPrice)}원</span>
+                  </div>
+                )}
                 {(ai?.targetPrice ?? sig.targetPrice) != null && (
                   <div className="kv-row">
                     <span className="k">{held ? "목표가 (여기서 매도 고려)" : "매수 시 목표가"}</span>
@@ -782,6 +788,9 @@ export default function Home() {
                 )}
                 {!ai && (
                   <div className="reason-list">
+                    {!held && sig.entryPriceBasis && (
+                      <div className="reason">📍 매수 진입가 근거: {sig.entryPriceBasis}</div>
+                    )}
                     {sig.reasons.slice(0, 4).map((r, i) => (
                       <div className="reason" key={i}>{r}</div>
                     ))}

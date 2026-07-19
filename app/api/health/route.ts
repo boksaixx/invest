@@ -5,6 +5,7 @@ import { fetchQuote } from "@/lib/market";
 import { fetchLatestSnapshot } from "@/lib/snapshot";
 import { testGeminiConnection } from "@/lib/gemini";
 import { fetchDartDisclosures } from "@/lib/dart";
+import { fetchInvestorFlows } from "@/lib/investorFlow";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,17 @@ export async function GET() {
     result["DART_공시연동"] = r.error ? `❌ 실패: ${r.error}` : `정상 (${Object.keys(r.data).length}종목 조회됨)`;
   } else {
     result["DART_공시연동"] = "미설정 (선택 기능 — README '③ DART API 키' 참고)";
+  }
+
+  // 4-2. KRX 수급 데이터 (API 키 불필요, 공식 문서화 API가 아니라 실패해도 전체 판정엔 반영하지 않음)
+  {
+    const r = await fetchInvestorFlows();
+    const gotCount = Object.values(r.data).filter((v) => v && v.length > 0).length;
+    result["KRX_수급연동"] = r.error
+      ? `⚠️ 실패(참고용 기능, 다른 기능엔 영향 없음): ${r.error}`
+      : gotCount > 0
+        ? `정상 (${gotCount}종목 조회됨)`
+        : "⚠️ 조회된 종목 없음(참고용 기능, 다른 기능엔 영향 없음)";
   }
 
   // 5. GitHub 자동 수집 데이터

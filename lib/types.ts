@@ -145,16 +145,19 @@ export interface EngineSignal {
   scaledExit: ScaledOrder[]; // 분할 매도(익절) 라인
   relativeStrengthNote: string | null; // 반도체 5종목 중 상대강도 순위 코멘트
   estimatedRoundTripCostWon: number | null; // 왕복 거래비용(증권거래세+수수료) 추정액 (원)
-  backtest: BacktestStats | null; // 3개년 일봉 기준 과거 신호 통계 (참고용, 확정적 예측 아님)
+  backtest: BacktestStats | null; // 5개년 일봉 기준 과거 신호 통계 (참고용, 확정적 예측 아님)
   buyStrength: number; // 0~10, 미보유 시 "지금 얼마나 강하게 사야 하는지" (참고용으로 항상 계산)
   sellStrength: number | null; // 0~10, 보유 중일 때만 계산 — "지금 얼마나 강하게 팔아야 하는지"
   actionSummary: string; // 위 점수를 한 문장으로 요약 (초보자용 헤드라인)
   verdict: string; // 전문가가 쉽게 풀어 말하듯 한 문장 판정 + 구체적 근거(추세선/거래량/환율 등). AI 없이도 항상 엔진이 계산 (정합성 보장)
   macroScore: number; // 매크로(환율·SOX·나스닥·코스피·선물·VIX) 전체 시장 영향도 점수. 양수=우호적, 음수=비우호적 — 개별 종목 점수에 이미 가산/감산되어 있는 값을 그대로 노출 (같은 시점 5종목 모두 동일)
   disclosures: DartFiling[]; // 최근 DART 공시 (DART_API_KEY 미설정 시 항상 빈 배열)
+  suggestedEntryPrice: number | null; // 미보유 시 "얼마에 사야 하는지" 대표 진입가 (보유 중이면 null — 매수 진입 개념이 없으므로)
+  entryPriceBasis: string | null; // 위 진입가의 구체적 근거 (예: "VWAP 상향 돌파 확인 시")
+  investorFlow: InvestorFlowDay[]; // 최근 일별 외국인/기관 순매수 (KRX 연동 실패 시 항상 빈 배열)
 }
 
-// 3개년 일봉만으로 재현한 단순 백테스트 통계 (장중/뉴스/매크로는 과거 재현 불가하므로 제외).
+// 5개년 일봉만으로 재현한 단순 백테스트 통계 (장중/뉴스/매크로는 과거 재현 불가하므로 제외).
 // 룰 엔진의 technicalScore(일봉 기술적 점수)가 68점 이상이었던 과거 시점들을
 // "진입 신호"로 보고, N거래일 후 종가 기준 수익률을 집계한 값이다.
 export interface BacktestStats {
@@ -197,6 +200,15 @@ export interface DartFiling {
   sentiment: "긍정" | "부정" | "중립"; // 제목 키워드 기반 단순 분류 (본문 분석 아님 — 참고용, 최종 해석은 AI가 함)
 }
 
+// KRX(한국거래소) 공개 데이터 기준, 전일까지 확정된 종목별 일별 외국인/기관 순매수(주).
+// 실시간 체결 기준 수급이 아니라 EOD(장 마감 후 확정) 데이터 — 증권사 API 인증 없이 얻을 수
+// 있는 가장 신뢰도 높은 공개 소스. KRX 접근이 실패하면 항상 빈 배열(나머지 파이프라인엔 무영향).
+export interface InvestorFlowDay {
+  date: string; // YYYY-MM-DD
+  foreignNet: number; // 외국인 순매수(주) — 양수=순매수, 음수=순매도
+  institutionNet: number; // 기관합계 순매수(주)
+}
+
 export interface NewsItem {
   title: string;
   summary: string;
@@ -223,6 +235,7 @@ export interface AiAdvice {
     timeHorizon: "당일" | "수일내(스윙)"; // 지금 액션이 겨냥하는 투자 시계열 — 당일 중 트리거 충족 예상인지, 며칠에 걸친 스윙 성격인지
     headline: string;
     rationale: string[];
+    entryPrice: number | null; // 미보유 시 "얼마에 사야 하는지" 매수 진입가 (보유 중이면 null). rationale에 이 가격의 구체적 근거를 반드시 포함할 것
     targetPrice: number | null;
     stopPrice: number | null;
     checklist: string[]; // 실행 전 확인사항
