@@ -34,8 +34,26 @@ async function main() {
       return { ticker: t, quote, candles, rawIntraday };
     }),
   ]);
-  const { news, error: newsError } = newsResult;
+  let { news, error: newsError } = newsResult;
   const marketPhase = getMarketPhase();
+
+  // Gemini 그라운딩은 무료 등급 쿼터가 빡빡해 이번 수집 주기엔 실패할 수 있다. 그 경우 뉴스를
+  // 비워서 덮어쓰지 않고, 직전 성공한 수집분(너무 오래되지 않았다면)을 그대로 이어서 사용한다.
+  if (news.length === 0) {
+    const prevPath = join(DATA_DIR, "latest.json");
+    if (existsSync(prevPath)) {
+      try {
+        const prev = JSON.parse(readFileSync(prevPath, "utf8")) as CollectedSnapshot;
+        const prevAgeMs = Date.now() - new Date(prev.collectedAt).getTime();
+        if (prev.news.length > 0 && prevAgeMs < 3 * 3600_000) {
+          news = prev.news;
+          newsError = newsError ? `${newsError} (직전 수집분으로 대체)` : null;
+        }
+      } catch {
+        // 직전 스냅샷 파싱 실패 시 그냥 빈 뉴스로 진행
+      }
+    }
+  }
 
   console.log("뉴스 수집:", news.length, "건", newsError ? `(오류: ${newsError})` : "");
   console.log("장 상태:", marketPhase.phase, marketPhase.kstTime);
