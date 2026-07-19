@@ -3,11 +3,9 @@
 import type { CollectedSnapshot } from "./types";
 
 const REPO = process.env.GITHUB_REPO || "boksaixx/invest";
-const BRANCH_CANDIDATES = [
-  process.env.GITHUB_DATA_BRANCH,
-  "main",
-  "claude/semiconductor-trading-agent-lghkp5",
-].filter((b): b is string => Boolean(b));
+const BRANCH_CANDIDATES = [process.env.GITHUB_DATA_BRANCH, "main", "master"].filter((b): b is string =>
+  Boolean(b),
+);
 
 export async function fetchLatestSnapshot(): Promise<CollectedSnapshot | null> {
   for (const branch of BRANCH_CANDIDATES) {

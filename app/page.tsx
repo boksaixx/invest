@@ -20,6 +20,7 @@ interface AdviceResponse {
   advice: AiAdvice | null;
   adviceError?: string | null;
   news: NewsItem[];
+  newsError?: string | null;
   aiAvailable: boolean;
   newsLive: boolean;
   generatedAt: string;
@@ -131,6 +132,9 @@ export default function Home() {
         setResult(json);
         if (!json.advice && json.adviceError) {
           setError(`AI 종합 판단 실패: ${json.adviceError}`);
+          void runDiagnosis();
+        } else if (!json.newsLive && json.newsError) {
+          setError(`실시간 뉴스 수집 실패(${json.newsError}) — 자동수집분으로 대체했습니다.`);
           void runDiagnosis();
         }
       }

@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { fetchQuote } from "@/lib/market";
 import { fetchLatestSnapshot } from "@/lib/snapshot";
+import { testGeminiConnection } from "@/lib/gemini";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const dynamic = "force-dynamic";
@@ -39,22 +40,10 @@ export async function GET() {
     }
   }
 
-  // 4. Gemini API 실호출 테스트 (검색 없이 가벼운 핑)
+  // 4. Gemini API 실호출 테스트 (뉴스 수집과 동일한 모델 자동선택 로직 사용)
   if (process.env.GEMINI_API_KEY) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL || "gemini-2.5-flash"}:generateContent`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
-          body: JSON.stringify({ contents: [{ parts: [{ text: "OK라고만 답해" }] }] }),
-          signal: AbortSignal.timeout(20_000),
-        },
-      );
-      result["Gemini_호출테스트"] = res.ok ? "정상" : `❌ 실패: HTTP ${res.status} ${(await res.text().catch(() => "")).slice(0, 150)}`;
-    } catch (e) {
-      result["Gemini_호출테스트"] = `❌ 실패: ${String(e).slice(0, 150)}`;
-    }
+    const r = await testGeminiConnection(process.env.GEMINI_API_KEY);
+    result["Gemini_호출테스트"] = r.ok ? r.detail : `❌ 실패: ${r.detail}`;
   }
 
   // 5. GitHub 자동 수집 데이터

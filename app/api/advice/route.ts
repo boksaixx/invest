@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as { portfolio?: Portfolio };
     const portfolio: Portfolio = body.portfolio ?? { cash: 20_000_000, holdings: [] };
 
-    const [macro, news, snapshot, ...stockData] = await Promise.all([
+    const [macro, newsResult, snapshot, ...stockData] = await Promise.all([
       getMacroSnapshot(),
       collectNews(),
       fetchLatestSnapshot(),
@@ -28,6 +28,7 @@ export async function POST(req: Request) {
         candles: await getStockCandles(t),
       })),
     ]);
+    const { news, error: newsError } = newsResult;
 
     // 실시간 뉴스 수집 실패 시 자동수집 스냅샷의 뉴스로 폴백
     const effectiveNews = news.length > 0 ? news : (snapshot?.news ?? []);
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
       advice,
       adviceError,
       news: effectiveNews,
+      newsError: news.length === 0 ? newsError : null,
       macro,
       aiAvailable: Boolean(process.env.ANTHROPIC_API_KEY),
       newsLive: news.length > 0,

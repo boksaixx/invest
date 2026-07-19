@@ -2,8 +2,6 @@
 // GEMINI_API_KEY 필요 (https://aistudio.google.com 에서 무료 발급).
 import type { NewsItem } from "./types";
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-
 const PROMPT = `당신은 한국 주식 단기 트레이더를 위한 뉴스 수집 애널리스트입니다.
 구글 검색을 사용해 "지금 이 시각" 기준 최신 정보를 수집하세요. 대상:
 
@@ -28,11 +26,52 @@ const PROMPT = `당신은 한국 주식 단기 트레이더를 위한 뉴스 수
   }
 ]`;
 
-export async function collectNews(): Promise<NewsItem[]> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return [];
+// 구글이 모델명을 바꾸거나 특정 모델 지원을 중단해도 앱이 계속 동작하도록,
+// 모델명을 코드에 고정하지 않고 매 호출 시 "현재 사용 가능한 모델 목록"에서 자동 선택한다.
+// (한 번 조회한 결과는 30분간 재사용해 불필요한 API 호출을 줄인다.)
+let modelCache: { name: string; expiresAt: number } | null = null;
+
+async function resolveModel(apiKey: string): Promise<string> {
+  if (process.env.GEMINI_MODEL) return process.env.GEMINI_MODEL;
+  const now = Date.now();
+  if (modelCache && modelCache.expiresAt > now) return modelCache.name;
+
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
+      headers: { "x-goog-api-key": apiKey },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const models: { name: string; supportedGenerationMethods?: string[] }[] = json?.models ?? [];
+      const usable = models
+        .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
+        .map((m) => m.name.replace(/^models\//, ""))
+        .filter((n) => !/vision|embedding|aqa|tts|image|thinking-exp/i.test(n));
+      // 검색 그라운딩에 적합한 flash 계열을 우선 선택 (속도/비용 균형). exp/preview는 불안정하므로 후순위.
+      const stableFlash = usable.find((n) => /flash/i.test(n) && !/exp|preview/i.test(n));
+      const anyFlash = usable.find((n) => /flash/i.test(n));
+      const picked = stableFlash ?? anyFlash ?? usable[0];
+      if (picked) {
+        modelCache = { name: picked, expiresAt: now + 30 * 60_000 };
+        return picked;
+      }
+    } else {
+      console.error("Gemini 모델 목록 조회 실패:", res.status, await res.text().catch(() => ""));
+    }
+  } catch (e) {
+    console.error("Gemini 모델 목록 조회 오류:", e);
+  }
+  // 목록 조회 자체가 실패한 경우의 최후 대안
+  return "gemini-flash-latest";
+}
+
+export async function collectNews(): Promise<{ news: NewsItem[]; error: string | null }> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return { news: [], error: "GEMINI_API_KEY 미설정" };
+  try {
+    const model = await resolveModel(apiKey);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
@@ -45,16 +84,36 @@ export async function collectNews(): Promise<NewsItem[]> {
       signal: AbortSignal.timeout(45_000),
     });
     if (!res.ok) {
-      console.error("Gemini API 오류:", res.status, await res.text().catch(() => ""));
-      return [];
+      const body = await res.text().catch(() => "");
+      console.error("Gemini API 오류:", res.status, body);
+      return { news: [], error: `Gemini API 오류 (${res.status}): ${body.slice(0, 200)}` };
     }
     const json = await res.json();
     const parts: { text?: string }[] = json?.candidates?.[0]?.content?.parts ?? [];
     const text = parts.map((p) => p.text ?? "").join("\n");
-    return parseNewsJson(text);
+    const news = parseNewsJson(text);
+    return { news, error: news.length === 0 ? "Gemini 응답에서 뉴스를 파싱하지 못했습니다" : null };
   } catch (e) {
     console.error("Gemini 뉴스 수집 실패:", e);
-    return [];
+    return { news: [], error: `Gemini 호출 실패: ${String(e).slice(0, 200)}` };
+  }
+}
+
+// /api/health 자가진단에서 사용 — 실제 뉴스 수집과 동일한 모델 해석 로직을 재사용해 결과가 서로 어긋나지 않게 한다.
+export async function testGeminiConnection(apiKey: string): Promise<{ ok: boolean; detail: string }> {
+  try {
+    const model = await resolveModel(apiKey);
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({ contents: [{ parts: [{ text: "OK라고만 답해" }] }] }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (res.ok) return { ok: true, detail: `정상 (모델: ${model})` };
+    const body = await res.text().catch(() => "");
+    return { ok: false, detail: `HTTP ${res.status} (모델: ${model}) ${body.slice(0, 150)}` };
+  } catch (e) {
+    return { ok: false, detail: String(e).slice(0, 150) };
   }
 }
 

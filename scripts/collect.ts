@@ -26,7 +26,7 @@ async function main() {
     ? (JSON.parse(readFileSync(join(DATA_DIR, "latest.json"), "utf8")) as CollectedSnapshot)
     : null;
 
-  const [macro, news, ...stockData] = await Promise.all([
+  const [macro, newsResult, ...stockData] = await Promise.all([
     getMacroSnapshot(),
     collectNews(),
     ...TICKERS.map(async (t) => ({
@@ -35,8 +35,9 @@ async function main() {
       candles: await getStockCandles(t),
     })),
   ]);
+  const { news, error: newsError } = newsResult;
 
-  console.log("뉴스 수집:", news.length, "건");
+  console.log("뉴스 수집:", news.length, "건", newsError ? `(오류: ${newsError})` : "");
 
   const signals: EngineSignal[] = [];
   for (const sd of stockData) {
