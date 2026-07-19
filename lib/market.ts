@@ -1,5 +1,5 @@
 // 시세 수집: 야후 파이낸스(기본) + 네이버 금융(국내주 폴백)
-import type { Candle, MacroSnapshot, Quote, StockTicker } from "./types";
+import type { Candle, FearGreedIndex, MacroSnapshot, Quote, StockTicker } from "./types";
 import { STOCKS } from "./types";
 
 const UA =
@@ -12,6 +12,9 @@ const INDEX_NAMES: Record<string, string> = {
   "^SOX": "필라델피아 반도체",
   "^N225": "니케이225",
   "000001.SS": "상해종합",
+  "^VIX": "변동성지수(VIX)",
+  "ES=F": "S&P500 선물",
+  "NQ=F": "나스닥100 선물",
 };
 
 interface YahooChart {
@@ -250,14 +253,50 @@ export async function getStockIntradayCandles(ticker: StockTicker): Promise<RawI
   return fetchNaverIntraday(ticker);
 }
 
+// CNN 공포탐욕지수 (비공식 데이터 엔드포인트, 문서화되지 않은 API이므로 실패 시 조용히 null 반환).
+// 참고용 보조지표일 뿐 매매 판단의 핵심 근거로 단독 사용하지 않는다.
+async function fetchFearGreedIndex(): Promise<FearGreedIndex | null> {
+  try {
+    const res = await fetch("https://production.dataviz.cnn.io/index/fearandgreed/graphdata", {
+      headers: { "User-Agent": UA, Accept: "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const score = Number(json?.fear_and_greed?.score);
+    const rating = String(json?.fear_and_greed?.rating ?? "");
+    if (!Number.isFinite(score) || score < 0 || score > 100) return null;
+    const ratingMap: Record<string, string> = {
+      "extreme fear": "극단적 공포",
+      fear: "공포",
+      neutral: "중립",
+      greed: "탐욕",
+      "extreme greed": "극단적 탐욕",
+    };
+    return {
+      value: Math.round(score),
+      ratingKo: ratingMap[rating.toLowerCase()] ?? rating,
+      ratingRaw: rating,
+      source: "CNN Fear & Greed Index (미국 시장 기준)",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getMacroSnapshot(): Promise<MacroSnapshot> {
-  const [usdkrw, kospi, nasdaq, sox, nikkei, shanghai] = await Promise.all([
+  const [usdkrw, kospi, nasdaq, sox, nikkei, shanghai, vix, spFutures, nasdaqFutures, fearGreed] = await Promise.all([
     fetchQuote("KRW=X"),
     fetchQuote("^KS11"),
     fetchQuote("^IXIC"),
     fetchQuote("^SOX"),
     fetchQuote("^N225"),
     fetchQuote("000001.SS"),
+    fetchQuote("^VIX"),
+    fetchQuote("ES=F"),
+    fetchQuote("NQ=F"),
+    fetchFearGreedIndex(),
   ]);
-  return { usdkrw, kospi, nasdaq, sox, nikkei, shanghai };
+  return { usdkrw, kospi, nasdaq, sox, nikkei, shanghai, vix, spFutures, nasdaqFutures, fearGreed };
 }

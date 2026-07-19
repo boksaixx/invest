@@ -2,18 +2,17 @@
 import { NextResponse } from "next/server";
 import { getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote } from "@/lib/market";
 import { collectNews } from "@/lib/gemini";
-import { computeRelativeStrength, runEngine } from "@/lib/engine";
+import { computeRelativeStrength, computeSectorConcentration, runEngine } from "@/lib/engine";
 import { computeIntradayInsight } from "@/lib/intraday";
 import { getMarketPhase } from "@/lib/marketPhase";
 import { generateAdvice } from "@/lib/claude";
-import type { EngineSignal, Portfolio, StockTicker } from "@/lib/types";
+import type { EngineSignal, Portfolio } from "@/lib/types";
+import { TICKER_LIST } from "@/lib/types";
 import { fetchLatestSnapshot } from "@/lib/snapshot";
 import eventsData from "@/data/events.json";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-
-const TICKERS: StockTicker[] = ["005930", "000660"];
 
 export async function POST(req: Request) {
   try {
@@ -24,7 +23,7 @@ export async function POST(req: Request) {
       getMacroSnapshot(),
       collectNews(),
       fetchLatestSnapshot(),
-      ...TICKERS.map(async (t) => {
+      ...TICKER_LIST.map(async (t) => {
         const quote = await getStockQuote(t);
         const [candles, rawIntraday] = await Promise.all([getStockCandles(t), getStockIntradayCandles(t)]);
         return { ticker: t, quote, candles, rawIntraday };
@@ -36,16 +35,15 @@ export async function POST(req: Request) {
     // 실시간 뉴스 수집 실패 시 자동수집 스냅샷의 뉴스로 폴백
     const effectiveNews = news.length > 0 ? news : (snapshot?.news ?? []);
 
-    // 상대강도 계산 (양쪽 시세가 모두 있을 때만)
+    // 상대강도 랭킹 (시세 확보된 종목 기준)
     const withQuote = stockData.filter((sd): sd is typeof sd & { quote: NonNullable<typeof sd.quote> } => sd.quote != null);
-    let relativeStrengthNote: string | null = null;
-    if (withQuote.length === 2) {
-      const [a, b] = withQuote;
-      relativeStrengthNote = computeRelativeStrength(
-        { ticker: a.ticker, changePct: a.quote.changePct },
-        { ticker: b.ticker, changePct: b.quote.changePct },
-      ).note;
-    }
+    const rs = computeRelativeStrength(withQuote.map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })));
+
+    // 섹터 집중도 (5종목 모두 반도체 — 분산투자 착시 방지)
+    const quotesMap = Object.fromEntries(stockData.map((sd) => [sd.ticker, sd.quote]));
+    const holdingsValue = portfolio.holdings.reduce((a, h) => a + h.qty * (quotesMap[h.ticker]?.price ?? h.avgPrice), 0);
+    const totalAsset = portfolio.cash + holdingsValue;
+    const concentration = computeSectorConcentration(portfolio.holdings, quotesMap, totalAsset);
 
     const signals: EngineSignal[] = [];
     for (const sd of stockData) {
@@ -61,7 +59,7 @@ export async function POST(req: Request) {
           portfolio,
           intraday,
           marketPhase,
-          relativeStrengthNote,
+          relativeStrengthNote: rs.noteFor(sd.ticker),
         }),
       );
     }
@@ -77,6 +75,8 @@ export async function POST(req: Request) {
       portfolio,
       history: snapshot,
       events: eventsData.events,
+      relativeStrengthSummary: rs.summary,
+      sectorConcentrationWarning: concentration.warning,
     });
 
     return NextResponse.json({
@@ -87,6 +87,8 @@ export async function POST(req: Request) {
       newsError: news.length === 0 ? newsError : null,
       macro,
       marketPhase,
+      relativeStrengthSummary: rs.summary,
+      sectorConcentrationWarning: concentration.warning,
       aiAvailable: Boolean(process.env.ANTHROPIC_API_KEY),
       newsLive: news.length > 0,
       generatedAt: new Date().toISOString(),

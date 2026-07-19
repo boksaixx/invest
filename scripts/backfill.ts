@@ -8,12 +8,16 @@ import type { Candle } from "../lib/types";
 const SYMBOLS: { symbol: string; name: string }[] = [
   { symbol: "005930.KS", name: "삼성전자" },
   { symbol: "000660.KS", name: "SK하이닉스" },
+  { symbol: "042700.KS", name: "한미반도체" },
+  { symbol: "009150.KS", name: "삼성전기" },
+  { symbol: "000990.KS", name: "DB하이텍" },
   { symbol: "^KS11", name: "코스피" },
   { symbol: "KRW=X", name: "원달러환율" },
   { symbol: "^IXIC", name: "나스닥" },
   { symbol: "^SOX", name: "필라델피아반도체" },
   { symbol: "^N225", name: "니케이225" },
   { symbol: "000001.SS", name: "상해종합" },
+  { symbol: "^VIX", name: "VIX변동성지수" },
 ];
 
 async function main() {

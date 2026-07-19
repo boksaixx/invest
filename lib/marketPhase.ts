@@ -2,6 +2,21 @@
 // 지금이 어느 시간대인지를 신호에 명시적으로 반영한다.
 import type { MarketPhaseInfo } from "./types";
 
+// 양력 고정 공휴일만 반영 (매년 날짜가 바뀌는 설날·부처님오신날·추석 등 음력 공휴일은
+// 자동 계산 오차 위험이 있어 이 버전에서는 제외했습니다 — 해당 주간에는 반드시
+// 직접 개장 여부를 확인하세요). 연말 KRX 폐장일(12/31)도 포함.
+const FIXED_HOLIDAYS_KST = new Set([
+  "01-01", // 신정
+  "03-01", // 삼일절
+  "05-05", // 어린이날
+  "06-06", // 현충일
+  "08-15", // 광복절
+  "10-03", // 개천절
+  "10-09", // 한글날
+  "12-25", // 크리스마스
+  "12-31", // KRX 연말 폐장일
+]);
+
 export function getMarketPhase(now: Date = new Date()): MarketPhaseInfo {
   const kst = new Date(now.getTime() + 9 * 3600_000);
   const day = kst.getUTCDay(); // 0=일 ... 6=토 (KST 기준으로 이미 보정됨)
@@ -9,9 +24,17 @@ export function getMarketPhase(now: Date = new Date()): MarketPhaseInfo {
   const mm = kst.getUTCMinutes();
   const minutesOfDay = hh * 60 + mm;
   const kstTime = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  const monthDay = `${String(kst.getUTCMonth() + 1).padStart(2, "0")}-${String(kst.getUTCDate()).padStart(2, "0")}`;
 
   if (day === 0 || day === 6) {
     return { phase: "휴장(주말)", kstTime, note: "주말은 국내 증시가 열리지 않습니다. 다음 개장일 전략을 준비하세요." };
+  }
+  if (FIXED_HOLIDAYS_KST.has(monthDay)) {
+    return {
+      phase: "휴장(공휴일)",
+      kstTime,
+      note: "양력 고정 공휴일로 국내 증시가 열리지 않습니다. (설날·추석 등 음력 공휴일은 이 목록에 없으니 해당 주간은 별도 확인하세요.)",
+    };
   }
   if (minutesOfDay < 9 * 60) {
     return {

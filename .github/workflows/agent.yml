@@ -1,16 +1,15 @@
+# 자동 수집 에이전트
+# - 한국 장중(평일 09:00~15:30 KST) 30분 간격으로 시세/뉴스 수집·분석 후 저장소에 저장
+# - 개장 전 브리핑(08:30 KST), 장 마감 요약(16:10 KST)
+# - 수동 실행: Actions 탭 → "Trading Agent" → Run workflow 버튼
 name: Trading Agent
 
 on:
   schedule:
-    - cron: "*/30 0-6 * * 1-5"
-    - cron: "30 23 * * 0-4"
-    - cron: "10 7 * * 1-5"
-  workflow_dispatch:
-    inputs:
-      force_kakao:
-        description: "카카오톡 강제 전송"
-        type: boolean
-        default: false
+    - cron: "*/30 0-6 * * 1-5"   # KST 09:00~15:30 장중 30분 간격 (UTC 기준)
+    - cron: "30 23 * * 0-4"      # KST 08:30 개장 전 브리핑
+    - cron: "10 7 * * 1-5"       # KST 16:10 장 마감 요약
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -43,10 +42,6 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          KAKAO_REST_KEY: ${{ secrets.KAKAO_REST_KEY }}
-          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
-          APP_URL: ${{ vars.APP_URL }}
-          FORCE_KAKAO: ${{ inputs.force_kakao == true && '1' || '0' }}
 
       - name: 데이터 커밋
         run: |

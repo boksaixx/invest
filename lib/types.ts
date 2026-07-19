@@ -20,6 +20,13 @@ export interface Quote {
   time: string; // ISO
 }
 
+export interface FearGreedIndex {
+  value: number; // 0~100
+  ratingKo: string; // 극단적공포 | 공포 | 중립 | 탐욕 | 극단적탐욕
+  ratingRaw: string; // 원문 라벨 (extreme fear 등)
+  source: string;
+}
+
 export interface MacroSnapshot {
   usdkrw: Quote | null;
   kospi: Quote | null;
@@ -27,6 +34,10 @@ export interface MacroSnapshot {
   sox: Quote | null; // 필라델피아 반도체지수
   nikkei: Quote | null;
   shanghai: Quote | null;
+  vix: Quote | null; // 변동성지수 (공포지수)
+  spFutures: Quote | null; // S&P500 선물 — 미장 마감 후~한국장 개장 전 오버나이트 방향성 지표
+  nasdaqFutures: Quote | null; // 나스닥100 선물
+  fearGreed: FearGreedIndex | null; // CNN 공포탐욕지수 (수집 실패 시 null, 판단에서 선택적으로만 반영)
 }
 
 export interface Indicators {
@@ -91,7 +102,7 @@ export interface Portfolio {
   holdings: Holding[];
 }
 
-export type StockTicker = "005930" | "000660";
+export type StockTicker = "005930" | "000660" | "042700" | "009150" | "000990";
 
 export type Action =
   | "신규매수"
@@ -123,7 +134,15 @@ export interface EngineSignal {
   invalidation: string | null; // 무효화 조건 — 발생 시 목표가/손절가와 무관하게 즉시 재검토
   scaledEntry: ScaledOrder[]; // 분할 매수 라인
   scaledExit: ScaledOrder[]; // 분할 매도(익절) 라인
-  relativeStrengthNote: string | null; // 삼성전자 vs SK하이닉스 상대강도 코멘트
+  relativeStrengthNote: string | null; // 반도체 5종목 중 상대강도 순위 코멘트
+  estimatedRoundTripCostWon: number | null; // 왕복 거래비용(증권거래세+수수료) 추정액 (원)
+}
+
+export interface RankedStock {
+  ticker: StockTicker;
+  name: string;
+  changePct: number;
+  rank: number;
 }
 
 export interface NewsItem {
@@ -171,4 +190,9 @@ export interface CollectedSnapshot {
 export const STOCKS: Record<StockTicker, { name: string; yahoo: string }> = {
   "005930": { name: "삼성전자", yahoo: "005930.KS" },
   "000660": { name: "SK하이닉스", yahoo: "000660.KS" },
+  "042700": { name: "한미반도체", yahoo: "042700.KS" },
+  "009150": { name: "삼성전기", yahoo: "009150.KS" },
+  "000990": { name: "DB하이텍", yahoo: "000990.KS" },
 };
+
+export const TICKER_LIST: StockTicker[] = ["005930", "000660", "042700", "009150", "000990"];

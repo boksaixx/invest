@@ -17,6 +17,7 @@ import type {
   MarketPhaseInfo,
   NewsItem,
   Portfolio,
+  RankedStock,
   ScaledOrder,
   StockTicker,
 } from "./types";
@@ -26,6 +27,7 @@ import { computeIndicators } from "./indicators";
 const MAX_POSITION_WEIGHT = 0.5; // 한 종목 최대 비중 (총자산 대비)
 const ENTRY_FRACTION = 0.25; // 1회 매수 시 현금 대비 최대 비율
 const RISK_PER_TRADE = 0.01; // 1회 매매 허용 손실 = 총자산의 1%
+const ROUND_TRIP_COST_PCT = 0.0025; // 왕복 거래비용 추정치 (매도 시 증권거래세 약 0.18% + 매수·매도 수수료 각 약 0.015~0.03%)
 
 export function newsSentimentScore(news: NewsItem[], stockName: string): { score: number; notes: string[] } {
   let score = 0;
@@ -34,7 +36,8 @@ export function newsSentimentScore(news: NewsItem[], stockName: string): { score
     const related =
       n.relatedTo.includes(stockName) ||
       n.relatedTo.includes("반도체") ||
-      n.relatedTo.includes("매크로");
+      n.relatedTo.includes("매크로") ||
+      n.relatedTo.includes("파생시장");
     if (!related) continue;
     const w = n.impact === "높음" ? 5 : n.impact === "중간" ? 3 : 1;
     if (n.sentiment === "긍정") score += w;
@@ -46,9 +49,10 @@ export function newsSentimentScore(news: NewsItem[], stockName: string): { score
   return { score: Math.max(-15, Math.min(15, score)), notes };
 }
 
-function macroScore(macro: MacroSnapshot): { score: number; notes: string[] } {
+function macroScore(macro: MacroSnapshot, marketPhase: MarketPhaseInfo): { score: number; notes: string[]; warnings: string[] } {
   let score = 0;
   const notes: string[] = [];
+  const warnings: string[] = [];
   if (macro.sox) {
     if (macro.sox.changePct >= 1.5) {
       score += 10;
@@ -71,7 +75,47 @@ function macroScore(macro: MacroSnapshot): { score: number; notes: string[] } {
     score -= 3;
     notes.push(`환율 변동성 확대(${macro.usdkrw.changePct > 0 ? "원화 약세" : "원화 강세"} ${Math.abs(macro.usdkrw.changePct).toFixed(1)}%) — 외국인 수급 유의`);
   }
-  return { score, notes };
+
+  // 미국 지수 선물 — 장전/장초반에는 밤사이 형성된 가장 신선한 방향성 지표라 가중치를 더 준다
+  const isPreOrEarlyMarket = marketPhase.phase === "장전" || marketPhase.phase === "장초반";
+  const futuresWeight = isPreOrEarlyMarket ? 1.5 : 0.6;
+  if (macro.nasdaqFutures) {
+    if (macro.nasdaqFutures.changePct >= 0.7) {
+      score += 6 * futuresWeight;
+      notes.push(`나스닥100 선물 +${macro.nasdaqFutures.changePct.toFixed(2)}% — 개장 전 우호적 신호`);
+    } else if (macro.nasdaqFutures.changePct <= -0.7) {
+      score -= 6 * futuresWeight;
+      warnings.push(`나스닥100 선물 ${macro.nasdaqFutures.changePct.toFixed(2)}% — 개장 전 부정적 신호`);
+    }
+  }
+  if (macro.spFutures && Math.abs(macro.spFutures.changePct) >= 0.7) {
+    score += macro.spFutures.changePct > 0 ? 3 * futuresWeight : -3 * futuresWeight;
+  }
+
+  // VIX(변동성지수) — 시장 전체의 공포 수준. 높을수록 리스크오프 국면.
+  if (macro.vix) {
+    if (macro.vix.price >= 30) {
+      score -= 8;
+      warnings.push(`VIX ${macro.vix.price.toFixed(1)} (30 이상, 시장 전반 공포 확산) — 단타 포지션 축소 권장`);
+    } else if (macro.vix.price >= 25) {
+      score -= 4;
+      warnings.push(`VIX ${macro.vix.price.toFixed(1)} (경계 구간) — 변동성 확대 유의`);
+    } else if (macro.vix.price <= 14) {
+      notes.push(`VIX ${macro.vix.price.toFixed(1)} (안정 구간)`);
+    }
+  }
+
+  // 공포탐욕지수 — 방향성 점수에는 반영하지 않고(단타에서 극단값의 방향 예측력은 낮음),
+  // 극단값일 때 변동성 경고만 제공한다.
+  if (macro.fearGreed) {
+    if (macro.fearGreed.value <= 25) {
+      warnings.push(`공포탐욕지수 ${macro.fearGreed.value} (${macro.fearGreed.ratingKo}) — 투매성 변동성 구간, 손절 원칙 더 엄격히 적용`);
+    } else if (macro.fearGreed.value >= 75) {
+      warnings.push(`공포탐욕지수 ${macro.fearGreed.value} (${macro.fearGreed.ratingKo}) — 과열 구간, 추격매수 시 되돌림 리스크 유의`);
+    }
+  }
+
+  return { score, notes, warnings };
 }
 
 function technicalScore(ind: Indicators, price: number): { score: number; reasons: string[]; warnings: string[] } {
@@ -277,7 +321,7 @@ export function runEngine(params: {
   const ind = computeIndicators(candles);
 
   const tech = technicalScore(ind, price);
-  const mac = macroScore(macro);
+  const mac = macroScore(macro, marketPhase);
   const sent = newsSentimentScore(news, name);
   const intra = intradayScore(intraday);
 
@@ -289,7 +333,7 @@ export function runEngine(params: {
     Math.min(100, 50 + (tech.score - 50 + mac.score + sent.score + intra.score) * phaseDampener),
   );
   const reasons = [...intra.reasons, ...tech.reasons, ...mac.notes];
-  const warnings = [...intra.warnings, ...tech.warnings, ...sent.notes];
+  const warnings = [...intra.warnings, ...tech.warnings, ...mac.warnings, ...sent.notes];
   if (phaseDampener < 1) {
     warnings.push(`현재 시간대(${marketPhase.phase})는 신호 신뢰도가 평소보다 낮습니다 — ${marketPhase.note}`);
   }
@@ -384,6 +428,22 @@ export function runEngine(params: {
 
   const invalidation = buildInvalidation(intraday, macro);
 
+  // 왕복 거래비용(증권거래세+수수료) 추정 — 목표가가 비용 대비 실익이 얇으면 경고
+  let estimatedRoundTripCostWon: number | null = null;
+  if (holding && holding.qty > 0) {
+    estimatedRoundTripCostWon = Math.round(holding.qty * price * ROUND_TRIP_COST_PCT);
+  } else if (suggestedBudget) {
+    estimatedRoundTripCostWon = Math.round(suggestedBudget * ROUND_TRIP_COST_PCT);
+  }
+  if (targetPrice && (action === "신규매수" || action === "추가매수")) {
+    const profitPct = ((targetPrice - price) / price) * 100;
+    if (profitPct < ROUND_TRIP_COST_PCT * 100 * 3) {
+      warnings.push(
+        `목표가까지 예상 수익률(${profitPct.toFixed(2)}%)이 거래비용(왕복 약 ${(ROUND_TRIP_COST_PCT * 100).toFixed(2)}%) 대비 여유가 크지 않습니다 — 실익 재확인 필요`,
+      );
+    }
+  }
+
   const confidence: EngineSignal["confidence"] =
     score >= 72 || score <= 28 ? "높음" : score >= 60 || score <= 40 ? "중간" : "낮음";
 
@@ -409,25 +469,55 @@ export function runEngine(params: {
     scaledEntry,
     scaledExit,
     relativeStrengthNote: params.relativeStrengthNote ?? null,
+    estimatedRoundTripCostWon,
   };
 }
 
-// 삼성전자 vs SK하이닉스 상대강도 — 단타에서는 "둘 중 더 강한 놈"을 골라 타는 게 원칙.
+// 반도체 N종목 상대강도 순위 — 단타에서는 "가장 강한 놈"을 골라 타는 게 원칙.
+// 종목이 늘어난 만큼(최대 5개) 페어 비교가 아니라 전체 랭킹으로 계산한다.
 export function computeRelativeStrength(
-  a: { ticker: StockTicker; changePct: number },
-  b: { ticker: StockTicker; changePct: number },
-): { leader: StockTicker; note: string } {
-  const diff = a.changePct - b.changePct;
-  if (Math.abs(diff) < 0.3) {
+  stocks: { ticker: StockTicker; changePct: number }[],
+): { ranked: RankedStock[]; noteFor: (ticker: StockTicker) => string; summary: string } {
+  const ranked: RankedStock[] = [...stocks]
+    .sort((a, b) => b.changePct - a.changePct)
+    .map((s, i) => ({ ticker: s.ticker, name: STOCKS[s.ticker].name, changePct: s.changePct, rank: i + 1 }));
+  const total = ranked.length;
+
+  const noteFor = (ticker: StockTicker): string => {
+    const r = ranked.find((x) => x.ticker === ticker);
+    if (!r || total < 2) return "";
+    const pctStr = `${r.changePct >= 0 ? "+" : ""}${r.changePct.toFixed(2)}%`;
+    if (r.rank === 1) return `반도체 ${total}종목 중 등락률 1위(${pctStr}) — 오늘 가장 강한 종목, 단타 우선순위 상위`;
+    if (r.rank === total) return `반도체 ${total}종목 중 등락률 최하위(${pctStr}) — 상대적으로 약세, 진입 시 더 보수적으로 접근`;
+    return `반도체 ${total}종목 중 ${r.rank}위(${pctStr})`;
+  };
+
+  const summary =
+    total >= 2
+      ? `오늘의 순위: ${ranked.map((r) => `${r.name} ${r.changePct >= 0 ? "+" : ""}${r.changePct.toFixed(2)}%`).join(" > ")}`
+      : "";
+
+  return { ranked, noteFor, summary };
+}
+
+// 섹터 집중도 점검 — 5종목 모두 반도체라 여러 종목에 나눠 담아도 사실상 단일 섹터 베팅이다.
+// "비판자" 관점 보완: 분산투자로 착각하게 두지 않고 명시적으로 경고한다.
+export function computeSectorConcentration(
+  holdings: Portfolio["holdings"],
+  quotes: Record<string, { price: number } | null | undefined>,
+  totalAsset: number,
+): { pct: number; warning: string | null } {
+  if (totalAsset <= 0) return { pct: 0, warning: null };
+  const semiValue = holdings.reduce((sum, h) => {
+    const q = quotes[h.ticker];
+    return sum + h.qty * (q?.price ?? h.avgPrice);
+  }, 0);
+  const pct = (semiValue / totalAsset) * 100;
+  if (pct >= 70) {
     return {
-      leader: a.ticker,
-      note: `${STOCKS[a.ticker].name}·${STOCKS[b.ticker].name} 등락률 차이가 크지 않아(${Math.abs(diff).toFixed(2)}%p) 상대강도 우위가 뚜렷하지 않습니다.`,
+      pct,
+      warning: `보유 자산의 ${pct.toFixed(0)}%가 반도체 섹터에 집중되어 있습니다 — 여러 종목에 나눠 담아도 반도체 업황이 동시에 흔들리면 분산 효과가 거의 없습니다. 전체 포지션 크기를 재고하세요.`,
     };
   }
-  const leader = diff > 0 ? a.ticker : b.ticker;
-  const laggard = diff > 0 ? b.ticker : a.ticker;
-  return {
-    leader,
-    note: `${STOCKS[leader].name}가 ${STOCKS[laggard].name} 대비 상대적으로 강세(${Math.abs(diff).toFixed(2)}%p 우위) — 단타는 상대적으로 강한 종목 위주로 접근하는 것이 유리합니다.`,
-  };
+  return { pct, warning: null };
 }

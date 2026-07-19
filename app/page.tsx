@@ -2,12 +2,10 @@
 
 // 토스 스타일 대시보드: 현금/보유 입력 → 실시간 시세 → AI 매매 조언
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { AiAdvice, EngineSignal, NewsItem, Portfolio, Quote, StockTicker } from "@/lib/types";
+import type { AiAdvice, EngineSignal, NewsItem, Portfolio, Quote } from "@/lib/types";
+import { STOCKS, TICKER_LIST } from "@/lib/types";
 
-const TICKERS: { ticker: StockTicker; name: string }[] = [
-  { ticker: "005930", name: "삼성전자" },
-  { ticker: "000660", name: "SK하이닉스" },
-];
+const TICKERS = TICKER_LIST.map((ticker) => ({ ticker, name: STOCKS[ticker].name }));
 
 interface MarketData {
   quotes: Record<string, Quote | null>;
@@ -24,6 +22,8 @@ interface AdviceResponse {
   aiAvailable: boolean;
   newsLive: boolean;
   marketPhase?: { phase: string; kstTime: string; note: string };
+  relativeStrengthSummary?: string | null;
+  sectorConcentrationWarning?: string | null;
   generatedAt: string;
   error?: string;
 }
@@ -56,6 +56,15 @@ function badgeClass(action: string): string {
   if (action === "부분매도" || action === "전량매도") return "badge badge-sell";
   if (action === "손절") return "badge badge-danger";
   return "badge badge-hold";
+}
+
+function staleness(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const diffMin = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (diffMin < 1) return "방금 전 시세";
+  if (diffMin > 60) return `${Math.round(diffMin / 60)}시간 전 시세 (지연 큼 — 주문 전 재확인 필수)`;
+  if (diffMin >= 15) return `${diffMin}분 전 시세 (지연 가능성 — 주문 전 재확인 권장)`;
+  return `${diffMin}분 전 시세`;
 }
 
 function momentumLabel(m: string): string {
@@ -181,9 +190,14 @@ export default function Home() {
     { key: "kospi", label: "코스피" },
     { key: "sox", label: "美반도체" },
     { key: "nasdaq", label: "나스닥" },
+    { key: "spFutures", label: "S&P선물" },
+    { key: "nasdaqFutures", label: "나스닥선물" },
+    { key: "vix", label: "VIX" },
     { key: "nikkei", label: "니케이" },
     { key: "shanghai", label: "상해" },
   ];
+
+  const fearGreed = (market?.macro as { fearGreed?: { value: number; ratingKo: string } } | undefined)?.fearGreed;
 
   return (
     <main className="container">
@@ -191,7 +205,7 @@ export default function Home() {
         <div>
           <h1>반도체 트레이딩 AI</h1>
           <div className="sub">
-            삼성전자 · SK하이닉스 단타 어드바이저
+            반도체 5종목 단타 어드바이저
             {snapshotTime && ` · 자동수집 ${new Date(snapshotTime).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`}
           </div>
         </div>
@@ -293,9 +307,16 @@ export default function Home() {
             </div>
           );
         })}
+        {fearGreed && (
+          <div className="macro-chip">
+            <div className="name">공포탐욕지수</div>
+            <div className="val" style={{ fontSize: 14 }}>{fearGreed.ratingKo}</div>
+            <div className="pct flat">{fearGreed.value}/100</div>
+          </div>
+        )}
       </div>
 
-      {/* 장 상태 + 상대강도 배너 */}
+      {/* 장 상태 + 상대강도 + 섹터집중도 배너 */}
       {result?.marketPhase && (
         <div className="phase-banner">
           <span className="phase-tag">{result.marketPhase.phase}</span>
@@ -303,8 +324,11 @@ export default function Home() {
           <span className="phase-note">{result.marketPhase.note}</span>
         </div>
       )}
-      {result?.signals[0]?.relativeStrengthNote && (
-        <div className="rs-banner">⚖️ {result.signals[0].relativeStrengthNote}</div>
+      {result?.relativeStrengthSummary && <div className="rs-banner">⚖️ {result.relativeStrengthSummary}</div>}
+      {result?.sectorConcentrationWarning && (
+        <div className="rs-banner" style={{ background: "var(--red-weak)", color: "#c9353f" }}>
+          🎯 {result.sectorConcentrationWarning}
+        </div>
       )}
 
       {/* AI 분석 버튼 */}
@@ -366,6 +390,7 @@ export default function Home() {
                 <div className={`stock-change ${pctClass(q?.changePct)}`}>
                   {q ? `${q.change >= 0 ? "▲" : "▼"} ${won(Math.abs(q.change))}원 (${q.changePct >= 0 ? "+" : ""}${q.changePct.toFixed(2)}%)` : "시세 로딩 중…"}
                 </div>
+                {q?.time && <div className="hint" style={{ marginTop: 2 }}>{staleness(q.time)}</div>}
               </div>
               {action && <span className={badgeClass(action)}>{action}</span>}
             </div>
@@ -406,6 +431,12 @@ export default function Home() {
                   <div className="kv-row">
                     <span className="k">제안 매수 규모</span>
                     <span className="v">약 {sig.suggestedQty}주 ({won(sig.suggestedBudget)}원)</span>
+                  </div>
+                )}
+                {sig.estimatedRoundTripCostWon != null && (
+                  <div className="kv-row">
+                    <span className="k">예상 거래비용 (세금+수수료)</span>
+                    <span className="v" style={{ color: "var(--text-weak)" }}>약 {won(sig.estimatedRoundTripCostWon)}원</span>
                   </div>
                 )}
                 <div className="kv-row">
@@ -583,6 +614,10 @@ export default function Home() {
         본 서비스는 투자 판단을 돕는 참고 정보이며, 투자 권유나 수익 보장이 아닙니다.
         <br />
         모든 투자의 최종 결정과 책임은 투자자 본인에게 있습니다. 단기 매매는 원금 손실 위험이 큽니다.
+        <br />
+        <strong>무료 공개 API 기반 시세는 최대 15~20분 지연될 수 있습니다.</strong> 실제 주문 직전에는 반드시 증권사 앱(MTS)에서 최신 호가를 확인하세요. 진입/무효화 조건은 고정 가격이 아니라 &quot;조건 충족 여부&quot;로 판단하도록 설계되어 지연의 영향을 줄였지만, 완전히 없앨 수는 없습니다.
+        <br />
+        목표가·손절가는 왕복 거래비용(증권거래세+수수료, 약 0.25%)을 반영하지 않은 값입니다. 실제 순수익은 표시된 수치보다 낮습니다.
       </div>
     </main>
   );

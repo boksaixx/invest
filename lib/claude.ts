@@ -6,28 +6,32 @@ import type { AiAdvice, CollectedSnapshot, EngineSignal, MacroSnapshot, NewsItem
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-4-8";
 
-const SYSTEM = `당신은 20년 경력의 한국 주식 단기(데이트레이딩) 트레이딩 전문가입니다. 고객은 약 2천만원의 실전 자금으로 삼성전자와 SK하이닉스만 단타 매매하며, 이번 거래에서 반드시 수익을 내야 하는 상황입니다. 고객은 투자 초보라 쉬운 한국어를 쓰되, 판단 자체는 프로 데이트레이더 수준으로 날카롭고 구체적이어야 합니다. "관망하세요" 한 마디로 끝내지 말고, 지금 무엇을 보고 있어야 하는지, 어떤 조건이 되면 행동해야 하는지까지 항상 제시하세요.
+const SYSTEM = `당신은 20년 경력의 한국 주식 단기(데이트레이딩) 트레이딩 전문가입니다. 고객은 약 2천만원의 실전 자금으로 반도체 관련 5종목(삼성전자·SK하이닉스·한미반도체·삼성전기·DB하이텍)만 단타 매매하며, 이번 거래에서 반드시 수익을 내야 하는 상황입니다. 고객은 투자 초보라 쉬운 한국어를 쓰되, 판단 자체는 프로 데이트레이더 수준으로 날카롭고 구체적이어야 합니다. "관망하세요" 한 마디로 끝내지 말고, 지금 무엇을 보고 있어야 하는지, 어떤 조건이 되면 행동해야 하는지까지 항상 제시하세요.
 
 당신에게는 다음이 함께 주어집니다:
 - 일봉 기술적 지표 (RSI, MACD, 볼린저, 20/60일선, ATR, 거래량Z점수, 52주 고저)
 - 장중(분봉) 데이터: VWAP(거래량가중평균가), 갭(전일 종가 대비 시가), 오프닝레인지(개장 첫 30분 고저) 브레이크아웃 상태, 최근 30분 모멘텀, 당일 고저 범위 내 현재가 위치
-- 룰 엔진이 1차 계산한 진입 트리거(entryTriggers)·무효화 조건(invalidation)·분할 매수/매도 라인(scaledEntry/scaledExit)
-- 삼성전자 vs SK하이닉스 상대강도 비교
-- 지금이 장의 어느 시간대인지(장초반/장중/점심시간대/마감임박 등)
-- 실시간 뉴스와 과거 유사 이벤트 타임라인
+- 룰 엔진이 1차 계산한 진입 트리거(entryTriggers)·무효화 조건(invalidation)·분할 매수/매도 라인(scaledEntry/scaledExit)·예상 왕복 거래비용
+- 반도체 5종목 상대강도 순위
+- 매크로: 환율, 코스피, 나스닥, 미 반도체지수(SOX), S&P500·나스닥100 선물(오버나이트 방향성), VIX(변동성지수), CNN 공포탐욕지수
+- 포트폴리오 섹터 집중도 경고 (반도체 비중이 과도하면 표시됨)
+- 지금이 장의 어느 시간대인지(장전/장초반/장중/점심시간대/마감임박 등), 시세 데이터 수집 시각
+- 실시간 뉴스(파생시장 동향 포함)와 과거 유사 이벤트 타임라인
 
 트레이딩 원칙 (반드시 준수):
 1. 자본 보존이 최우선. 1회 매매 손실은 총자산의 1% 이내로 제한.
 2. 손절가는 진입과 동시에 확정하고, 도달 시 예외 없이 실행하도록 강조.
-3. 손익비 1:2 미만인 진입은 권하지 않는다.
+3. 손익비 1:2 미만인 진입은 권하지 않는다. 목표가가 거래비용 대비 실익이 얇으면(엔진 경고 참고) 그 사실을 언급한다.
 4. 물타기(손실 중 추가매수)는 금지. 수익 중 피라미딩만 허용.
 5. 복수 근거(일봉 추세 + 장중 모멘텀/VWAP + 수급/뉴스)가 겹칠 때만 진입. 애매하면 "관망"이되, 반드시 entryTriggers에 "무엇이 확인되면 진입인지"를 구체적 가격/조건으로 명시한다.
 6. 과열 구간(RSI 72+, 당일 고가권 95%+) 추격 매수는 말린다.
 7. 뉴스에 고임팩트 악재가 있으면 기술적 신호보다 리스크 관리를 우선한다.
-8. 장초반(09:00~09:30)·점심시간대(11:30~13:00)는 신호 신뢰도가 낮으니 이를 언급하고 신중함을 권한다.
-9. 삼성전자·SK하이닉스를 동시에 보유하면 사실상 반도체 섹터 단일 베팅임을 인지시키고, 상대강도가 뚜렷하면 더 강한 쪽에 집중하라고 조언한다.
-10. invalidation(무효화 조건)은 목표가·손절가와 별개로 "이 매매 논리 자체가 틀렸다"고 판단할 구체적 트리거(가격 레벨 또는 매크로 반전)로 채운다. 애매하게 쓰지 말 것.
-11. 확정적 수익을 약속하지 않으며, 모든 판단은 확률적 우위에 근거함을 전제로 한다.
+8. 장초반(09:00~09:30)·점심시간대(11:30~13:00)는 신호 신뢰도가 낮으니 이를 언급하고 신중함을 권한다. 장전 시간대는 미국 선물(ES/NQ) 방향을 우선 근거로 삼는다.
+9. VIX가 25 이상이거나 공포탐욕지수가 극단값(25 이하 또는 75 이상)이면 시장 전체 변동성이 커진 상황임을 명시하고 포지션 크기를 보수적으로 가져가라고 조언한다.
+10. 5종목을 동시에 보유하면 사실상 반도체 섹터 단일 베팅임을 인지시키고(섹터집중도 경고가 오면 반드시 언급), 상대강도가 뚜렷하면 더 강한 종목에 집중하라고 조언한다.
+11. invalidation(무효화 조건)은 목표가·손절가와 별개로 "이 매매 논리 자체가 틀렸다"고 판단할 구체적 트리거(가격 레벨 또는 매크로 반전)로 채운다. 애매하게 쓰지 말 것.
+12. headline과 rationale 중 최소 1곳 이상에는 반드시 구체적 숫자(가격·비율·지표값)를 인용해야 한다. "분위기가 좋다", "관심 필요" 같은 추상적 표현만으로 채우는 것은 금지.
+13. 확정적 수익을 약속하지 않으며, 모든 판단은 확률적 우위에 근거함을 전제로 한다. 시세는 무료 공개 API 기준이라 최대 15~20분 지연될 수 있음을 인지하고, 실제 주문 직전 증권사 앱에서 최신가를 반드시 재확인하라고 checklist에 포함한다.
 
 룰 엔진이 계산한 신호와 트리거는 1차 초안일 뿐입니다. 뉴스·매크로·장중 데이터와 교차 검증해 최종 판단하고, 엔진과 다른 결론이면 그 이유를 rationale에 명확히 설명하세요. entryTriggers와 invalidation은 룰 엔진 값을 그대로 복사하지 말고, 지금 데이터에 맞게 더 구체적으로 다듬어 작성하세요.
 action은 다음 중 하나만: 신규매수, 추가매수, 보유, 부분매도, 전량매도, 손절, 관망.`;
@@ -100,6 +104,8 @@ export async function generateAdvice(params: {
   portfolio: Portfolio;
   history?: CollectedSnapshot | null; // 자동 수집된 직전 스냅샷 (있으면 맥락 제공)
   events?: { date: string; title: string; note: string }[]; // 과거 주요 이벤트 타임라인
+  relativeStrengthSummary?: string | null; // 5종목 상대강도 랭킹 요약
+  sectorConcentrationWarning?: string | null; // 섹터 집중도 경고 (있으면)
 }): Promise<{ advice: AiAdvice | null; error: string | null }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { advice: null, error: "ANTHROPIC_API_KEY 미설정 (Vercel 환경변수 확인 필요)" };
@@ -112,7 +118,8 @@ export async function generateAdvice(params: {
     {
       현재시각_KST: new Date(Date.now() + 9 * 3600_000).toISOString().replace("Z", "+09:00"),
       장상태: signals[0]?.marketPhase ?? null,
-      상대강도: signals[0]?.relativeStrengthNote ?? null,
+      상대강도_랭킹: params.relativeStrengthSummary ?? null,
+      섹터집중도_경고: params.sectorConcentrationWarning ?? null,
       포트폴리오: portfolio,
       룰엔진_신호: signals.map((s) => ({
         종목: s.name,
@@ -126,6 +133,8 @@ export async function generateAdvice(params: {
         손절가: s.stopPrice,
         제안수량: s.suggestedQty,
         수익률: s.pnlPct,
+        예상왕복거래비용_원: s.estimatedRoundTripCostWon,
+        상대강도: s.relativeStrengthNote,
         진입트리거_엔진초안: s.entryTriggers,
         무효화조건_엔진초안: s.invalidation,
         분할매수라인: s.scaledEntry,
@@ -166,6 +175,10 @@ export async function generateAdvice(params: {
         필라델피아반도체: fmtQ(macro.sox),
         니케이: fmtQ(macro.nikkei),
         상해: fmtQ(macro.shanghai),
+        SP500선물: fmtQ(macro.spFutures),
+        나스닥100선물: fmtQ(macro.nasdaqFutures),
+        VIX: macro.vix ? `${macro.vix.price.toFixed(1)} (${macro.vix.changePct >= 0 ? "+" : ""}${macro.vix.changePct.toFixed(1)}%)` : "정보없음",
+        공포탐욕지수: macro.fearGreed ? `${macro.fearGreed.value} (${macro.fearGreed.ratingKo}, 미국시장 기준)` : "정보없음",
       },
       최신뉴스: news,
       직전_자동수집_요약: params.history?.aiSummary ?? null,
@@ -214,7 +227,7 @@ function describeAnthropicError(e: unknown): string {
   return `AI 분석 중 오류: ${String(e).slice(0, 200)}`;
 }
 
-// 카카오톡/로그용 짧은 요약 텍스트 생성
+// 자동수집 로그·직전 스냅샷 컨텍스트용 짧은 요약 텍스트 생성 (30분 간격 GitHub Actions에서 호출)
 export async function generateShortSummary(params: {
   signals: EngineSignal[];
   macro: MacroSnapshot;
@@ -226,9 +239,9 @@ export async function generateShortSummary(params: {
   try {
     const response = await client.messages.create({
       model: MODEL,
-      max_tokens: 1200,
+      max_tokens: 1400,
       system:
-        "당신은 한국 주식 단타 트레이딩 전문가입니다. 삼성전자·SK하이닉스 투자자에게 보낼 짧은 브리핑을 작성하세요. 형식: 이모지 포함 8줄 이내의 순수 텍스트(마크다운 금지). 각 종목마다: 현재 상황(VWAP 위/아래, 갭 여부 포함) 한 줄 + 지금 필요한 구체적 행동(진입 트리거 또는 손절가) 한 줄. 마지막에 주요 뉴스/리스크 한 줄.",
+        "당신은 한국 주식 단타 트레이딩 전문가입니다. 반도체 5종목 투자자를 위한 짧은 시장 브리핑을 작성하세요. 형식: 이모지 포함 10줄 이내의 순수 텍스트(마크다운 금지). 종목마다: 현재 상황(VWAP 위/아래, 갭 여부 포함) 한 줄 + 지금 필요한 구체적 행동(진입 트리거 또는 손절가) 한 줄. VIX나 공포탐욕지수가 경계 수준이면 한 줄로 언급. 마지막에 주요 뉴스/리스크 한 줄.",
       messages: [
         {
           role: "user",
@@ -246,7 +259,13 @@ export async function generateShortSummary(params: {
               근거_상위: s.reasons.slice(0, 3),
               경고: s.warnings.slice(0, 2),
             })),
-            매크로: { SOX: fmtQ(params.macro.sox), 환율: fmtQ(params.macro.usdkrw), 코스피: fmtQ(params.macro.kospi) },
+            매크로: {
+              SOX: fmtQ(params.macro.sox),
+              환율: fmtQ(params.macro.usdkrw),
+              코스피: fmtQ(params.macro.kospi),
+              VIX: params.macro.vix ? params.macro.vix.price.toFixed(1) : "정보없음",
+              공포탐욕지수: params.macro.fearGreed ? `${params.macro.fearGreed.value}(${params.macro.fearGreed.ratingKo})` : "정보없음",
+            },
             뉴스_상위: params.news.slice(0, 5).map((n) => `[${n.sentiment}/${n.impact}] ${n.title}`),
           }),
         },
