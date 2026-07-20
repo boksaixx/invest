@@ -5,7 +5,19 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { AUTH_COOKIE_NAME, computeAuthToken, resolveAppPassword } from "@/lib/authToken";
 
-const PUBLIC_PATHS = ["/login", "/api/auth"];
+// PWA 설치(매니페스트/아이콘/서비스워커)에 필요한 정적 리소스는 비밀번호 게이트 없이 항상
+// 접근 가능해야 한다 — 브라우저가 설치 가능 여부를 검사할 때 로그인 상태가 아니므로,
+// 여기가 막혀 있으면 "설치" 배너 자체가 뜨지 않는다. 민감 정보가 아니라 앱 브랜딩용 자산일 뿐이다.
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/auth",
+  "/manifest.webmanifest",
+  "/icon",
+  "/icon-192",
+  "/icon-512",
+  "/apple-icon",
+  "/sw.js",
+];
 
 export async function middleware(req: NextRequest) {
   const appPassword = resolveAppPassword();

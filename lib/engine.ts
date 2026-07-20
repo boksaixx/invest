@@ -172,78 +172,107 @@ function macroScore(macro: MacroSnapshot, marketPhase: MarketPhaseInfo): { score
   return { score, notes, warnings };
 }
 
+// 기술적 점수를 "추세추종"(trend) / "역추세·저점매수"(reversion) / "레짐 무관 리스크 신호"(neutral)
+// 세 갈래로 나눠 합산한다. 추세추종만 있으면 "오를 때만 올라타는" 편향이 생기므로, ADX(추세 강도)로
+// 지금이 추세장인지 횡보장인지 판단해 두 갈래의 가중치를 반대로 조정한다 — 추세장이면 추세추종을,
+// 횡보장이면 저점매수/되돌림을 더 신뢰한다. 과열/거래량 급변 같은 리스크 신호는 장세와 무관하게
+// 항상 같은 가중치를 유지한다(어느 장세든 위험은 위험이므로).
 export function technicalScore(ind: Indicators, price: number): { score: number; reasons: string[]; warnings: string[] } {
-  let score = 50;
+  let trendScore = 0;
+  let reversionScore = 0;
+  let neutralScore = 0;
   const reasons: string[] = [];
   const warnings: string[] = [];
 
-  // 추세
+  // 추세추종 신호
   if (price > ind.ma20) {
-    score += 8;
+    trendScore += 8;
     reasons.push("주가가 20일선 위 (단기 상승 추세)");
   } else {
-    score -= 8;
+    trendScore -= 8;
     warnings.push("주가가 20일선 아래 (단기 추세 약세)");
   }
-  if (ind.ma5 > ind.ma20) score += 5;
-  else score -= 5;
+  if (ind.ma5 > ind.ma20) trendScore += 5;
+  else trendScore -= 5;
   if (ind.ma20SlopePct > 0.5) {
-    score += 5;
+    trendScore += 5;
     reasons.push("20일선 기울기 상승 중");
-  } else if (ind.ma20SlopePct < -0.5) score -= 5;
+  } else if (ind.ma20SlopePct < -0.5) trendScore -= 5;
 
-  // 모멘텀 (RSI)
+  // 모멘텀(RSI) — 과열/건전 판정은 장세와 무관한 리스크 신호(neutral), 과매도 반등 기대는 저점매수(reversion)
   if (ind.rsi14 >= 45 && ind.rsi14 <= 65) {
-    score += 6;
+    neutralScore += 6;
     reasons.push(`RSI ${ind.rsi14.toFixed(0)} — 과열 아닌 건전한 모멘텀`);
   } else if (ind.rsi14 < 30) {
-    score += 4;
+    reversionScore += 4;
     reasons.push(`RSI ${ind.rsi14.toFixed(0)} — 과매도 구간 (반등 가능성)`);
   } else if (ind.rsi14 > 72) {
-    score -= 10;
+    neutralScore -= 10;
     warnings.push(`RSI ${ind.rsi14.toFixed(0)} — 단기 과열, 추격 매수 위험`);
   }
 
-  // 스토캐스틱(%K/%D) — RSI는 가격 변화의 평균 크기를 보지만, 스토캐스틱은 최근 레인지 내 종가
-  // 위치를 봐서 %K/%D 크로스라는 RSI에 없는 신호를 준다. 가중치는 작게 둬서 RSI와의 중복 과열
-  // 페널티가 과도해지지 않게 한다.
+  // RSI 다이버전스 — 가격 저점/고점과 RSI 저점/고점이 엇갈리는 고신뢰 반전 신호.
+  // "떨어질 때 심리"를 가장 직접적으로 잡아내는 저점매수 확인 지표라 reversion 중 가중치가 가장 크다.
+  if (ind.bullishDivergence) {
+    reversionScore += 10;
+    reasons.push("RSI 강세 다이버전스 — 가격은 이전 저점보다 낮은데 RSI는 더 높음 (하락 모멘텀 약화, 저점매수 확인 신호)");
+  }
+  if (ind.bearishDivergence) {
+    reversionScore -= 8;
+    warnings.push("RSI 약세 다이버전스 — 가격은 이전 고점보다 높은데 RSI는 더 낮음 (상승 모멘텀 약화, 되돌림 유의)");
+  }
+
+  // 캔들패턴(해머) — 하락 흐름 중 저가권 매도세 흡수 신호. 다이버전스와 함께 나오면 더 신뢰도 높음.
+  if (ind.hammerReversal) {
+    reversionScore += 6;
+    reasons.push("해머형 캔들 — 하락 흐름 중 저가권에서 매도세를 매수세가 흡수 (단기 반전 시도 신호)");
+  }
+
+  // OBV(누적거래량) 다이버전스 — 가격 추세와 거래량 추세가 엇갈리면(예: 오르는데 매집이 안 됨)
+  // 그 추세가 거래량 뒷받침 없는 "약한" 움직임이라는 경고. 방향과 무관한 리스크 신호로 취급.
+  if (ind.obvDivergence) {
+    neutralScore -= 3;
+    warnings.push("OBV(누적거래량) 다이버전스 — 최근 가격 추세가 거래량 뒷받침 없이 약하게 진행 중일 수 있음");
+  }
+
+  // 스토캐스틱(%K/%D) — 과매수 중첩 경고는 neutral, 과매도 반등은 reversion, 일반 모멘텀 확인은 trend
   if (!isNaN(ind.stochK) && !isNaN(ind.stochD)) {
     if (ind.stochK > 80 && ind.stochD > 80) {
-      score -= 4;
+      neutralScore -= 4;
       warnings.push(`스토캐스틱 %K ${ind.stochK.toFixed(0)} — 과매수 구간, RSI와 과열 신호 중첩`);
     } else if (ind.stochK < 20 && ind.stochK > ind.stochD) {
-      score += 4;
+      reversionScore += 4;
       reasons.push(`스토캐스틱 %K ${ind.stochK.toFixed(0)} — 과매도 구간에서 %D 상향 돌파 (단기 반등 신호)`);
     } else if (ind.stochK > ind.stochD && ind.stochK < 80) {
-      score += 2;
+      trendScore += 2;
       reasons.push("스토캐스틱 %K가 %D 위 — 단기 모멘텀 양호");
     }
   }
 
   // MACD
   if (ind.macdHist > 0 && ind.macdHist > ind.macdHistPrev) {
-    score += 7;
+    trendScore += 7;
     reasons.push("MACD 상승 전환 유지");
   } else if (ind.macdHist < 0 && ind.macdHist < ind.macdHistPrev) {
-    score -= 7;
+    trendScore -= 7;
   }
 
-  // 볼린저
+  // 볼린저 — 상단 돌파는 neutral 리스크, 하단 근접(낙폭과대)은 reversion
   if (ind.percentB > 0.98) {
-    score -= 5;
+    neutralScore -= 5;
     warnings.push("볼린저 상단 돌파 — 변동성 확대 구간");
   } else if (ind.percentB < 0.05) {
-    score += 3;
+    reversionScore += 3;
     reasons.push("볼린저 하단 근접 — 낙폭 과대");
   }
 
   // 거래량
   if (ind.volumeZ > 1) {
     if (price > ind.ma5) {
-      score += 6;
+      neutralScore += 6;
       reasons.push("평균 대비 거래량 급증 + 상승 (매수세 유입)");
     } else {
-      score -= 6;
+      neutralScore -= 6;
       warnings.push("거래량 급증 + 하락 (매도세 강함)");
     }
   }
@@ -255,18 +284,36 @@ export function technicalScore(ind: Indicators, price: number): { score: number;
     if (pos > 0.92) warnings.push("52주 신고가 부근 — 차익실현 매물 유의");
   }
 
-  // 피벗 포인트(직전 거래일 고저종 기준 지지/저항) — 점수에는 반영하지 않고 근접 시 참고 문구만 추가.
-  // 이미 볼린저/52주 레인지로 과열·과매도 구간은 점수화하고 있어, 중복 가산 대신 정보성으로만 제공한다.
+  // 피벗 포인트(직전 거래일 고저종 기준 지지/저항) — S1 근접은 저점매수 후보라 reversion에 소폭 반영,
+  // R1 근접은 이미 볼린저/52주 레인지로 과열 위험을 다루고 있어 정보성 문구만 추가한다.
   if (!isNaN(ind.pivotR1) && !isNaN(ind.pivotS1) && price > 0) {
     const distToR1Pct = ((ind.pivotR1 - price) / price) * 100;
     const distToS1Pct = ((price - ind.pivotS1) / price) * 100;
     if (distToR1Pct >= 0 && distToR1Pct < 1.2) {
       warnings.push(`피벗 저항선 R1(${Math.round(ind.pivotR1).toLocaleString()}원) 근접 — 돌파 실패 시 되돌림 유의`);
     } else if (distToS1Pct >= 0 && distToS1Pct < 1.2) {
+      reversionScore += 2;
       reasons.push(`피벗 지지선 S1(${Math.round(ind.pivotS1).toLocaleString()}원) 부근 — 지지 확인되면 반등 매수 후보`);
     }
   }
 
+  // ADX 기반 레짐 인식 — 추세가 강하면(25+) 추세추종을 우선하고 저점매수는 신중히(떨어지는 칼날
+  // 위험), 추세가 약하고 횡보 중이면(20 미만) 반대로 저점매수/되돌림 신호를 더 신뢰한다.
+  let trendWeight = 1;
+  let reversionWeight = 1;
+  if (!isNaN(ind.adx14)) {
+    if (ind.adx14 >= 25) {
+      trendWeight = 1.25;
+      reversionWeight = 0.7;
+      reasons.push(`추세 강도(ADX ${ind.adx14.toFixed(0)}) 높음 — 추세추종 신호 우선, 역추세 저점매수는 신중히`);
+    } else if (ind.adx14 < 20) {
+      trendWeight = 0.7;
+      reversionWeight = 1.3;
+      reasons.push(`추세 강도(ADX ${ind.adx14.toFixed(0)}) 낮음(횡보 장세) — 저점매수·되돌림 신호에 더 무게`);
+    }
+  }
+
+  const score = 50 + trendScore * trendWeight + reversionScore * reversionWeight + neutralScore;
   return { score: Math.max(0, Math.min(100, score)), reasons, warnings };
 }
 

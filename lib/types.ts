@@ -66,6 +66,11 @@ export interface Indicators {
   pivotS1: number; // 1차 지지선
   pivotR2: number; // 2차 저항선
   pivotS2: number; // 2차 지지선
+  adx14: number; // 추세 강도(방향 무관) — 25+ 추세장(추세추종 유리), 20- 횡보장(저점매수/역추세 유리)
+  bullishDivergence: boolean; // RSI 강세 다이버전스: 가격은 더 낮은 저점, RSI는 더 높은 저점 (하락 모멘텀 약화 = 저점매수 확인 신호)
+  bearishDivergence: boolean; // RSI 약세 다이버전스: 가격은 더 높은 고점, RSI는 더 낮은 고점 (상승 모멘텀 약화 = 보유자 경고 신호)
+  obvDivergence: boolean; // 최근 20일 가격 추세와 OBV(누적거래량) 추세가 엇갈림 — 거래량 뒷받침 없는 "약한" 움직임
+  hammerReversal: boolean; // 최근 하락 흐름 중 해머형 캔들 발생 — 저가권 매도세 흡수(단기 반전 시도) 신호
 }
 
 // 장중(인트라데이) 인사이트 — "오늘 지금" 판단의 핵심 데이터
