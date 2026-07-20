@@ -526,6 +526,37 @@ body {
   line-height: 1.45;
 }
 
+.insight-report {
+  padding: 6px 18px;
+}
+.insight-section {
+  padding: 14px 0;
+  border-bottom: 1px solid #f0f1f3;
+}
+.insight-section:last-child { border-bottom: none; }
+.insight-section-title {
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.insight-section-body {
+  font-size: 13.5px;
+  color: var(--text-sub);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.insight-risk .insight-section-title { color: #c9353f; }
+.insight-risk .insight-section-body { color: #9c1f28; }
+.insight-action {
+  background: var(--blue-weak);
+  margin: 0 -18px -6px;
+  padding: 14px 18px;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.insight-action .insight-section-title { color: #1b64da; }
+.insight-action .insight-section-body { color: #144ea8; font-weight: 600; }
+
 .disclaimer {
   font-size: 11px;
   color: var(--text-weak);

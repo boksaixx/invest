@@ -499,6 +499,38 @@ export default function Home() {
           <div className="ai-body">{result.advice.overall.marketComment}</div>
         </div>
       )}
+
+      {/* 인사이트 분석 리포트 — 분석 버튼을 누를 때마다 여러 지표를 종합해 새로 생성되는 리포트 */}
+      {result?.advice?.insightReport && (
+        <>
+          <div className="section-title">
+            📋 실시간 인사이트 분석 리포트
+            <span className="meta">{new Date(result.advice.generatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 생성</span>
+          </div>
+          <div className="card insight-report">
+            <div className="insight-section">
+              <div className="insight-section-title">🧭 시장 진단 (추세장/횡보장 · 매크로)</div>
+              <div className="insight-section-body">{result.advice.insightReport.marketRegime}</div>
+            </div>
+            <div className="insight-section">
+              <div className="insight-section-title">📊 기술적 신호 종합</div>
+              <div className="insight-section-body">{result.advice.insightReport.technicalSynthesis}</div>
+            </div>
+            <div className="insight-section">
+              <div className="insight-section-title">💰 수급 · 뉴스 심리</div>
+              <div className="insight-section-body">{result.advice.insightReport.flowAndSentiment}</div>
+            </div>
+            <div className="insight-section insight-risk">
+              <div className="insight-section-title">⚠️ 핵심 리스크</div>
+              <div className="insight-section-body">{result.advice.insightReport.keyRisks}</div>
+            </div>
+            <div className="insight-section insight-action">
+              <div className="insight-section-title">🎯 오늘의 우선순위</div>
+              <div className="insight-section-body">{result.advice.insightReport.actionPlan}</div>
+            </div>
+          </div>
+        </>
+      )}
       {result && !result.aiAvailable && (
         <div className="card" style={{ fontSize: 13, color: "var(--text-sub)" }}>
           ANTHROPIC_API_KEY가 설정되지 않아 룰 엔진 신호만 표시합니다. Vercel 환경변수에 키를 추가하면 AI 종합 판단이 활성화됩니다.

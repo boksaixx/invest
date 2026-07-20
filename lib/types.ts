@@ -225,6 +225,16 @@ export interface NewsItem {
   isBreaking?: boolean; // 최근 몇 시간 내 발생한 속보성 뉴스인지
 }
 
+// 분석 버튼을 누를 때마다 새로 생성되는 종합 인사이트 리포트 — 여러 지표/분석 결과를
+// 하나의 짧은 리포트로 엮어서 "지금 이 순간" 기준으로 왜 이런 판단인지 설명한다.
+export interface InsightReport {
+  marketRegime: string; // 오늘 장의 성격(추세장/횡보장 ADX 진단) + 매크로(환율·VIX·공포탐욕지수·선물) 배경 종합
+  technicalSynthesis: string; // 5종목 전반의 기술적 지표(RSI/MACD/볼린저/스토캐스틱/피벗/다이버전스/해머/OBV) 흐름 종합
+  flowAndSentiment: string; // 외국인/기관 수급 + 최신 뉴스·공시 심리 종합
+  keyRisks: string; // 지금 반드시 조심해야 할 리스크 (변동성, 섹터집중도, 과열구간 등)
+  actionPlan: string; // 5종목 중 지금 어떤 순서로/무엇을 봐야 하는지 실행 우선순위 한 문단
+}
+
 export interface AiAdvice {
   overall: {
     marketComment: string; // 오늘 시장 총평
@@ -232,6 +242,7 @@ export interface AiAdvice {
     headline: string;
     timeContext: string; // 지금 시간대(장초반/장중/마감임박 등)를 고려한 코멘트
   };
+  insightReport: InsightReport;
   stocks: {
     ticker: string;
     action: Action;
