@@ -137,6 +137,20 @@ function computeScoreInfo(holding: boolean, sig: EngineSignal | undefined, ai: A
   return { score, tone: buyTone(score), label: "매수 강도", oneLiner: ai?.headline ?? sig.actionSummary };
 }
 
+const FONT_SCALE_STEPS = [0.85, 1, 1.15, 1.3, 1.45];
+const FONT_SCALE_LABELS = ["아주 작게", "기본", "크게", "더 크게", "아주 크게"];
+const FONT_SCALE_KEY = "font-scale-v1";
+
+function loadFontScaleIndex(): number {
+  if (typeof window === "undefined") return 1;
+  try {
+    const raw = localStorage.getItem(FONT_SCALE_KEY);
+    const idx = raw ? Number(raw) : 1;
+    if (Number.isInteger(idx) && idx >= 0 && idx < FONT_SCALE_STEPS.length) return idx;
+  } catch {}
+  return 1;
+}
+
 export default function Home() {
   const [portfolio, setPortfolio] = useState<Portfolio>(DEFAULT_PORTFOLIO);
   const [market, setMarket] = useState<MarketData | null>(null);
@@ -150,6 +164,23 @@ export default function Home() {
   const [snapshotTime, setSnapshotTime] = useState<string | null>(null);
   const [snapshotMasterScore, setSnapshotMasterScore] = useState<MasterScore | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [fontScaleIdx, setFontScaleIdx] = useState(1);
+  const [fontScaleLoaded, setFontScaleLoaded] = useState(false);
+
+  // 글자 크기: CSS 변수(--font-scale)를 바꾸면 전체 폰트 크기가 한 번에 조정되고, 다음에 켜도 유지되도록 저장한다.
+  // fontScaleLoaded가 true가 되기 전에는 저장하지 않는다 — 그렇지 않으면 저장된 값을 불러오기도 전에
+  // 기본값(1)으로 먼저 덮어써버려서 다시 켰을 때 설정이 초기화되는 문제가 생긴다.
+  useEffect(() => {
+    setFontScaleIdx(loadFontScaleIndex());
+    setFontScaleLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (!fontScaleLoaded) return;
+    document.documentElement.style.setProperty("--font-scale", String(FONT_SCALE_STEPS[fontScaleIdx]));
+    try {
+      localStorage.setItem(FONT_SCALE_KEY, String(fontScaleIdx));
+    } catch {}
+  }, [fontScaleIdx, fontScaleLoaded]);
 
   function toggleExpand(ticker: string) {
     setExpanded((prev) => {
@@ -311,6 +342,30 @@ export default function Home() {
             }}
           >
             로그아웃
+          </button>
+        </div>
+      </div>
+
+      {/* 글자 크기 조절 — 가- / 가+ 로 전체 화면 글자 크기를 바꿀 수 있다 (다음에 켜도 유지됨) */}
+      <div className="font-size-row">
+        <span className="font-size-label">글자 크기</span>
+        <div className="font-size-controls">
+          <button
+            className="font-size-btn"
+            aria-label="글자 작게"
+            disabled={fontScaleIdx === 0}
+            onClick={() => setFontScaleIdx((i) => Math.max(0, i - 1))}
+          >
+            가<span style={{ fontSize: "0.7em" }}>−</span>
+          </button>
+          <span className="font-size-current">{FONT_SCALE_LABELS[fontScaleIdx]}</span>
+          <button
+            className="font-size-btn"
+            aria-label="글자 크게"
+            disabled={fontScaleIdx === FONT_SCALE_STEPS.length - 1}
+            onClick={() => setFontScaleIdx((i) => Math.min(FONT_SCALE_STEPS.length - 1, i + 1))}
+          >
+            가<span style={{ fontSize: "1.25em" }}>+</span>
           </button>
         </div>
       </div>
@@ -504,28 +559,28 @@ export default function Home() {
       {result?.advice?.insightReport && (
         <>
           <div className="section-title">
-            📋 실시간 인사이트 분석 리포트
+            📋 오늘의 쉬운 해설 리포트
             <span className="meta">{new Date(result.advice.generatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 생성</span>
           </div>
           <div className="card insight-report">
             <div className="insight-section">
-              <div className="insight-section-title">🧭 시장 진단 (추세장/횡보장 · 매크로)</div>
+              <div className="insight-section-title">🧭 오늘 시장 분위기</div>
               <div className="insight-section-body">{result.advice.insightReport.marketRegime}</div>
             </div>
             <div className="insight-section">
-              <div className="insight-section-title">📊 기술적 신호 종합</div>
+              <div className="insight-section-title">📊 차트로 본 흐름</div>
               <div className="insight-section-body">{result.advice.insightReport.technicalSynthesis}</div>
             </div>
             <div className="insight-section">
-              <div className="insight-section-title">💰 수급 · 뉴스 심리</div>
+              <div className="insight-section-title">💰 돈의 흐름과 뉴스 분위기</div>
               <div className="insight-section-body">{result.advice.insightReport.flowAndSentiment}</div>
             </div>
             <div className="insight-section insight-risk">
-              <div className="insight-section-title">⚠️ 핵심 리스크</div>
+              <div className="insight-section-title">⚠️ 꼭 조심할 점</div>
               <div className="insight-section-body">{result.advice.insightReport.keyRisks}</div>
             </div>
             <div className="insight-section insight-action">
-              <div className="insight-section-title">🎯 오늘의 우선순위</div>
+              <div className="insight-section-title">🎯 오늘 뭐부터 볼까</div>
               <div className="insight-section-body">{result.advice.insightReport.actionPlan}</div>
             </div>
           </div>
