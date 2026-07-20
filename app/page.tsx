@@ -30,16 +30,44 @@ interface AdviceResponse {
 }
 
 const DEFAULT_PORTFOLIO: Portfolio = { cash: 20_000_000, holdings: [] };
+const PORTFOLIO_COOKIE = "portfolio-v1-backup";
 
+function readPortfolioCookie(): Portfolio | null {
+  try {
+    const match = document.cookie.match(new RegExp(`(?:^|; )${PORTFOLIO_COOKIE}=([^;]*)`));
+    if (!match) return null;
+    return JSON.parse(decodeURIComponent(match[1])) as Portfolio;
+  } catch {
+    return null;
+  }
+}
+
+// localStorage만 쓰면 iOS "홈 화면에 추가" PWA 등 일부 환경에서 저장소가 예고 없이
+// 초기화되는 경우가 있어(iOS의 스토리지 정리 정책), 1년짜리 쿠키를 이중 백업으로 둔다.
+// localStorage가 비어있으면 쿠키에서 복구하고, 복구한 값을 다시 localStorage에도 채워둔다.
 function loadPortfolio(): Portfolio {
   if (typeof window === "undefined") return DEFAULT_PORTFOLIO;
   try {
     const raw = localStorage.getItem("portfolio-v1");
-    if (!raw) return DEFAULT_PORTFOLIO;
-    return JSON.parse(raw) as Portfolio;
-  } catch {
-    return DEFAULT_PORTFOLIO;
+    if (raw) return JSON.parse(raw) as Portfolio;
+  } catch {}
+  const fromCookie = readPortfolioCookie();
+  if (fromCookie) {
+    try {
+      localStorage.setItem("portfolio-v1", JSON.stringify(fromCookie));
+    } catch {}
+    return fromCookie;
   }
+  return DEFAULT_PORTFOLIO;
+}
+
+function persistPortfolio(p: Portfolio): void {
+  try {
+    localStorage.setItem("portfolio-v1", JSON.stringify(p));
+  } catch {}
+  try {
+    document.cookie = `${PORTFOLIO_COOKIE}=${encodeURIComponent(JSON.stringify(p))}; max-age=31536000; path=/; SameSite=Lax`;
+  } catch {}
 }
 
 function won(n: number | null | undefined): string {
@@ -150,9 +178,7 @@ export default function Home() {
 
   const savePortfolio = useCallback((p: Portfolio) => {
     setPortfolio(p);
-    try {
-      localStorage.setItem("portfolio-v1", JSON.stringify(p));
-    } catch {}
+    persistPortfolio(p);
   }, []);
 
   async function refreshMarket() {

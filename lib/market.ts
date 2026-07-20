@@ -63,24 +63,59 @@ async function fetchYahooChart(symbol: string, range: string, interval: string):
   return null;
 }
 
+// 지수/환율/VIX 등은 종류별로 "하루에 이 이상 움직이면 사실상 데이터 오류"로 볼 상한선이 다르다.
+// VIX는 실제로 하루 수십%씩 급등락하는 게 정상이라 억지로 누르면 안 되고, 반대로 코스피 같은
+// 지수는 역사상 최악의 날도 -9%대였으므로 그보다 훨씬 큰 값이 나오면 거의 확실히 데이터 오류다.
+function maxPlausibleChangePct(symbol: string): number {
+  if (symbol === "^VIX") return 100;
+  if (symbol === "KRW=X") return 6;
+  if (symbol.startsWith("^") || symbol.endsWith("=F") || symbol === "000001.SS") return 10;
+  return 32; // 개별 종목 — 한국 상하한 30%에 여유를 둠
+}
+
 export async function fetchQuote(symbol: string, name?: string): Promise<Quote | null> {
   const json = await fetchYahooChart(symbol, "5d", "1d");
   const r = json?.chart.result?.[0];
   if (!r) return null;
   const price = r.meta.regularMarketPrice;
-  // 마지막 일봉이 오늘이면 전일 종가는 그 이전 봉에서 가져온다
   const closes = (r.indicators.quote[0]?.close ?? []).filter((v): v is number => v != null);
-  let prevClose = r.meta.previousClose ?? r.meta.chartPreviousClose;
-  if (closes.length >= 2 && Math.abs(closes[closes.length - 1] - price) < 1e-6) {
-    prevClose = closes[closes.length - 2];
+
+  // 전일 종가 후보 2가지: (1) 야후 메타데이터, (2) 일봉 시계열의 마지막 이전 봉.
+  // 정상 상황이면 둘이 거의 같아야 한다. 공휴일 처리 방식 차이 등으로 데이터가 어긋나면
+  // 간혹 한쪽이 완전히 엉뚱한 값(예: "코스피 -12%")을 만들어낼 수 있어, 두 후보 중
+  // "허용 변동폭 이내이면서 더 보수적인(변동폭이 더 작은)" 쪽을 신뢰한다.
+  const metaPrevClose = r.meta.previousClose ?? r.meta.chartPreviousClose ?? null;
+  const seriesPrevClose = closes.length >= 2 ? closes[closes.length - 2] : null;
+  const candidates = [metaPrevClose, seriesPrevClose].filter((v): v is number => v != null && v > 0);
+  const maxPct = maxPlausibleChangePct(symbol);
+
+  let prevClose: number | null = null;
+  let bestAbsPct = Infinity;
+  for (const c of candidates) {
+    const pct = Math.abs((price - c) / c) * 100;
+    if (pct <= maxPct && pct < bestAbsPct) {
+      prevClose = c;
+      bestAbsPct = pct;
+    }
   }
+  // 그럴듯한 후보가 하나도 없으면(둘 다 비정상적으로 큰 변동) 데이터를 신뢰할 수 없다고 보고
+  // 등락률 0%로 안전하게 처리한다 — 틀린 급등락을 그대로 보여주는 것보다 "변동 없음"이 실전 매매엔 덜 위험하다.
+  if (prevClose == null) {
+    if (candidates.length > 0) {
+      console.warn(
+        `[market] 비정상 등락률 감지 — ${symbol}: price=${price}, 후보=[${candidates.join(", ")}] 전부 허용치(±${maxPct}%) 초과 — 0%로 보정`,
+      );
+    }
+    prevClose = price;
+  }
+
   return {
     symbol,
     name: name ?? INDEX_NAMES[symbol] ?? symbol,
     price,
     prevClose,
     change: price - prevClose,
-    changePct: prevClose ? ((price - prevClose) / prevClose) * 100 : 0,
+    changePct: prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0,
     currency: r.meta.currency,
     time: new Date(r.meta.regularMarketTime * 1000).toISOString(),
   };
@@ -148,6 +183,7 @@ async function fetchNaverRealtime(ticker: StockTicker): Promise<Quote | null> {
     const price = Number(String(d.closePrice).replace(/,/g, ""));
     const changePct = Number(String(d.fluctuationsRatio).replace(/,/g, ""));
     const change = Number(String(d.compareToPreviousClosePrice).replace(/,/g, ""));
+    if (!Number.isFinite(price) || !Number.isFinite(changePct) || !Number.isFinite(change) || price <= 0) return null;
     return {
       symbol: ticker,
       name: STOCKS[ticker].name,
@@ -236,9 +272,13 @@ async function fetchNaverIntraday(ticker: StockTicker): Promise<RawIntradayCandl
 // ---- 통합 진입점 ----
 
 export async function getStockQuote(ticker: StockTicker): Promise<Quote | null> {
+  // 네이버 실시간 시세(polling.finance.naver.com)는 국내 종목 한정으로 야후보다 지연이 훨씬 짧다
+  // (야후는 KRX 데이터 라이선스 특성상 15~20분 이상 지연되는 경우가 흔함) — 국내 5종목은
+  // 네이버를 우선 시도하고, 실패할 때만(응답 오류·형식 이상 등) 야후로 폴백한다.
+  const n = await fetchNaverRealtime(ticker);
+  if (n) return n;
   const y = await fetchQuote(STOCKS[ticker].yahoo, STOCKS[ticker].name);
-  if (y) return { ...y, symbol: ticker };
-  return fetchNaverRealtime(ticker);
+  return y ? { ...y, symbol: ticker } : null;
 }
 
 export async function getStockCandles(ticker: StockTicker): Promise<Candle[]> {
