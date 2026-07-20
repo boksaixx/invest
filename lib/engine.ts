@@ -399,6 +399,9 @@ function computeSuggestedEntryPrice(
   if (action === "신규매수") {
     return { price: Math.round(price), basis: "현재가 기준 즉시 진입 (분할매수 1차 라인 참고)" };
   }
+  if (action === "추가매수") {
+    return { price: Math.round(price), basis: "현재가 기준 추가 매수(피라미딩) — 수익 중 + 신호 강세 조건 충족 시에만 제안됨" };
+  }
   if (action === "관망") {
     if (intraday?.available) {
       return {
@@ -693,7 +696,10 @@ export function runEngine(params: {
     }
   }
 
-  const suggestedEntryPrice = holding ? null : computeSuggestedEntryPrice(action, price, intraday, ind);
+  // 보유 중이라도 action이 "추가매수"(피라미딩)면 매수 진입가 개념이 여전히 유효하다.
+  // 그 외 보유 중(매도 판단/단순 보유)에는 매수 진입가 개념이 없으므로 null.
+  const suggestedEntryPrice =
+    action === "신규매수" || action === "추가매수" ? computeSuggestedEntryPrice(action, price, intraday, ind) : null;
 
   const invalidation = buildInvalidation(intraday, macro);
 
@@ -721,9 +727,11 @@ export function runEngine(params: {
   // 보유 중: "지금 얼마나 강하게 팔아야 하는가" (sellStrength)
   const buyStrength = scoreToBuyStrength(score);
   const sellStrength = holding ? computeSellStrength({ price, stopPrice, targetPrice, score, pnlPct: pnlPct ?? 0, rsi14: ind.rsi14 }) : null;
-  const actionSummary = holding
-    ? sellStrengthSummary(sellStrength as number, stopPrice, targetPrice)
-    : buyStrengthSummary(buyStrength, price);
+  // 보유 중이라도 action이 "추가매수"(피라미딩)면 매도가 아니라 "추가로 얼마나 강하게 사야 하는지"를 보여줘야 한다.
+  const actionSummary =
+    holding && action !== "추가매수"
+      ? sellStrengthSummary(sellStrength as number, stopPrice, targetPrice)
+      : buyStrengthSummary(buyStrength, price);
   const verdict = buildVerdict({ held: Boolean(holding), action, buyStrength, sellStrength, reasons, warnings, overheated: overheatedNow });
 
   return {

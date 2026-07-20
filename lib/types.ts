@@ -157,7 +157,7 @@ export interface EngineSignal {
   verdict: string; // 전문가가 쉽게 풀어 말하듯 한 문장 판정 + 구체적 근거(추세선/거래량/환율 등). AI 없이도 항상 엔진이 계산 (정합성 보장)
   macroScore: number; // 매크로(환율·SOX·나스닥·코스피·선물·VIX) 전체 시장 영향도 점수. 양수=우호적, 음수=비우호적 — 개별 종목 점수에 이미 가산/감산되어 있는 값을 그대로 노출 (같은 시점 5종목 모두 동일)
   disclosures: DartFiling[]; // 최근 DART 공시 (DART_API_KEY 미설정 시 항상 빈 배열)
-  suggestedEntryPrice: number | null; // 미보유 시 "얼마에 사야 하는지" 대표 진입가 (보유 중이면 null — 매수 진입 개념이 없으므로)
+  suggestedEntryPrice: number | null; // "얼마에 사야 하는지" 대표 진입가. 미보유 시 신규매수 진입가, 보유 중이면서 action이 "추가매수"(피라미딩)일 때도 채워짐. 그 외 보유 중(매도 판단/단순 보유)은 매수 진입 개념이 없으므로 null
   entryPriceBasis: string | null; // 위 진입가의 구체적 근거 (예: "VWAP 상향 돌파 확인 시")
   investorFlow: InvestorFlowDay[]; // 최근 일별 외국인/기관 순매수 (KRX 연동 실패 시 항상 빈 배열)
 }

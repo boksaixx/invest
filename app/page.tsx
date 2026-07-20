@@ -126,8 +126,15 @@ interface ScoreInfo {
 }
 
 // 종목 하나의 최종 표시 점수를 계산 — AI 판단이 있으면 그 값을, 없으면 룰 엔진 1차 계산값을 쓴다.
+// 보유 중이라도 action이 "추가매수"(수익 중 피라미딩)면 매도강도가 아니라 "추가매수 강도"를 보여줘야
+// "팔아야 하나" 대신 "더 사도 되나"를 정확히 전달할 수 있다.
 function computeScoreInfo(holding: boolean, sig: EngineSignal | undefined, ai: AiAdvice["stocks"][number] | undefined): ScoreInfo | null {
   if (!sig) return null;
+  const action = ai?.action ?? sig.action;
+  if (holding && action === "추가매수") {
+    const score = ai?.actionScore ?? sig.buyStrength;
+    return { score, tone: buyTone(score), label: "추가매수 강도", oneLiner: ai?.headline ?? sig.actionSummary };
+  }
   if (holding) {
     const score = ai?.actionScore ?? sig.sellStrength;
     if (score == null) return null;
@@ -611,7 +618,7 @@ export default function Home() {
               </div>
             ))}
             <div className="hint">
-              미보유 종목은 매수 강도, 보유 종목은 매도 강도입니다. 8점 이상이면 강한 신호, 4~7점은 조건부(트리거·목표가 확인), 0~3점은 아직 근거 부족(관망/보유)이에요.
+              미보유 종목은 매수 강도, 보유 종목은 매도 강도(단, 수익 중 추가매수 신호가 뜨면 추가매수 강도)입니다. 8점 이상이면 강한 신호, 4~7점은 조건부(트리거·목표가 확인), 0~3점은 아직 근거 부족(관망/보유)이에요.
             </div>
           </div>
         </>
@@ -716,9 +723,9 @@ export default function Home() {
 
             {sig && (
               <>
-                {!held && (ai?.entryPrice ?? sig.suggestedEntryPrice) != null && (
+                {(action === "신규매수" || action === "추가매수") && (ai?.entryPrice ?? sig.suggestedEntryPrice) != null && (
                   <div className="kv-row">
-                    <span className="k">매수 진입가</span>
+                    <span className="k">{held ? "추가 매수가 (피라미딩)" : "매수 진입가"}</span>
                     <span className="v">{won(ai?.entryPrice ?? sig.suggestedEntryPrice)}원</span>
                   </div>
                 )}
@@ -736,8 +743,20 @@ export default function Home() {
                 )}
                 {sig.suggestedQty != null && (action === "신규매수" || action === "추가매수") && (
                   <div className="kv-row">
-                    <span className="k">제안 매수 규모</span>
+                    <span className="k">{held ? "제안 추가매수 규모" : "제안 매수 규모"}</span>
                     <span className="v">약 {sig.suggestedQty}주 ({won(sig.suggestedBudget)}원)</span>
+                  </div>
+                )}
+                {held && sig.scaledExit.length > 0 && (
+                  <div className="exit-plan-box">
+                    <div className="exit-plan-title">📤 매도 계획 — 언제, 얼마나 팔까</div>
+                    {sig.scaledExit.map((o, i) => (
+                      <div className="exit-plan-item" key={i}>
+                        <span className="exit-plan-price">{won(o.price)}원</span>
+                        <span className="exit-plan-qty">{o.qty}주</span>
+                        <span className="exit-plan-note">{o.note}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </>
@@ -833,7 +852,7 @@ export default function Home() {
 
                 {((ai?.entryTriggers ?? sig.entryTriggers).length > 0 ||
                   sig.scaledEntry.length > 0 ||
-                  sig.scaledExit.length > 0 ||
+                  (!held && sig.scaledExit.length > 0) ||
                   (ai?.invalidation ?? sig.invalidation)) && (
                   <div className="plan-box">
                     <div className="plan-title">🎯 오늘의 매매 플랜</div>
@@ -855,9 +874,10 @@ export default function Home() {
                         ))}
                       </div>
                     )}
-                    {sig.scaledExit.length > 0 && (
+                    {/* 보유 중인 경우의 매도 계획은 카드 상단에 항상 보이는 "📤 매도 계획" 블록에서 이미 보여준다 (여기선 중복 방지) */}
+                    {!held && sig.scaledExit.length > 0 && (
                       <div className="plan-block">
-                        <div className="plan-block-title">분할 매도(익절) 라인</div>
+                        <div className="plan-block-title">분할 매도(익절) 라인 — 신규 매수 시 참고</div>
                         {sig.scaledExit.map((o, i) => (
                           <div className="plan-item" key={i}>
                             ▸ {won(o.price)}원 · {o.qty}주 — {o.note}
@@ -901,8 +921,8 @@ export default function Home() {
                 )}
                 {!ai && (
                   <div className="reason-list">
-                    {!held && sig.entryPriceBasis && (
-                      <div className="reason">📍 매수 진입가 근거: {sig.entryPriceBasis}</div>
+                    {sig.entryPriceBasis && (
+                      <div className="reason">📍 {held ? "추가 매수가 근거" : "매수 진입가 근거"}: {sig.entryPriceBasis}</div>
                     )}
                     {sig.reasons.slice(0, 4).map((r, i) => (
                       <div className="reason" key={i}>{r}</div>
