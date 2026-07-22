@@ -96,6 +96,24 @@ function persistResult(r: AdviceResponse): void {
   } catch {}
 }
 
+// localStorage가 실제로 쓰기/읽기가 되는지 직접 검증한다. 시크릿(프라이빗) 모드,
+// 브라우저의 "사이트 데이터 저장 차단" 설정, 저장공간 부족 등으로 저장이 조용히
+// 실패하는 경우가 있는데, try/catch로 감싸두면 그런 실패가 사용자에게 전혀 보이지
+// 않고 "왜 자꾸 초기화되지"라는 혼란만 남긴다 — 그래서 이 자가진단 결과를 화면에
+// 명확히 보여준다(아래 storageBlocked 배너).
+function testStorageWritable(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const testKey = "__storage_test__";
+    localStorage.setItem(testKey, "1");
+    const ok = localStorage.getItem(testKey) === "1";
+    localStorage.removeItem(testKey);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 function won(n: number | null | undefined): string {
   if (n == null || isNaN(n)) return "-";
   return Math.round(n).toLocaleString("ko-KR");
@@ -199,6 +217,8 @@ export default function Home() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [fontScaleIdx, setFontScaleIdx] = useState(1);
   const [fontScaleLoaded, setFontScaleLoaded] = useState(false);
+  const [storageBlocked, setStorageBlocked] = useState(false);
+  const [hostname, setHostname] = useState<string | null>(null);
 
   // 글자 크기: CSS 변수(--font-scale)를 바꾸면 전체 폰트 크기가 한 번에 조정되고, 다음에 켜도 유지되도록 저장한다.
   // fontScaleLoaded가 true가 되기 전에는 저장하지 않는다 — 그렇지 않으면 저장된 값을 불러오기도 전에
@@ -226,6 +246,8 @@ export default function Home() {
 
   // 초기 로드
   useEffect(() => {
+    setStorageBlocked(!testStorageWritable());
+    setHostname(window.location.host);
     setPortfolio(loadPortfolio());
     const cached = loadCachedResult();
     if (cached) setResult(cached);
@@ -364,6 +386,7 @@ export default function Home() {
             반도체 5종목 단타 어드바이저
             {snapshotTime && ` · 자동수집 ${new Date(snapshotTime).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`}
           </div>
+          {hostname && <div className="hostname-tag">접속 주소: {hostname}</div>}
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <button className="btn-ghost btn" style={{ width: "auto" }} onClick={() => setEditOpen((v) => !v)}>
@@ -381,6 +404,23 @@ export default function Home() {
           </button>
         </div>
       </div>
+
+      {/* 저장소 자가진단 — localStorage 쓰기/읽기가 실패하면 자산정보·분석결과가 계속 초기화되는데,
+          원인이 조용히 묻히지 않도록 화면에 명확히 알려준다 */}
+      {storageBlocked && (
+        <div className="storage-warning">
+          <div className="storage-warning-title">⚠️ 이 브라우저에서 데이터 저장이 차단되어 있어요</div>
+          <div className="storage-warning-body">
+            자산 정보와 분석 결과가 계속 초기화되는 이유입니다. 아래를 확인해주세요.
+          </div>
+          <ul className="storage-warning-list">
+            <li>시크릿 모드(프라이빗 브라우징)로 열려 있지 않은지 확인하세요 — 시크릿 모드는 탭을 닫으면 저장된 데이터가 전부 사라집니다.</li>
+            <li>크롬 설정 → 사이트 설정 → 쿠키 및 사이트 데이터에서 이 사이트가 차단되어 있지 않은지 확인하세요.</li>
+            <li>휴대폰 저장공간이 가득 차 있으면 브라우저가 저장을 거부할 수 있으니 공간을 확보해보세요.</li>
+            <li>일부 폰의 "배터리/메모리 최적화" 기능이 브라우저 데이터를 강제로 지우기도 합니다 — 이 앱(또는 크롬)을 최적화 대상에서 제외해보세요.</li>
+          </ul>
+        </div>
+      )}
 
       {/* 글자 크기 조절 — 가- / 가+ 로 전체 화면 글자 크기를 바꿀 수 있다 (다음에 켜도 유지됨) */}
       <div className="font-size-row">

@@ -57,6 +57,41 @@ body {
   font-size: calc(12px * var(--font-scale));
   color: var(--text-weak);
 }
+.hostname-tag {
+  font-size: calc(10px * var(--font-scale));
+  color: var(--text-weak);
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.storage-warning {
+  background: #fff4e5;
+  border: 1.5px solid #ffb020;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.storage-warning-title {
+  font-size: calc(14px * var(--font-scale));
+  font-weight: 800;
+  color: #8a5a00;
+}
+.storage-warning-body {
+  font-size: calc(12.5px * var(--font-scale));
+  color: #8a5a00;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+.storage-warning-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.storage-warning-list li {
+  font-size: calc(12px * var(--font-scale));
+  color: #7a4d00;
+  line-height: 1.55;
+  margin-bottom: 4px;
+}
 
 .font-size-row {
   display: flex;
