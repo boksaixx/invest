@@ -1,5 +1,5 @@
 {
- "collectedAt": "2026-07-22T12:14:44.992Z",
+ "collectedAt": "2026-07-22T12:48:51.881Z",
  "quotes": {
   "005930": {
    "symbol": "005930",
@@ -9,7 +9,7 @@
    "change": 1500,
    "changePct": 0.58,
    "currency": "KRW",
-   "time": "2026-07-22T12:14:18.438Z"
+   "time": "2026-07-22T12:48:23.723Z"
   },
   "000660": {
    "symbol": "000660",
@@ -19,7 +19,7 @@
    "change": -6000,
    "changePct": -0.33,
    "currency": "KRW",
-   "time": "2026-07-22T12:14:18.444Z"
+   "time": "2026-07-22T12:48:23.714Z"
   },
   "042700": {
    "symbol": "042700",
@@ -29,7 +29,7 @@
    "change": -9000,
    "changePct": -4.02,
    "currency": "KRW",
-   "time": "2026-07-22T12:14:18.580Z"
+   "time": "2026-07-22T12:48:23.888Z"
   },
   "009150": {
    "symbol": "009150",
@@ -39,7 +39,7 @@
    "change": 35000,
    "changePct": 2.67,
    "currency": "KRW",
-   "time": "2026-07-22T12:14:18.572Z"
+   "time": "2026-07-22T12:48:23.893Z"
   },
   "000990": {
    "symbol": "000990",
@@ -49,19 +49,19 @@
    "change": 1200,
    "changePct": 1.15,
    "currency": "KRW",
-   "time": "2026-07-22T12:14:18.711Z"
+   "time": "2026-07-22T12:48:23.895Z"
   }
  },
  "macro": {
   "usdkrw": {
    "symbol": "KRW=X",
    "name": "원/달러 환율",
-   "price": 1479.2,
+   "price": 1480.3,
    "prevClose": 1475.010009765625,
-   "change": 4.1899902343750455,
-   "changePct": 0.28406520678736435,
+   "change": 5.2899902343749545,
+   "changePct": 0.35864097188164296,
    "currency": "KRW",
-   "time": "2026-07-22T09:03:01.000Z"
+   "time": "2026-07-22T12:48:14.000Z"
   },
   "kospi": {
    "symbol": "^KS11",
@@ -116,32 +116,32 @@
   "vix": {
    "symbol": "^VIX",
    "name": "변동성지수(VIX)",
-   "price": 17.63,
+   "price": 17.57,
    "prevClose": 17.049999237060547,
-   "change": 0.5800007629394521,
-   "changePct": 3.401764157729343,
+   "change": 0.5200007629394534,
+   "changePct": 3.04985798362477,
    "currency": "USD",
-   "time": "2026-07-22T11:59:16.000Z"
+   "time": "2026-07-22T12:33:16.000Z"
   },
   "spFutures": {
    "symbol": "ES=F",
    "name": "S&P500 선물",
-   "price": 7515,
+   "price": 7521.25,
    "prevClose": 7497.75,
-   "change": 17.25,
-   "changePct": 0.23006902070621185,
+   "change": 23.5,
+   "changePct": 0.31342736154179585,
    "currency": "USD",
-   "time": "2026-07-22T12:04:16.000Z"
+   "time": "2026-07-22T12:38:18.000Z"
   },
   "nasdaqFutures": {
    "symbol": "NQ=F",
    "name": "나스닥100 선물",
-   "price": 29038.75,
-   "prevClose": 28773.25,
-   "change": 265.5,
-   "changePct": 0.9227320514714187,
+   "price": 29046.25,
+   "prevClose": 29316,
+   "change": -269.75,
+   "changePct": -0.920145995360895,
    "currency": "USD",
-   "time": "2026-07-22T12:04:13.000Z"
+   "time": "2026-07-22T12:38:21.000Z"
   },
   "fearGreed": {
    "value": 41,
@@ -152,63 +152,53 @@
  },
  "news": [
   {
-   "title": "삼성전자·SK하이닉스, 미 증시 반도체주 급반등에 동반 강세",
-   "summary": "간밤 미 필라델피아반도체지수 5% 급등에 힘입어 삼성전자와 SK하이닉스가 장 초반 강세를 보였다.",
-   "sentiment": "긍정",
-   "impact": "높음",
-   "relatedTo": "삼성전자",
-   "source": "한국경제",
-   "publishedAt": "11시간 전",
-   "isBreaking": true
-  },
-  {
-   "title": "외국인, 최근 1주일간 반도체 대형주 중심 2조원대 순매수",
-   "summary": "외국인이 SK하이닉스와 삼성전자를 집중 매수하며 그간의 기계적 매도 압력이 완화되는 조짐을 보였다.",
+   "title": "AI Hardware Stocks Stage Broad Rebound Led by Memory and Optical Communications",
+   "summary": "마이크론 등 AI 메모리주가 최근 급락 이후 반발 매수세로 12% 이상 급등함.",
    "sentiment": "긍정",
    "impact": "높음",
    "relatedTo": "반도체업황",
-   "source": "글로벌이코노믹",
-   "publishedAt": "11시간 전",
-   "isBreaking": true
-  },
-  {
-   "title": "모건스탠리 \"메모리 공급 부족 2028년까지 심화, 3분기 가격 25%↑\"",
-   "summary": "데이터 센터 수요 폭증으로 메모리 반도체 공급 부족이 이어지며 3분기 가격이 급등할 전망이다.",
-   "sentiment": "긍정",
-   "impact": "높음",
-   "relatedTo": "반도체업황",
-   "source": "TradingKey",
-   "publishedAt": "1일 전",
-   "isBreaking": true
-  },
-  {
-   "title": "SK하이닉스 ADR 발행 및 달러 공급에 원·달러 환율 1470원대 하락",
-   "summary": "하이닉스 미국 상장 대규모 달러 유입과 외국인 수급 개선으로 원·달러 환율이 1470원대로 내려왔다.",
-   "sentiment": "긍정",
-   "impact": "높음",
-   "relatedTo": "매크로",
-   "source": "인베스팅닷컴",
-   "publishedAt": "1일 전",
-   "isBreaking": true
-  },
-  {
-   "title": "초고수 투자자들, 장중 하락 활용해 삼성전자 담고 하이닉스 차익실현",
-   "summary": "미래에셋 초고수들은 장중 반도체 장비·소부장 및 삼성전자를 순매수하고 하이닉스는 매도했다.",
-   "sentiment": "중립",
-   "impact": "중간",
-   "relatedTo": "삼성전자",
-   "source": "매일경제",
+   "source": "Moomoo",
    "publishedAt": "5시간 전",
    "isBreaking": true
   },
   {
-   "title": "TSMC, 미국 애리조나 투자의 총 2650억 달러 확대로 파운드리 격화",
-   "summary": "TSMC가 미국 투자 규모를 대폭 확대하며 AI 반도체 패권 경쟁과 증설을 가속화하고 있다.",
-   "sentiment": "중립",
+   "title": "TSMC Pours Additional $100 Billion Into Arizona, Betting AI Demand Will Last",
+   "summary": "TSMC가 애리조나 공장에 1,000억 달러를 추가 투자하며 AI 반도체 장기 호황에 베팅함.",
+   "sentiment": "긍정",
    "impact": "높음",
    "relatedTo": "반도체업황",
-   "source": "블룸버그",
+   "source": "Bloomberg/Reuters",
+   "publishedAt": "21시간 전",
+   "isBreaking": true
+  },
+  {
+   "title": "Reuters Criticizes South Korea's Single-Stock Leveraged ETF Culture",
+   "summary": "로이터가 삼성전자·SK하이닉스 단일종목 레버리지 ETF 투기를 도박판으로 비판함.",
+   "sentiment": "부정",
+   "impact": "높음",
+   "relatedTo": "레버리지ETF",
+   "source": "Reuters",
    "publishedAt": "2일 전",
+   "isBreaking": false
+  },
+  {
+   "title": "Samsung Electronics Explores US ADR Listing Following SK Hynix Debut",
+   "summary": "삼성전자가 SK하이닉스의 미국 흥행에 힘입어 월스트리트 ADR 상장을 검토 중임.",
+   "sentiment": "긍정",
+   "impact": "높음",
+   "relatedTo": "삼성전자",
+   "source": "Bloomberg",
+   "publishedAt": "8일 전",
+   "isBreaking": false
+  },
+  {
+   "title": "US Producer Prices Post Largest Drop in 14 Months, Easing Inflation Fears",
+   "summary": "미국 6월 생산자물가가 큰 폭으로 하락하며 연준의 금리 인상 우려를 완화시켰음.",
+   "sentiment": "긍정",
+   "impact": "중간",
+   "relatedTo": "매크로",
+   "source": "Reuters",
+   "publishedAt": "6일 전",
    "isBreaking": false
   }
  ],
@@ -217,20 +207,20 @@
    "ticker": "005930",
    "name": "삼성전자",
    "action": "관망",
-   "score": 20,
+   "score": 12,
    "confidence": "높음",
    "reasons": [
     "당일 저가권 — 단기 반등 시도 가능 구간",
     "스토캐스틱 %K 16 — 과매도 구간에서 %D 상향 돌파 (단기 반등 신호)",
-    "미 반도체지수(SOX) 급락 -2.4%",
-    "나스닥100 선물 +0.92% — 개장 전 우호적 신호"
+    "미 반도체지수(SOX) 급락 -2.4%"
    ],
    "warnings": [
     "VWAP(271,370원) 아래 -4.01% — 당일 매도세 우위",
     "갭상승(+6.56%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행, 상승 실패 신호",
     "오프닝레인지 하단(272,000원) 이탈 — 하락 전환 시그널",
     "주가가 20일선 아래 (단기 추세 약세)",
-    "OBV(누적거래량) 다이버전스 — 최근 가격 추세가 거래량 뒷받침 없이 약하게 진행 중일 수 있음"
+    "OBV(누적거래량) 다이버전스 — 최근 가격 추세가 거래량 뒷받침 없이 약하게 진행 중일 수 있음",
+    "나스닥100 선물 -0.92% — 개장 전 부정적 신호"
    ],
    "targetPrice": 270900,
    "stopPrice": 255300,
@@ -252,8 +242,8 @@
     "bollingerLower": 227674.71633948915,
     "percentB": 0.24829911342817043,
     "atr14": 24336.99531094099,
-    "volumeZ": -1.0588340768559008,
-    "lastVolume": 24121151,
+    "volumeZ": -1.3115739364278964,
+    "lastVolume": 22292003,
     "avgVolume20": 31784224.95,
     "high52w": 374500,
     "low52w": 60200,
@@ -290,7 +280,7 @@
    },
    "marketPhase": {
     "phase": "장마감",
-    "kstTime": "21:14",
+    "kstTime": "21:48",
     "note": "정규장이 마감되었습니다. 오늘 데이터를 복기하고 다음 거래일 전략을 준비하세요."
    },
    "entryTriggers": [
@@ -315,7 +305,7 @@
    "sellStrength": null,
    "actionSummary": "관망 강도(매수 아님) 0/10 — 아직 근거 부족",
    "verdict": "⚪ 지금은 매수하지 마세요 — VWAP(271,370원) 아래 -4.01% — 당일 매도세 우위",
-   "macroScore": -7,
+   "macroScore": -15,
    "disclosures": [],
    "investorFlow": [],
    "suggestedEntryPrice": null,
@@ -325,20 +315,20 @@
    "ticker": "000660",
    "name": "SK하이닉스",
    "action": "관망",
-   "score": 6,
+   "score": 0,
    "confidence": "높음",
    "reasons": [
     "당일 저가권 — 단기 반등 시도 가능 구간",
     "추세 강도(ADX 28) 높음 — 추세추종 신호 우선, 역추세 저점매수는 신중히",
-    "미 반도체지수(SOX) 급락 -2.4%",
-    "나스닥100 선물 +0.92% — 개장 전 우호적 신호"
+    "미 반도체지수(SOX) 급락 -2.4%"
    ],
    "warnings": [
     "VWAP(1,951,824원) 아래 -6.24% — 당일 매도세 우위",
     "갭상승(+7.68%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행, 상승 실패 신호",
     "오프닝레인지 하단(1,960,000원) 이탈 — 하락 전환 시그널",
     "주가가 20일선 아래 (단기 추세 약세)",
-    "RSI 약세 다이버전스 — 가격은 이전 고점보다 높은데 RSI는 더 낮음 (상승 모멘텀 약화, 되돌림 유의)"
+    "RSI 약세 다이버전스 — 가격은 이전 고점보다 높은데 RSI는 더 낮음 (상승 모멘텀 약화, 되돌림 유의)",
+    "나스닥100 선물 -0.92% — 개장 전 부정적 신호"
    ],
    "targetPrice": 1949600,
    "stopPrice": 1770200,
@@ -360,8 +350,8 @@
     "bollingerLower": 1559904.433684579,
     "percentB": 0.19917213512887627,
     "atr14": 224611.50599472233,
-    "volumeZ": -0.8908381031009441,
-    "lastVolume": 5095536,
+    "volumeZ": -1.0808067886878183,
+    "lastVolume": 4802637,
     "avgVolume20": 6469054.95,
     "high52w": 2987000,
     "low52w": 245000,
@@ -398,7 +388,7 @@
    },
    "marketPhase": {
     "phase": "장마감",
-    "kstTime": "21:14",
+    "kstTime": "21:48",
     "note": "정규장이 마감되었습니다. 오늘 데이터를 복기하고 다음 거래일 전략을 준비하세요."
    },
    "entryTriggers": [
@@ -423,7 +413,7 @@
    "sellStrength": null,
    "actionSummary": "관망 강도(매수 아님) 0/10 — 아직 근거 부족",
    "verdict": "⚪ 지금은 매수하지 마세요 — VWAP(1,951,824원) 아래 -6.24% — 당일 매도세 우위",
-   "macroScore": -7,
+   "macroScore": -15,
    "disclosures": [],
    "investorFlow": [],
    "suggestedEntryPrice": null,
@@ -433,19 +423,19 @@
    "ticker": "042700",
    "name": "한미반도체",
    "action": "관망",
-   "score": 31,
-   "confidence": "중간",
+   "score": 22,
+   "confidence": "높음",
    "reasons": [
     "당일 저가권 — 단기 반등 시도 가능 구간",
     "추세 강도(ADX 13) 낮음(횡보 장세) — 저점매수·되돌림 신호에 더 무게",
-    "미 반도체지수(SOX) 급락 -2.4%",
-    "나스닥100 선물 +0.92% — 개장 전 우호적 신호"
+    "미 반도체지수(SOX) 급락 -2.4%"
    ],
    "warnings": [
     "VWAP(227,235원) 아래 -5.38% — 당일 매도세 우위",
     "갭상승(+6.03%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행, 상승 실패 신호",
     "오프닝레인지 하단(232,500원) 이탈 — 하락 전환 시그널",
-    "주가가 20일선 아래 (단기 추세 약세)"
+    "주가가 20일선 아래 (단기 추세 약세)",
+    "나스닥100 선물 -0.92% — 개장 전 부정적 신호"
    ],
    "targetPrice": 238400,
    "stopPrice": 203300,
@@ -505,7 +495,7 @@
    },
    "marketPhase": {
     "phase": "장마감",
-    "kstTime": "21:14",
+    "kstTime": "21:48",
     "note": "정규장이 마감되었습니다. 오늘 데이터를 복기하고 다음 거래일 전략을 준비하세요."
    },
    "entryTriggers": [
@@ -530,7 +520,7 @@
    "sellStrength": null,
    "actionSummary": "관망 강도(매수 아님) 0/10 — 아직 근거 부족",
    "verdict": "⚪ 지금은 매수하지 마세요 — VWAP(227,235원) 아래 -5.38% — 당일 매도세 우위",
-   "macroScore": -7,
+   "macroScore": -15,
    "disclosures": [],
    "investorFlow": [],
    "suggestedEntryPrice": null,
@@ -540,20 +530,20 @@
    "ticker": "009150",
    "name": "삼성전기",
    "action": "관망",
-   "score": 17,
+   "score": 8,
    "confidence": "높음",
    "reasons": [
     "당일 저가권 — 단기 반등 시도 가능 구간",
     "스토캐스틱 %K 14 — 과매도 구간에서 %D 상향 돌파 (단기 반등 신호)",
     "추세 강도(ADX 32) 높음 — 추세추종 신호 우선, 역추세 저점매수는 신중히",
-    "미 반도체지수(SOX) 급락 -2.4%",
-    "나스닥100 선물 +0.92% — 개장 전 우호적 신호"
+    "미 반도체지수(SOX) 급락 -2.4%"
    ],
    "warnings": [
     "VWAP(1,423,263원) 아래 -5.50% — 당일 매도세 우위",
     "갭상승(+8.40%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행, 상승 실패 신호",
     "오프닝레인지 하단(1,402,000원) 이탈 — 하락 전환 시그널",
-    "주가가 20일선 아래 (단기 추세 약세)"
+    "주가가 20일선 아래 (단기 추세 약세)",
+    "나스닥100 선물 -0.92% — 개장 전 부정적 신호"
    ],
    "targetPrice": 1537400,
    "stopPrice": 1248800,
@@ -575,8 +565,8 @@
     "bollingerLower": 1015148.7721703104,
     "percentB": 0.250000465297637,
     "atr14": 187000.28996001385,
-    "volumeZ": -0.9106413249936137,
-    "lastVolume": 824993,
+    "volumeZ": -0.9844305386226809,
+    "lastVolume": 808253,
     "avgVolume20": 1031583.3,
     "high52w": 2417000,
     "low52w": 132500,
@@ -613,7 +603,7 @@
    },
    "marketPhase": {
     "phase": "장마감",
-    "kstTime": "21:14",
+    "kstTime": "21:48",
     "note": "정규장이 마감되었습니다. 오늘 데이터를 복기하고 다음 거래일 전략을 준비하세요."
    },
    "entryTriggers": [
@@ -638,7 +628,7 @@
    "sellStrength": null,
    "actionSummary": "관망 강도(매수 아님) 0/10 — 아직 근거 부족",
    "verdict": "⚪ 지금은 매수하지 마세요 — VWAP(1,423,263원) 아래 -5.50% — 당일 매도세 우위",
-   "macroScore": -7,
+   "macroScore": -15,
    "disclosures": [],
    "investorFlow": [],
    "suggestedEntryPrice": null,
@@ -648,19 +638,19 @@
    "ticker": "000990",
    "name": "DB하이텍",
    "action": "관망",
-   "score": 23,
+   "score": 13,
    "confidence": "높음",
    "reasons": [
     "당일 저가권 — 단기 반등 시도 가능 구간",
     "스토캐스틱 %K 10 — 과매도 구간에서 %D 상향 돌파 (단기 반등 신호)",
-    "미 반도체지수(SOX) 급락 -2.4%",
-    "나스닥100 선물 +0.92% — 개장 전 우호적 신호"
+    "미 반도체지수(SOX) 급락 -2.4%"
    ],
    "warnings": [
     "VWAP(109,983원) 아래 -3.71% — 당일 매도세 우위",
     "갭상승(+5.16%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행, 상승 실패 신호",
     "오프닝레인지 하단(107,800원) 이탈 — 하락 전환 시그널",
-    "주가가 20일선 아래 (단기 추세 약세)"
+    "주가가 20일선 아래 (단기 추세 약세)",
+    "나스닥100 선물 -0.92% — 개장 전 부정적 신호"
    ],
    "targetPrice": 115780,
    "stopPrice": 100960,
@@ -682,8 +672,8 @@
     "bollingerLower": 88146.43507018717,
     "percentB": 0.25126360163629335,
     "atr14": 11872.466816654747,
-    "volumeZ": -0.8909280651704099,
-    "lastVolume": 295799,
+    "volumeZ": -0.9297871914070085,
+    "lastVolume": 278074,
     "avgVolume20": 702182.3,
     "high52w": 230500,
     "low52w": 42450,
@@ -720,7 +710,7 @@
    },
    "marketPhase": {
     "phase": "장마감",
-    "kstTime": "21:14",
+    "kstTime": "21:48",
     "note": "정규장이 마감되었습니다. 오늘 데이터를 복기하고 다음 거래일 전략을 준비하세요."
    },
    "entryTriggers": [
@@ -745,16 +735,16 @@
    "sellStrength": null,
    "actionSummary": "관망 강도(매수 아님) 0/10 — 아직 근거 부족",
    "verdict": "⚪ 지금은 매수하지 마세요 — VWAP(109,983원) 아래 -3.71% — 당일 매도세 우위",
-   "macroScore": -7,
+   "macroScore": -15,
    "disclosures": [],
    "investorFlow": [],
    "suggestedEntryPrice": null,
    "entryPriceBasis": null
   }
  ],
- "aiSummary": "🔴 **한국 반도체 5종목 단타 브리핑** (21:14 정규장 마감)\n\n📊 **강도 6점 이상 종목**\n• SK하이닉스 | 매수강도 0점 → **다음장 관망 필수** | 진입트리거: VWAP(1,951,824원) 상향 돌파 + 거래량 증가 시 1차 진입 또는 오프닝레인지 상단(2,006,000원) 돌파 후 되돌림에서 진입 | 손절: 1,770,200원\n\n📋 **나머지 종목**\n삼성전자 | 한미반도체 | 삼성전기 | DB하이텍\n\n⚠️ **거시 경고**\n공포지수 41(공포 심화) + VIX 17.6 경계 수준 | 미 SOX -2.4% 급락 → 장외 약세 지속 우려\n\n🔌 **주요 리스크·기회**\n모건스탠리 메모리 공급 부족 2028년까지 심화 전망(3분기 가격 25% 상승 예상)로 중기 강재료이나, 당일 갭상승 전종목 갭 메우기 진행 + SOX 급락으로 단기 추가 조정 가능성 높음 | 외국인 2조원대 순매수 중이므로 명확한 돌파 신호 대기 권장",
+ "aiSummary": "📊 반도체 5종목 단타 브리핑 (장마감 21:48)\n\n🔴 **매수 강도 6점 이상 종목 없음** — 전 종목 관망 모드 유지\n\n삼성전자 ⚠️ 매수강도 0/10 | VWAP(271,370원) 상향 돌파 + 거래량 동반 시 1차 진입 | 손절: 255,300원 | 과매도(%K 16) 반등 신호 있으나 갭메우기 진행 중 주의\n\nSK하이닉스 ⚠️ 매수강도 0/10 | VWAP(1,951,824원) 상향 돌파 + 거래량 동반 시 1차 진입 | 손절: 1,770,200원 | 고추세(ADX 28) 환경에서 추세추종 우선, 저점매수 신중\n\n한미반도체 ⚠️ 매수강도 0/10 | VWAP(227,235원) 상향 돌파 + 거래량 동반 시 1차 진입 | 손절: 203,300원 | 저추세(ADX 13) 횡보 장세, 눌림목 저점매수 기회 대기\n\n삼성전기 | 매수강도 0/10 | 손절: 1,248,800원\n\nDB하이텍 | 매수강도 0/10 | 손절: 100,960원\n\n⚠️ **매크로 경계** VIX 17.6 + 공포탐욕지수 41(공포) — 미 반도체지수(SOX) -2.4% 급락으로 위험선 진입, 모든 종목 갭상승 출발 후 갭메우기(fade) 진행 중\n\n🚨 **주요 뉴스/리스크** AI 하드웨어 광폭 반등 기대 vs TSMC 애리조나 추가 100억 달러 투자 발표 긍정적이나, 미국 생산자물가 14개월 최대 낙폭으로 경기 불안감 지속 + 한국 레버리지 ETF 문화 비판 리스크 상존.",
  "masterScore": {
-  "attractivenessPct": 19,
+  "attractivenessPct": 11,
   "label": "방어적(매도 우위)",
   "tone": "sell",
   "headline": "5종목 중 5종목이 매도/경계 신호권 — 신규 진입보다 리스크 관리를 우선하세요",
