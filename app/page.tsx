@@ -70,6 +70,32 @@ function persistPortfolio(p: Portfolio): void {
   } catch {}
 }
 
+// "AI 정밀 분석" 결과는 Claude 호출 비용이 드는 데이터라, 화면(탭)이 백그라운드에서
+// 메모리 정리로 날아가거나(폰 화면을 껐다 켤 때 흔함) 앱을 재실행해도 남아있도록 로컬에 저장해둔다.
+// 오래 지나면 시세가 낡아 위험하므로 6시간 넘은 캐시는 복원하지 않고 버린다.
+const RESULT_CACHE_KEY = "advice-result-v1";
+const RESULT_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
+function loadCachedResult(): AdviceResponse | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(RESULT_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AdviceResponse;
+    if (!parsed?.generatedAt) return null;
+    if (Date.now() - new Date(parsed.generatedAt).getTime() > RESULT_CACHE_MAX_AGE_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function persistResult(r: AdviceResponse): void {
+  try {
+    localStorage.setItem(RESULT_CACHE_KEY, JSON.stringify(r));
+  } catch {}
+}
+
 function won(n: number | null | undefined): string {
   if (n == null || isNaN(n)) return "-";
   return Math.round(n).toLocaleString("ko-KR");
@@ -87,13 +113,13 @@ function badgeClass(action: string): string {
   return "badge badge-hold";
 }
 
-function staleness(iso: string | undefined): string | null {
+function staleness(iso: string | undefined, label: string = "시세"): string | null {
   if (!iso) return null;
   const diffMin = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (diffMin < 1) return "방금 전 시세";
-  if (diffMin > 60) return `${Math.round(diffMin / 60)}시간 전 시세 (지연 큼 — 주문 전 재확인 필수)`;
-  if (diffMin >= 15) return `${diffMin}분 전 시세 (지연 가능성 — 주문 전 재확인 권장)`;
-  return `${diffMin}분 전 시세`;
+  if (diffMin < 1) return `방금 전 ${label}`;
+  if (diffMin > 60) return `${Math.round(diffMin / 60)}시간 전 ${label} (지연 큼 — 주문 전 재확인 필수)`;
+  if (diffMin >= 15) return `${diffMin}분 전 ${label} (지연 가능성 — 주문 전 재확인 권장)`;
+  return `${diffMin}분 전 ${label}`;
 }
 
 function momentumLabel(m: string): string {
@@ -201,6 +227,8 @@ export default function Home() {
   // 초기 로드
   useEffect(() => {
     setPortfolio(loadPortfolio());
+    const cached = loadCachedResult();
+    if (cached) setResult(cached);
     void refreshMarket();
     void fetch("/api/snapshot")
       .then((r) => r.json())
@@ -261,6 +289,7 @@ export default function Home() {
         void runDiagnosis();
       } else {
         setResult(json);
+        persistResult(json);
         setNewsNotice(!json.newsLive && json.newsError ? "지금은 실시간 속보 대신 최근 자동수집된 뉴스를 보여드리고 있어요 (일시적인 수집 지연)." : null);
         if (!json.advice && json.adviceError) {
           setError(`AI 종합 판단 실패: ${json.adviceError}`);
@@ -521,16 +550,23 @@ export default function Home() {
       )}
 
       {/* AI 분석 버튼 */}
-      <button className="btn btn-primary" onClick={() => void runAnalysis()} disabled={loading} style={{ marginBottom: 14 }}>
+      <button className="btn btn-primary" onClick={() => void runAnalysis()} disabled={loading} style={{ marginBottom: !loading && result ? 4 : 14 }}>
         {loading ? (
           <>
             <span className="spinner" />
             AI 분석 중… {elapsed}초 (보통 30초~2분 걸려요)
           </>
+        ) : result ? (
+          "다시 분석하기"
         ) : (
           "지금 AI 정밀 분석 받기"
         )}
       </button>
+      {!loading && result && (
+        <div className="hint" style={{ textAlign: "center", marginBottom: 14 }}>
+          {staleness(result.generatedAt, "분석")} · 화면을 껐다 켜도 이 결과는 유지돼요. 새 판단이 필요하면 다시 분석하기를 눌러주세요.
+        </div>
+      )}
       {error && (
         <div className="card" style={{ color: "var(--red)", fontWeight: 700, fontSize: 14 }}>
           {error}
