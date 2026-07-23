@@ -2,9 +2,10 @@
 // data.krx.co.kr의 getJsonData.cmd는 별도 API 키/가입 없이 누구나 호출 가능한 공개 엔드포인트로,
 // pykrx 등 널리 쓰이는 오픈소스 라이브러리들이 실제로 사용하는 것과 동일한 방식이다.
 // (실시간 체결 기준 수급이 아니라 "전일까지 확정된" 일별 수치 — 증권사 API 인증 없이 얻을 수 있는
-// 가장 신뢰도 높은 공개 소스다)
+// 가장 신뢰도 높은 공개 소스다). KRX는 한국 거래소이므로 국내 상장 종목에만 적용하고,
+// 테슬라/엔비디아 등 미국 종목은 대상에서 제외한다.
 import type { InvestorFlowDay, StockTicker } from "./types";
-import { TICKER_LIST } from "./types";
+import { KR_TICKERS } from "./types";
 
 const KRX_URL = "http://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd";
 const UA =
@@ -97,7 +98,7 @@ export async function fetchInvestorFlows(): Promise<{ data: Partial<Record<Stock
 
   try {
     const result: Partial<Record<StockTicker, InvestorFlowDay[]>> = {};
-    for (const ticker of TICKER_LIST) {
+    for (const ticker of KR_TICKERS) {
       try {
         const isin = await resolveIsin(ticker);
         if (!isin) {

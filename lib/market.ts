@@ -273,10 +273,13 @@ async function fetchNaverIntraday(ticker: StockTicker): Promise<RawIntradayCandl
 
 export async function getStockQuote(ticker: StockTicker): Promise<Quote | null> {
   // 네이버 실시간 시세(polling.finance.naver.com)는 국내 종목 한정으로 야후보다 지연이 훨씬 짧다
-  // (야후는 KRX 데이터 라이선스 특성상 15~20분 이상 지연되는 경우가 흔함) — 국내 5종목은
+  // (야후는 KRX 데이터 라이선스 특성상 15~20분 이상 지연되는 경우가 흔함) — 국내 종목은
   // 네이버를 우선 시도하고, 실패할 때만(응답 오류·형식 이상 등) 야후로 폴백한다.
-  const n = await fetchNaverRealtime(ticker);
-  if (n) return n;
+  // 미국 종목(테슬라 등)은 네이버에 데이터가 없으므로 애초에 시도하지 않고 야후로 바로 간다.
+  if (STOCKS[ticker].market === "KR") {
+    const n = await fetchNaverRealtime(ticker);
+    if (n) return n;
+  }
   const y = await fetchQuote(STOCKS[ticker].yahoo, STOCKS[ticker].name);
   return y ? { ...y, symbol: ticker } : null;
 }

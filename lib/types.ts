@@ -112,11 +112,21 @@ export interface Holding {
 }
 
 export interface Portfolio {
-  cash: number; // 보유 현금 (원)
+  cash: number; // 보유 현금 (원) — 국내(KRW) 종목 매수용
+  cashUSD: number; // 보유 달러현금 ($) — 미국(USD) 종목 매수용. 구버전 저장 데이터엔 없을 수 있어 항상 optional 취급하듯 0 기본값으로 다뤄야 함
   holdings: Holding[];
 }
 
-export type StockTicker = "005930" | "000660" | "042700" | "009150" | "000990";
+export type StockTicker =
+  | "005930"
+  | "000660"
+  | "042700"
+  | "009150"
+  | "000990"
+  | "TSLA"
+  | "NVDA"
+  | "GOOGL"
+  | "META";
 
 export type Action =
   | "신규매수"
@@ -272,12 +282,16 @@ export interface CollectedSnapshot {
   masterScore: MasterScore | null;
 }
 
-export const STOCKS: Record<StockTicker, { name: string; yahoo: string }> = {
-  "005930": { name: "삼성전자", yahoo: "005930.KS" },
-  "000660": { name: "SK하이닉스", yahoo: "000660.KS" },
-  "042700": { name: "한미반도체", yahoo: "042700.KS" },
-  "009150": { name: "삼성전기", yahoo: "009150.KS" },
-  "000990": { name: "DB하이텍", yahoo: "000990.KS" },
+export const STOCKS: Record<StockTicker, { name: string; yahoo: string; market: "KR" | "US"; currency: "KRW" | "USD" }> = {
+  "005930": { name: "삼성전자", yahoo: "005930.KS", market: "KR", currency: "KRW" },
+  "000660": { name: "SK하이닉스", yahoo: "000660.KS", market: "KR", currency: "KRW" },
+  "042700": { name: "한미반도체", yahoo: "042700.KS", market: "KR", currency: "KRW" },
+  "009150": { name: "삼성전기", yahoo: "009150.KS", market: "KR", currency: "KRW" },
+  "000990": { name: "DB하이텍", yahoo: "000990.KS", market: "KR", currency: "KRW" },
+  TSLA: { name: "테슬라", yahoo: "TSLA", market: "US", currency: "USD" },
+  NVDA: { name: "엔비디아", yahoo: "NVDA", market: "US", currency: "USD" },
+  GOOGL: { name: "구글(알파벳)", yahoo: "GOOGL", market: "US", currency: "USD" },
+  META: { name: "메타", yahoo: "META", market: "US", currency: "USD" },
 };
 
 export const TICKER_LIST: StockTicker[] = [
@@ -286,4 +300,13 @@ export const TICKER_LIST: StockTicker[] = [
   "042700",
   "009150",
   "000990",
+  "TSLA",
+  "NVDA",
+  "GOOGL",
+  "META",
 ];
+
+// 국내(KRX)/미국(나스닥 등) 종목 구분 — DART 공시·KRX 수급처럼 한국 시장 전용 데이터 소스를
+// 미국 종목에는 아예 시도하지 않도록 걸러내거나, 시장별로 다른 로직(개장시간·통화)을 적용할 때 사용.
+export const KR_TICKERS: StockTicker[] = TICKER_LIST.filter((t) => STOCKS[t].market === "KR");
+export const US_TICKERS: StockTicker[] = TICKER_LIST.filter((t) => STOCKS[t].market === "US");

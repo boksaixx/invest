@@ -1,9 +1,10 @@
-// DART(전자공시시스템) Open API로 5종목의 최근 공식 공시를 가져온다.
+// DART(전자공시시스템) Open API로 국내 상장 종목의 최근 공식 공시를 가져온다 (한국 거래소 상장사 전용 —
+// 테슬라/엔비디아 등 미국 종목은 DART에 등록되지 않으므로 대상에서 제외).
 // 뉴스는 기자가 취재해 쓰는 만큼 필연적으로 한 박자 늦지만, 공시는 기업이 법적 의무로 직접
 // 공식 채널에 올리는 원천 정보라 "정보의 시차" 문제를 근본적으로 줄여준다.
 // DART_API_KEY 필요 (https://opendart.fss.or.kr 회원가입 후 무료 발급, 선택 기능 — 키가 없으면 조용히 비활성화).
 import { inflateRawSync } from "node:zlib";
-import { TICKER_LIST } from "./types";
+import { KR_TICKERS } from "./types";
 import type { DartFiling, StockTicker } from "./types";
 
 // 최소 zip 리더: 로컬 파일 헤더(PK\x03\x04)만 읽어 첫 번째 엔트리를 압축 해제한다.
@@ -111,7 +112,7 @@ export async function fetchDartDisclosures(): Promise<{ data: Partial<Record<Sto
   try {
     const corpMap = await fetchCorpCodeMap(apiKey);
     const result: Partial<Record<StockTicker, DartFiling[]>> = {};
-    for (const ticker of TICKER_LIST) {
+    for (const ticker of KR_TICKERS) {
       const corpCode = corpMap.get(ticker);
       if (!corpCode) {
         console.warn(`DART corp_code를 찾지 못함: ${ticker}`);

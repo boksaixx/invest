@@ -23,13 +23,14 @@ interface AdviceResponse {
   aiAvailable: boolean;
   newsLive: boolean;
   marketPhase?: { phase: string; kstTime: string; note: string };
+  marketPhaseUS?: { phase: string; kstTime: string; note: string };
   relativeStrengthSummary?: string | null;
   sectorConcentrationWarning?: string | null;
   generatedAt: string;
   error?: string;
 }
 
-const DEFAULT_PORTFOLIO: Portfolio = { cash: 20_000_000, holdings: [] };
+const DEFAULT_PORTFOLIO: Portfolio = { cash: 20_000_000, cashUSD: 0, holdings: [] };
 const PORTFOLIO_COOKIE = "portfolio-v1-backup";
 
 function readPortfolioCookie(): Portfolio | null {
@@ -45,18 +46,25 @@ function readPortfolioCookie(): Portfolio | null {
 // localStorage만 쓰면 iOS "홈 화면에 추가" PWA 등 일부 환경에서 저장소가 예고 없이
 // 초기화되는 경우가 있어(iOS의 스토리지 정리 정책), 1년짜리 쿠키를 이중 백업으로 둔다.
 // localStorage가 비어있으면 쿠키에서 복구하고, 복구한 값을 다시 localStorage에도 채워둔다.
+// cashUSD는 미국 종목(테슬라 등) 추가 이전 버전엔 없었을 수 있으니 항상 기본값 0으로 보정한다.
+function normalizePortfolio(p: Partial<Portfolio> | null | undefined): Portfolio {
+  if (!p) return DEFAULT_PORTFOLIO;
+  return { cash: p.cash ?? 0, cashUSD: p.cashUSD ?? 0, holdings: p.holdings ?? [] };
+}
+
 function loadPortfolio(): Portfolio {
   if (typeof window === "undefined") return DEFAULT_PORTFOLIO;
   try {
     const raw = localStorage.getItem("portfolio-v1");
-    if (raw) return JSON.parse(raw) as Portfolio;
+    if (raw) return normalizePortfolio(JSON.parse(raw) as Portfolio);
   } catch {}
   const fromCookie = readPortfolioCookie();
   if (fromCookie) {
+    const normalized = normalizePortfolio(fromCookie);
     try {
-      localStorage.setItem("portfolio-v1", JSON.stringify(fromCookie));
+      localStorage.setItem("portfolio-v1", JSON.stringify(normalized));
     } catch {}
-    return fromCookie;
+    return normalized;
   }
   return DEFAULT_PORTFOLIO;
 }
@@ -117,6 +125,13 @@ function testStorageWritable(): boolean {
 function won(n: number | null | undefined): string {
   if (n == null || isNaN(n)) return "-";
   return Math.round(n).toLocaleString("ko-KR");
+}
+
+// 통화 단위(원/달러)를 반영한 가격 표기 — 국내 종목은 "12,345원", 미국 종목은 "$123.45"로 표시한다.
+function fmt(n: number | null | undefined, currency: "KRW" | "USD"): string {
+  if (n == null || isNaN(n)) return "-";
+  if (currency === "USD") return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${Math.round(n).toLocaleString("ko-KR")}원`;
 }
 
 function pctClass(v: number | null | undefined): string {
@@ -327,20 +342,44 @@ export default function Home() {
     }
   }
 
-  const holdingsValue = useMemo(() => {
+  const usdKrwRate = (market?.macro as Record<string, Quote | null> | undefined)?.usdkrw?.price ?? null;
+  const toKrw = useCallback((usd: number) => (usdKrwRate ? usd * usdKrwRate : 0), [usdKrwRate]);
+
+  // 국내(원화)/미국(달러) 보유 평가금을 각각 따로 집계한 뒤, 화면 최상단 "총 자산"에서만
+  // 실시간 환율로 원화 환산해 하나의 숫자로 합친다 — 종목 카드 등 개별 표시는 항상 그 종목의
+  // 원래 통화(원/달러)로 보여줘야 하므로 여기서 미리 환산해버리지 않는다.
+  const holdingsValueKRW = useMemo(() => {
     let sum = 0;
     for (const h of portfolio.holdings) {
+      if (STOCKS[h.ticker].currency !== "KRW") continue;
       const q = market?.quotes?.[h.ticker];
       sum += h.qty * (q?.price ?? h.avgPrice);
     }
     return sum;
   }, [portfolio, market]);
 
-  const investedCost = useMemo(
-    () => portfolio.holdings.reduce((a, h) => a + h.qty * h.avgPrice, 0),
+  const holdingsValueUSD = useMemo(() => {
+    let sum = 0;
+    for (const h of portfolio.holdings) {
+      if (STOCKS[h.ticker].currency !== "USD") continue;
+      const q = market?.quotes?.[h.ticker];
+      sum += h.qty * (q?.price ?? h.avgPrice);
+    }
+    return sum;
+  }, [portfolio, market]);
+
+  const investedCostKRW = useMemo(
+    () => portfolio.holdings.filter((h) => STOCKS[h.ticker].currency === "KRW").reduce((a, h) => a + h.qty * h.avgPrice, 0),
     [portfolio],
   );
-  const totalAsset = portfolio.cash + holdingsValue;
+  const investedCostUSD = useMemo(
+    () => portfolio.holdings.filter((h) => STOCKS[h.ticker].currency === "USD").reduce((a, h) => a + h.qty * h.avgPrice, 0),
+    [portfolio],
+  );
+
+  const holdingsValue = holdingsValueKRW + toKrw(holdingsValueUSD); // 원화 환산 합계 (총 자산 카드 전용)
+  const investedCost = investedCostKRW + toKrw(investedCostUSD);
+  const totalAsset = portfolio.cash + toKrw(portfolio.cashUSD) + holdingsValue;
   const totalPnl = holdingsValue - investedCost;
   const totalPnlPct = investedCost > 0 ? (totalPnl / investedCost) * 100 : 0;
 
@@ -358,7 +397,7 @@ export default function Home() {
 
   const fearGreed = (market?.macro as { fearGreed?: { value: number; ratingKo: string } } | undefined)?.fearGreed;
 
-  // 5종목 중 "지금 뭘 해야 하나"를 강도순으로 정렬한 요약 — 화면 맨 위에서 바로 판단할 수 있게
+  // 추적종목 전체 중 "지금 뭘 해야 하나"를 강도순으로 정렬한 요약 — 화면 맨 위에서 바로 판단할 수 있게
   const summaryRows = useMemo(() => {
     if (!result) return [];
     return TICKERS.map(({ ticker, name }) => {
@@ -383,7 +422,7 @@ export default function Home() {
         <div>
           <h1>반도체 트레이딩 AI</h1>
           <div className="sub">
-            반도체 5종목 단타 어드바이저
+            반도체 5종목 + 미국 빅테크 4종목 단타 어드바이저
             {snapshotTime && ` · 자동수집 ${new Date(snapshotTime).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`}
           </div>
           {hostname && <div className="hostname-tag">접속 주소: {hostname}</div>}
@@ -446,7 +485,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 마스터 스코어: 5종목+매크로 종합 "오늘의 매수 매력도" — AI 호출 없이 항상 즉시 계산됨 */}
+      {/* 마스터 스코어: 추적종목 전체+매크로 종합 "오늘의 매수 매력도" — AI 호출 없이 항상 즉시 계산됨 */}
       {displayMasterScore && (
         <div className={`card master-score master-score-${displayMasterScore.tone}`}>
           <div className="master-score-top">
@@ -458,9 +497,9 @@ export default function Home() {
         </div>
       )}
 
-      {/* 총 자산 */}
+      {/* 총 자산 — 원화+달러 보유를 실시간 환율로 환산해 하나의 숫자로 합산 */}
       <div className="card">
-        <div className="asset-label">총 자산 (현금 + 주식 평가금)</div>
+        <div className="asset-label">총 자산 (현금 + 주식 평가금, 원화 환산)</div>
         <div className="asset-total">{won(totalAsset)}원</div>
         {investedCost > 0 && (
           <div className={`asset-pnl ${pctClass(totalPnl)}`}>
@@ -470,8 +509,14 @@ export default function Home() {
           </div>
         )}
         <div className="hint">
-          현금 {won(portfolio.cash)}원 · 주식 {won(holdingsValue)}원
+          현금 {won(portfolio.cash)}원{portfolio.cashUSD > 0 && ` + $${won(portfolio.cashUSD)}`} · 주식 {won(holdingsValueKRW)}원
+          {holdingsValueUSD > 0 && ` + $${won(holdingsValueUSD)}`}
         </div>
+        {!usdKrwRate && (portfolio.cashUSD > 0 || holdingsValueUSD > 0) && (
+          <div className="hint" style={{ color: "var(--red)" }}>
+            환율 정보를 아직 못 가져와 달러 자산이 총 자산에 반영되지 않았어요 (잠시 후 자동 갱신).
+          </div>
+        )}
       </div>
 
       {/* 자산 입력 */}
@@ -491,7 +536,21 @@ export default function Home() {
             />
             <span className="input-suffix">원</span>
           </div>
+          <div className="input-row">
+            <label>보유 달러현금</label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={portfolio.cashUSD.toLocaleString("en-US")}
+              onChange={(e) => {
+                const v = Number(e.target.value.replace(/[^0-9.]/g, ""));
+                savePortfolio({ ...portfolio, cashUSD: isNaN(v) ? 0 : v });
+              }}
+            />
+            <span className="input-suffix">$</span>
+          </div>
           {TICKERS.map(({ ticker, name }) => {
+            const currency = STOCKS[ticker].currency;
             const h = portfolio.holdings.find((x) => x.ticker === ticker);
             const update = (avgPrice: number, qty: number) => {
               const rest = portfolio.holdings.filter((x) => x.ticker !== ticker);
@@ -508,15 +567,15 @@ export default function Home() {
                   <label>매수 평단가</label>
                   <input
                     type="text"
-                    inputMode="numeric"
+                    inputMode={currency === "USD" ? "decimal" : "numeric"}
                     placeholder="0"
-                    value={h ? h.avgPrice.toLocaleString("ko-KR") : ""}
+                    value={h ? h.avgPrice.toLocaleString(currency === "USD" ? "en-US" : "ko-KR") : ""}
                     onChange={(e) => {
-                      const v = Number(e.target.value.replace(/[^0-9]/g, ""));
+                      const v = Number(e.target.value.replace(currency === "USD" ? /[^0-9.]/g : /[^0-9]/g, ""));
                       update(isNaN(v) ? 0 : v, h?.qty ?? 0);
                     }}
                   />
-                  <span className="input-suffix">원</span>
+                  <span className="input-suffix">{currency === "USD" ? "$" : "원"}</span>
                 </div>
                 <div className="input-row">
                   <label>보유 수량</label>
@@ -574,15 +633,28 @@ export default function Home() {
         )}
       </div>
 
-      {/* 장 상태 + 상대강도 + 섹터집중도 배너 */}
+      {/* 장 상태(국내/미국) + 상대강도 + 섹터집중도 배너 */}
       {result?.marketPhase && (
         <div className="phase-banner">
-          <span className="phase-tag">{result.marketPhase.phase}</span>
+          <span className="phase-tag">국내 {result.marketPhase.phase}</span>
           <span className="phase-time">{result.marketPhase.kstTime} KST</span>
           <span className="phase-note">{result.marketPhase.note}</span>
         </div>
       )}
-      {result?.relativeStrengthSummary && <div className="rs-banner">⚖️ {result.relativeStrengthSummary}</div>}
+      {result?.marketPhaseUS && (
+        <div className="phase-banner">
+          <span className="phase-tag">미국 {result.marketPhaseUS.phase}</span>
+          <span className="phase-time">{result.marketPhaseUS.kstTime} KST</span>
+          <span className="phase-note">{result.marketPhaseUS.note}</span>
+        </div>
+      )}
+      {result?.relativeStrengthSummary && (
+        <div className="rs-banner">
+          {result.relativeStrengthSummary.split("\n").map((line, i) => (
+            <div key={i}>⚖️ {line}</div>
+          ))}
+        </div>
+      )}
       {result?.sectorConcentrationWarning && (
         <div className="rs-banner" style={{ background: "var(--red-weak)", color: "#c9353f" }}>
           🎯 {result.sectorConcentrationWarning}
@@ -675,7 +747,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 지금 뭘 해야 하나 — 5종목 강도순 랭킹 (핵심 요약) */}
+      {/* 지금 뭘 해야 하나 — 추적종목 전체 강도순 랭킹 (핵심 요약) */}
       {summaryRows.length > 0 && (
         <>
           <div className="section-title">지금 뭘 해야 하나</div>
@@ -743,6 +815,7 @@ export default function Home() {
 
       {/* 종목 카드 */}
       {TICKERS.map(({ ticker, name }) => {
+        const currency = STOCKS[ticker].currency;
         const q = market?.quotes?.[ticker];
         const sig = result?.signals.find((s) => s.ticker === ticker);
         const ai = result?.advice?.stocks.find((s) => s.ticker === ticker || s.ticker.includes(ticker));
@@ -757,9 +830,9 @@ export default function Home() {
               <div>
                 <span className="stock-name">{name}</span>
                 <span className="stock-code">{ticker}</span>
-                <div className="stock-price">{won(q?.price ?? sig?.price)}원</div>
+                <div className="stock-price">{fmt(q?.price ?? sig?.price, currency)}</div>
                 <div className={`stock-change ${pctClass(q?.changePct)}`}>
-                  {q ? `${q.change >= 0 ? "▲" : "▼"} ${won(Math.abs(q.change))}원 (${q.changePct >= 0 ? "+" : ""}${q.changePct.toFixed(2)}%)` : "시세 로딩 중…"}
+                  {q ? `${q.change >= 0 ? "▲" : "▼"} ${fmt(Math.abs(q.change), currency)} (${q.changePct >= 0 ? "+" : ""}${q.changePct.toFixed(2)}%)` : "시세 로딩 중…"}
                 </div>
                 {q?.time && <div className="hint" style={{ marginTop: 2 }}>{staleness(q.time)}</div>}
               </div>
@@ -770,7 +843,7 @@ export default function Home() {
               <div className="kv-row">
                 <span className="k">내 보유</span>
                 <span className="v">
-                  {h!.qty}주 · 평단 {won(h!.avgPrice)}원
+                  {h!.qty}주 · 평단 {fmt(h!.avgPrice, currency)}
                   {sig?.pnlPct != null && (
                     <span className={pctClass(sig.pnlPct)}>
                       {" "}({sig.pnlPct >= 0 ? "+" : ""}{sig.pnlPct}%)
@@ -802,25 +875,25 @@ export default function Home() {
                 {(action === "신규매수" || action === "추가매수") && (ai?.entryPrice ?? sig.suggestedEntryPrice) != null && (
                   <div className="kv-row">
                     <span className="k">{held ? "추가 매수가 (피라미딩)" : "매수 진입가"}</span>
-                    <span className="v">{won(ai?.entryPrice ?? sig.suggestedEntryPrice)}원</span>
+                    <span className="v">{fmt(ai?.entryPrice ?? sig.suggestedEntryPrice, currency)}</span>
                   </div>
                 )}
                 {(ai?.targetPrice ?? sig.targetPrice) != null && (
                   <div className="kv-row">
                     <span className="k">{held ? "목표가 (여기서 매도 고려)" : "매수 시 목표가"}</span>
-                    <span className="v up">{won(ai?.targetPrice ?? sig.targetPrice)}원</span>
+                    <span className="v up">{fmt(ai?.targetPrice ?? sig.targetPrice, currency)}</span>
                   </div>
                 )}
                 {(ai?.stopPrice ?? sig.stopPrice) != null && (
                   <div className="kv-row">
                     <span className="k">손절가 (반드시 지키세요)</span>
-                    <span className="v down">{won(ai?.stopPrice ?? sig.stopPrice)}원</span>
+                    <span className="v down">{fmt(ai?.stopPrice ?? sig.stopPrice, currency)}</span>
                   </div>
                 )}
                 {sig.suggestedQty != null && (action === "신규매수" || action === "추가매수") && (
                   <div className="kv-row">
                     <span className="k">{held ? "제안 추가매수 규모" : "제안 매수 규모"}</span>
-                    <span className="v">약 {sig.suggestedQty}주 ({won(sig.suggestedBudget)}원)</span>
+                    <span className="v">약 {sig.suggestedQty}주 ({fmt(sig.suggestedBudget, currency)})</span>
                   </div>
                 )}
                 {held && sig.scaledExit.length > 0 && (
@@ -828,7 +901,7 @@ export default function Home() {
                     <div className="exit-plan-title">📤 매도 계획 — 언제, 얼마나 팔까</div>
                     {sig.scaledExit.map((o, i) => (
                       <div className="exit-plan-item" key={i}>
-                        <span className="exit-plan-price">{won(o.price)}원</span>
+                        <span className="exit-plan-price">{fmt(o.price, currency)}</span>
                         <span className="exit-plan-qty">{o.qty}주</span>
                         <span className="exit-plan-note">{o.note}</span>
                       </div>
@@ -868,13 +941,13 @@ export default function Home() {
                 {sig.estimatedRoundTripCostWon != null && (
                   <div className="kv-row">
                     <span className="k">예상 거래비용 (세금+수수료)</span>
-                    <span className="v" style={{ color: "var(--text-weak)" }}>약 {won(sig.estimatedRoundTripCostWon)}원</span>
+                    <span className="v" style={{ color: "var(--text-weak)" }}>약 {fmt(sig.estimatedRoundTripCostWon, currency)}</span>
                   </div>
                 )}
                 <div className="kv-row">
                   <span className="k">RSI / 20일선</span>
                   <span className="v">
-                    {sig.indicators.rsi14.toFixed(0)} / {won(sig.indicators.ma20)}원
+                    {sig.indicators.rsi14.toFixed(0)} / {fmt(sig.indicators.ma20, currency)}
                   </span>
                 </div>
 
@@ -887,7 +960,7 @@ export default function Home() {
                     <div className="intraday-grid">
                       <div className="intraday-cell">
                         <div className="ic-label">VWAP (당일 평균단가)</div>
-                        <div className="ic-value">{won(sig.intraday.vwap)}원</div>
+                        <div className="ic-value">{fmt(sig.intraday.vwap, currency)}</div>
                         <div className={`ic-sub ${pctClass(sig.intraday.distanceFromVwapPct)}`}>
                           {sig.intraday.distanceFromVwapPct >= 0 ? "+" : ""}
                           {sig.intraday.distanceFromVwapPct.toFixed(2)}% {sig.intraday.distanceFromVwapPct >= 0 ? "위" : "아래"}
@@ -907,7 +980,7 @@ export default function Home() {
                           {sig.intraday.orbStatus}
                         </div>
                         <div className="ic-sub">
-                          {won(sig.intraday.openingRangeLow)}~{won(sig.intraday.openingRangeHigh)}원
+                          {fmt(sig.intraday.openingRangeLow, currency)}~{fmt(sig.intraday.openingRangeHigh, currency)}
                         </div>
                       </div>
                       <div className="intraday-cell">
@@ -945,7 +1018,7 @@ export default function Home() {
                         <div className="plan-block-title">분할 매수 라인</div>
                         {sig.scaledEntry.map((o, i) => (
                           <div className="plan-item" key={i}>
-                            ▸ {won(o.price)}원 · {o.qty}주 — {o.note}
+                            ▸ {fmt(o.price, currency)} · {o.qty}주 — {o.note}
                           </div>
                         ))}
                       </div>
@@ -956,7 +1029,7 @@ export default function Home() {
                         <div className="plan-block-title">분할 매도(익절) 라인 — 신규 매수 시 참고</div>
                         {sig.scaledExit.map((o, i) => (
                           <div className="plan-item" key={i}>
-                            ▸ {won(o.price)}원 · {o.qty}주 — {o.note}
+                            ▸ {fmt(o.price, currency)} · {o.qty}주 — {o.note}
                           </div>
                         ))}
                       </div>

@@ -41,6 +41,8 @@ export function newsSentimentScore(news: NewsItem[], stockName: string): { score
     const related =
       n.relatedTo.includes(stockName) ||
       n.relatedTo.includes("반도체") ||
+      n.relatedTo.includes("빅테크") ||
+      n.relatedTo.includes("AI") ||
       n.relatedTo.includes("매크로") ||
       n.relatedTo.includes("파생시장");
     if (!related) continue;
@@ -574,9 +576,14 @@ export function runEngine(params: {
   backtest?: BacktestStats | null;
   disclosures?: DartFiling[];
   investorFlow?: InvestorFlowDay[];
+  // 이 종목과 "같은 통화" 기준 총자산(현금+보유평가금) — 원화 종목은 원화 총자산, 달러 종목은
+  // 달러 총자산을 넘겨야 한다(환율 변환 없이 같은 단위로 비교하기 위함). 호출부가 여러 종목의
+  // 정확한 현재가로 계산해 넘겨주는 게 정확하며, 생략 시 이 종목 하나만 보유한다고 근사한다.
+  portfolioTotalAsset?: number;
 }): EngineSignal {
   const { ticker, price, candles, macro, news, portfolio, intraday, marketPhase } = params;
   const name = STOCKS[ticker].name;
+  const currency = STOCKS[ticker].currency;
   const ind = computeIndicators(candles);
 
   const tech = technicalScore(ind, price);
@@ -600,8 +607,9 @@ export function runEngine(params: {
   }
 
   const holding = portfolio.holdings.find((h) => h.ticker === ticker && h.qty > 0) ?? null;
-  const totalHoldingValue = portfolio.holdings.reduce((a, h) => a + h.qty * price, 0);
-  const totalAsset = portfolio.cash + totalHoldingValue;
+  // 이 종목과 같은 통화의 매수 여력 (원화 종목=cash, 달러 종목=cashUSD)
+  const stockCash = currency === "USD" ? portfolio.cashUSD : portfolio.cash;
+  const totalAsset = params.portfolioTotalAsset ?? stockCash + (holding ? holding.qty * price : 0);
 
   // 단타용 손절폭: 일봉 ATR과 당일 오프닝레인지 폭 중 더 타이트한 쪽을 우선 사용
   const dailyAtrDist = isNaN(ind.atr14) ? price * 0.03 : Math.max(ind.atr14 * 1.5, price * 0.02);
@@ -658,10 +666,10 @@ export function runEngine(params: {
       score >= 70 &&
       pnlPct >= 3 &&
       (holding.qty * price) / totalAsset < MAX_POSITION_WEIGHT &&
-      portfolio.cash > price
+      stockCash > price
     ) {
       action = "추가매수";
-      const budget = Math.min(portfolio.cash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist);
+      const budget = Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist);
       suggestedBudget = Math.floor(budget);
       suggestedQty = Math.max(1, Math.floor(budget / price));
       reasons.unshift("수익 중 + 신호 강세 — 피라미딩(불타기) 조건 충족");
@@ -680,9 +688,9 @@ export function runEngine(params: {
       warnings.unshift(
         `기술적 과열 보정 — 종합 점수(${Math.round(score)}점)는 매수 신호였지만 RSI ${ind.rsi14.toFixed(0)}(과매수) 또는 당일 고가권 근접으로 신규 진입을 보류합니다. 뉴스·매크로가 우호적이어도 추격 매수는 금지, 눌림목 또는 과열 해소 후 재진입 검토`,
       );
-    } else if (score >= 68 && portfolio.cash > price) {
+    } else if (score >= 68 && stockCash > price) {
       action = "신규매수";
-      const budget = Math.min(portfolio.cash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist);
+      const budget = Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist);
       suggestedBudget = Math.floor(budget);
       suggestedQty = Math.max(1, Math.floor(budget / price));
       reasons.unshift(`진입 신호 충족 (점수 ${Math.round(score)}) — 분할 매수 권장, 진입 즉시 손절가 설정`);
@@ -770,7 +778,7 @@ export function runEngine(params: {
   };
 }
 
-// 5종목 + 매크로를 종합한 "오늘의 매수 매력도" 마스터 스코어.
+// 추적종목 전체 + 매크로를 종합한 "오늘의 매수 매력도" 마스터 스코어.
 // 개별 종목 score(이미 기술적+장중+매크로+뉴스를 반영)의 평균을 그대로 "매력도 %"로 쓴다 —
 // AI 호출 없이 순수 계산이라 항상 즉시·일관되게 나오고, 개별 종목 판단과 모순되지 않는다.
 export function computeMasterScore(signals: EngineSignal[]): MasterScore {
@@ -816,10 +824,12 @@ export function computeMasterScore(signals: EngineSignal[]): MasterScore {
   return { attractivenessPct, label, tone, headline, buyCount, sellCount, strongestTicker: strongest.ticker, strongestName: strongest.name };
 }
 
-// 반도체 N종목 상대강도 순위 — 단타에서는 "가장 강한 놈"을 골라 타는 게 원칙.
-// 종목이 늘어난 만큼(최대 5개) 페어 비교가 아니라 전체 랭킹으로 계산한다.
+// 그룹(예: 국내 반도체 / 미국 빅테크) 내 상대강도 순위 — 단타에서는 "가장 강한 놈"을 골라 타는 게 원칙.
+// 서로 다른 통화·거래시간대인 국내/미국 종목을 같은 등락률 랭킹에 섞으면(원화 vs 달러, 장 시간대도 다름)
+// 의미 없는 비교가 되므로, 호출부에서 그룹별로 나눠 각각 이 함수를 호출한다.
 export function computeRelativeStrength(
   stocks: { ticker: StockTicker; changePct: number }[],
+  groupLabel: string = "추적",
 ): { ranked: RankedStock[]; noteFor: (ticker: StockTicker) => string; summary: string } {
   const ranked: RankedStock[] = [...stocks]
     .sort((a, b) => b.changePct - a.changePct)
@@ -830,36 +840,55 @@ export function computeRelativeStrength(
     const r = ranked.find((x) => x.ticker === ticker);
     if (!r || total < 2) return "";
     const pctStr = `${r.changePct >= 0 ? "+" : ""}${r.changePct.toFixed(2)}%`;
-    if (r.rank === 1) return `반도체 ${total}종목 중 등락률 1위(${pctStr}) — 오늘 가장 강한 종목, 단타 우선순위 상위`;
-    if (r.rank === total) return `반도체 ${total}종목 중 등락률 최하위(${pctStr}) — 상대적으로 약세, 진입 시 더 보수적으로 접근`;
-    return `반도체 ${total}종목 중 ${r.rank}위(${pctStr})`;
+    if (r.rank === 1) return `${groupLabel} ${total}종목 중 등락률 1위(${pctStr}) — 오늘 가장 강한 종목, 단타 우선순위 상위`;
+    if (r.rank === total) return `${groupLabel} ${total}종목 중 등락률 최하위(${pctStr}) — 상대적으로 약세, 진입 시 더 보수적으로 접근`;
+    return `${groupLabel} ${total}종목 중 ${r.rank}위(${pctStr})`;
   };
 
   const summary =
     total >= 2
-      ? `오늘의 순위: ${ranked.map((r) => `${r.name} ${r.changePct >= 0 ? "+" : ""}${r.changePct.toFixed(2)}%`).join(" > ")}`
+      ? `${groupLabel} 순위: ${ranked.map((r) => `${r.name} ${r.changePct >= 0 ? "+" : ""}${r.changePct.toFixed(2)}%`).join(" > ")}`
       : "";
 
   return { ranked, noteFor, summary };
 }
 
-// 섹터 집중도 점검 — 5종목 모두 반도체라 여러 종목에 나눠 담아도 사실상 단일 섹터 베팅이다.
-// "비판자" 관점 보완: 분산투자로 착각하게 두지 않고 명시적으로 경고한다.
+// 섹터/테마 집중도 점검 — 국내 반도체 5종목과 미국 빅테크(AI 관련주) 4종목은 통화·거래소는
+// 다르지만 결국 "AI 밸류체인"이라는 같은 테마로 묶이므로, 여러 종목에 나눠 담아도 분산투자로
+// 착각하게 두지 않고 명시적으로 경고한다. 통화가 섞여 있으므로 usdKrwRate로 원화 환산해 비교한다.
 export function computeSectorConcentration(
   holdings: Portfolio["holdings"],
   quotes: Record<string, { price: number } | null | undefined>,
-  totalAsset: number,
+  totalAssetKrw: number,
+  usdKrwRate: number | null,
 ): { pct: number; warning: string | null } {
-  if (totalAsset <= 0) return { pct: 0, warning: null };
-  const semiValue = holdings.reduce((sum, h) => {
+  if (totalAssetKrw <= 0) return { pct: 0, warning: null };
+  const toKrw = (value: number, currency: "KRW" | "USD") => (currency === "USD" && usdKrwRate ? value * usdKrwRate : value);
+
+  let krValue = 0;
+  let usValue = 0;
+  for (const h of holdings) {
     const q = quotes[h.ticker];
-    return sum + h.qty * (q?.price ?? h.avgPrice);
-  }, 0);
-  const pct = (semiValue / totalAsset) * 100;
-  if (pct >= 70) {
+    const stock = STOCKS[h.ticker];
+    const value = h.qty * (q?.price ?? h.avgPrice);
+    if (!stock) continue;
+    if (stock.market === "KR") krValue += value;
+    else usValue += toKrw(value, stock.currency);
+  }
+  const combinedValue = krValue + usValue;
+  const pct = (combinedValue / totalAssetKrw) * 100;
+  const krPct = (krValue / totalAssetKrw) * 100;
+  const usPct = (usValue / totalAssetKrw) * 100;
+
+  const parts: string[] = [];
+  if (krPct >= 70) parts.push(`국내 반도체 섹터에 ${krPct.toFixed(0)}%`);
+  if (usPct >= 70) parts.push(`미국 빅테크(AI 관련주)에 ${usPct.toFixed(0)}%`);
+  if (parts.length === 0 && pct >= 85) parts.push(`반도체+미국 빅테크(AI 관련주) 전체에 ${pct.toFixed(0)}%`);
+
+  if (parts.length > 0) {
     return {
       pct,
-      warning: `보유 자산의 ${pct.toFixed(0)}%가 반도체 섹터에 집중되어 있습니다 — 여러 종목에 나눠 담아도 반도체 업황이 동시에 흔들리면 분산 효과가 거의 없습니다. 전체 포지션 크기를 재고하세요.`,
+      warning: `보유 자산 중 ${parts.join(", ")}가 집중되어 있습니다 — 국내외로 나눠 담았어도 결국 같은 'AI 밸류체인' 테마라 업황이 동시에 흔들리면 분산 효과가 거의 없습니다. 전체 포지션 크기를 재고하세요.`,
     };
   }
   return { pct, warning: null };

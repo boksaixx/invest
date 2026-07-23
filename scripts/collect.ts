@@ -8,15 +8,15 @@ import { fetchDartDisclosures } from "../lib/dart";
 import { fetchInvestorFlows } from "../lib/investorFlow";
 import { computeMasterScore, computeRelativeStrength, runEngine } from "../lib/engine";
 import { computeIntradayInsight } from "../lib/intraday";
-import { getMarketPhase } from "../lib/marketPhase";
+import { getMarketPhaseForMarket } from "../lib/marketPhase";
 import { generateShortSummary } from "../lib/claude";
 import { fetchBacktestSnapshot } from "../lib/backtest";
 import type { CollectedSnapshot, EngineSignal, Portfolio } from "../lib/types";
-import { TICKER_LIST } from "../lib/types";
+import { STOCKS, TICKER_LIST } from "../lib/types";
 
 const DATA_DIR = join(process.cwd(), "data");
 // 자동 수집은 보유정보 없이 시장 관점 신호를 생성한다 (보유 반영 분석은 웹앱에서 실시간 수행)
-const NEUTRAL_PORTFOLIO: Portfolio = { cash: 20_000_000, holdings: [] };
+const NEUTRAL_PORTFOLIO: Portfolio = { cash: 20_000_000, cashUSD: 15_000, holdings: [] };
 
 function kstNow(): Date {
   return new Date(Date.now() + 9 * 3600_000);
@@ -39,7 +39,8 @@ async function main() {
     }),
   ]);
   let { news, error: newsError } = newsResult;
-  const marketPhase = getMarketPhase();
+  const marketPhaseKR = getMarketPhaseForMarket("KR");
+  const marketPhaseUS = getMarketPhaseForMarket("US");
   if (disclosureResult.error) console.warn("DART 공시 수집 경고:", disclosureResult.error);
   if (flowResult.error) console.warn("KRX 수급 수집 경고:", flowResult.error);
 
@@ -62,11 +63,22 @@ async function main() {
   }
 
   console.log("뉴스 수집:", news.length, "건", newsError ? `(오류: ${newsError})` : "");
-  console.log("장 상태:", marketPhase.phase, marketPhase.kstTime);
+  console.log("국내 장 상태:", marketPhaseKR.phase, marketPhaseKR.kstTime);
+  console.log("미국 장 상태:", marketPhaseUS.phase, marketPhaseUS.kstTime);
 
   const withQuote = stockData.filter((sd): sd is typeof sd & { quote: NonNullable<typeof sd.quote> } => sd.quote != null);
-  const rs = computeRelativeStrength(withQuote.map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })));
-  console.log(rs.summary);
+  const rsKR = computeRelativeStrength(
+    withQuote.filter((sd) => STOCKS[sd.ticker].market === "KR").map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
+    "국내 반도체",
+  );
+  const rsUS = computeRelativeStrength(
+    withQuote.filter((sd) => STOCKS[sd.ticker].market === "US").map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
+    "미국 빅테크",
+  );
+  console.log(rsKR.summary);
+  console.log(rsUS.summary);
+  const noteFor = (ticker: (typeof TICKER_LIST)[number]) =>
+    STOCKS[ticker].market === "KR" ? rsKR.noteFor(ticker) : rsUS.noteFor(ticker);
 
   const signals: EngineSignal[] = [];
   for (const sd of stockData) {
@@ -75,6 +87,7 @@ async function main() {
       continue;
     }
     const intraday = computeIntradayInsight(sd.rawIntraday, sd.quote.prevClose, sd.quote.price);
+    const market = STOCKS[sd.ticker].market;
     signals.push(
       runEngine({
         ticker: sd.ticker,
@@ -84,8 +97,8 @@ async function main() {
         news,
         portfolio: NEUTRAL_PORTFOLIO,
         intraday,
-        marketPhase,
-        relativeStrengthNote: rs.noteFor(sd.ticker),
+        marketPhase: market === "KR" ? marketPhaseKR : marketPhaseUS,
+        relativeStrengthNote: noteFor(sd.ticker),
         backtest: backtest?.perTicker[sd.ticker] ?? null,
         disclosures: disclosureResult.data[sd.ticker] ?? [],
         investorFlow: flowResult.data[sd.ticker] ?? [],
@@ -121,7 +134,9 @@ async function main() {
 
   console.log("=== 수집 완료 ===");
   for (const s of signals) {
-    console.log(`${s.name}: ${s.price.toLocaleString()}원 [${s.action}] 점수 ${s.score}`);
+    const unit = STOCKS[s.ticker].currency === "USD" ? "$" : "원";
+    const priceStr = unit === "$" ? `$${s.price.toLocaleString()}` : `${s.price.toLocaleString()}원`;
+    console.log(`${s.name}: ${priceStr} [${s.action}] 점수 ${s.score}`);
   }
 }
 
