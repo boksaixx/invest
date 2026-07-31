@@ -113,9 +113,10 @@ body {
   align-items: center;
   gap: 10px;
 }
+/* 터치 타겟은 최소 40px — 모바일에서 손가락으로 정확히 누르기 위한 접근성 기준 */
 .font-size-btn {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border: none;
   border-radius: 10px;
   background: var(--gray-weak);
@@ -455,6 +456,136 @@ body {
   font-size: calc(13px * var(--font-scale));
   font-weight: 600;
   line-height: 1.45;
+}
+
+/* 투자 모드 토글 (일반/천재) */
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.mode-btn {
+  flex: 1;
+  padding: 11px 0;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-size: calc(14px * var(--font-scale));
+  font-weight: 700;
+  cursor: pointer;
+}
+.mode-btn.active {
+  border-color: #1b64da;
+  background: var(--blue-weak);
+  color: #1b64da;
+}
+.mode-btn.active.genius {
+  border-color: #c9353f;
+  background: var(--red-weak);
+  color: #c9353f;
+}
+.mode-desc {
+  font-size: calc(12.5px * var(--font-scale));
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 12px;
+  padding: 0 2px;
+}
+
+/* 천재 모드: 오늘의 공격 셋업 카드 */
+.genius-card {
+  background: var(--card);
+  border: 1.5px solid #c9353f;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.genius-title {
+  font-weight: 800;
+  font-size: calc(14px * var(--font-scale));
+  margin-bottom: 6px;
+}
+.genius-note {
+  font-size: calc(12.5px * var(--font-scale));
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.genius-setup {
+  border-top: 1px dashed var(--border);
+  padding: 10px 0;
+}
+.genius-setup-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: calc(14px * var(--font-scale));
+  margin-bottom: 8px;
+}
+.genius-range {
+  font-size: calc(11.5px * var(--font-scale));
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.genius-range.big {
+  color: #c9353f;
+}
+.genius-prices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 7px;
+}
+.genius-prices > div {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 8px 6px;
+  text-align: center;
+}
+.genius-prices span {
+  display: block;
+  font-size: calc(10.5px * var(--font-scale));
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.genius-prices strong {
+  font-size: calc(13px * var(--font-scale));
+}
+.genius-qty {
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.genius-rationale {
+  font-size: calc(12px * var(--font-scale));
+  color: var(--muted);
+  line-height: 1.5;
+}
+.genius-caution {
+  margin-top: 6px;
+  background: var(--red-weak);
+  color: #c9353f;
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: calc(11.5px * var(--font-scale));
+  font-weight: 600;
+  line-height: 1.45;
+}
+.genius-skipped {
+  font-size: calc(11.5px * var(--font-scale));
+  color: var(--muted);
+  margin-top: 8px;
+}
+.genius-honest {
+  margin-top: 10px;
+  border-top: 1px dashed var(--border);
+  padding-top: 9px;
+  font-size: calc(11.5px * var(--font-scale));
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 /* 종목 카드 하단의 "내일 예상 등락폭" 띠 */

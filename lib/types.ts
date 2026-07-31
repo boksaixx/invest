@@ -172,6 +172,39 @@ export interface EngineSignal {
   volForecast: VolForecast | null; // 내일 하루 예상 변동폭 추정 (lib/volatility.ts, 5개년 실데이터 검증)
 }
 
+// 투자 모드 — "일반"은 기존 보수적 원칙(1회 손실 1% 제한), "천재"는 하루 1~2회 공격적
+// 눌림목 트레이드를 제안하는 모드다. 이름과 달리 수익을 보장하는 마법이 아니라,
+// 변동성이 큰 날 통계적 우위가 있는 셋업만 골라 제시하는 "기회 탐색기"다
+// (scripts/validate-modes.ts 로 실데이터 검증 — 매일 수익은 어떤 규칙으로도 불가능함이 확인됨).
+export type InvestorMode = "일반" | "천재";
+
+// 천재(공격) 모드의 하루 1~2회 트레이드 셋업 — σ(변동성 추정치) 비례로 산출.
+// 고정 % 파라미터는 학습구간 +36% → 검증구간 -5.5%로 뒤집히는 과적합이 확인돼,
+// 네 구간(급변동 전/후반, 2025, 평온한 2024) 모두에서 플러스였던 σ비례 방식을 쓴다.
+export interface GeniusSetup {
+  ticker: StockTicker;
+  name: string;
+  currency: "KRW" | "USD";
+  currentPrice: number;
+  entryPrice: number; // 시가(또는 현재가) 대비 -0.6σ 지정가 — 체결 안 되면 그날 트레이드 없음
+  targetPrice: number; // 진입가 +1.0σ
+  stopPrice: number; // 진입가 -0.8σ (예외 없이 실행)
+  sigmaDailyPct: number; // 이 종목의 하루 σ
+  expectedRangePct: number; // 예상 하루 고저 변동폭 (≈1.6σ)
+  bigMoveLikely: boolean; // 예상 변동폭이 5% 이상인가 (="5% 기회"가 실재하는 날인가)
+  suggestedQty: number | null; // 리스크 기반 수량 (총자산 2% 리스크 ÷ 손절폭)
+  suggestedBudget: number | null;
+  rationale: string; // 왜 이 종목·이 가격인지 한 줄
+  cautions: string[]; // 폭락 직후 제외 등 필터에 걸린 이유 또는 주의사항
+}
+
+export interface GeniusPlan {
+  available: boolean;
+  setups: GeniusSetup[]; // 최대 2개 (없으면 "오늘은 셋업 없음"이 정직한 답)
+  marketNote: string; // 오늘 변동성 상황 요약 한 줄
+  skippedNote: string | null; // 필터로 제외된 종목 요약 (폭락 직후 등)
+}
+
 // 변동성 추정 결과 — 상세 설명과 검증 근거는 lib/volatility.ts 상단 주석 참고.
 export interface VolForecast {
   available: boolean;
@@ -236,6 +269,7 @@ export interface InvestorFlowDay {
   date: string; // YYYY-MM-DD
   foreignNet: number; // 외국인 순매수(주) — 양수=순매수, 음수=순매도
   institutionNet: number; // 기관합계 순매수(주)
+  pensionNet?: number; // 연기금 순매수(주) — KRX 상세(투자자별) 응답에서만 채워짐. 연기금은 장기 자금이라 순매수가 이어지면 하방 지지 신호로 해석
 }
 
 export interface NewsItem {

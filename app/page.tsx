@@ -26,6 +26,28 @@ interface AdviceResponse {
   marketPhaseUS?: { phase: string; kstTime: string; note: string };
   relativeStrengthSummary?: string | null;
   sectorConcentrationWarning?: string | null;
+  geniusPlan?: {
+    available: boolean;
+    setups: {
+      ticker: string;
+      name: string;
+      currency: "KRW" | "USD";
+      currentPrice: number;
+      entryPrice: number;
+      targetPrice: number;
+      stopPrice: number;
+      sigmaDailyPct: number;
+      expectedRangePct: number;
+      bigMoveLikely: boolean;
+      suggestedQty: number | null;
+      suggestedBudget: number | null;
+      rationale: string;
+      cautions: string[];
+    }[];
+    marketNote: string;
+    skippedNote: string | null;
+  } | null;
+  creditBalance?: { latestTrillionKrw: number; change20dPct: number; note: string } | null;
   portfolioRisk?: {
     totalValue: number;
     sigmaDailyPct: number;
@@ -244,6 +266,19 @@ function loadFontScaleIndex(): number {
 
 export default function Home() {
   const [portfolio, setPortfolio] = useState<Portfolio>(DEFAULT_PORTFOLIO);
+  // 투자 모드 — "일반"(보수, 1% 리스크) / "천재"(공격, 하루 1~2회 눌림목 트레이드).
+  // 새로고침해도 유지되도록 저장한다.
+  const [investorMode, setInvestorMode] = useState<"일반" | "천재">("일반");
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("investor-mode-v1");
+      if (saved === "천재" || saved === "일반") setInvestorMode(saved);
+    } catch {}
+  }, []);
+  const changeMode = (m: "일반" | "천재") => {
+    setInvestorMode(m);
+    try { localStorage.setItem("investor-mode-v1", m); } catch {}
+  };
   const [market, setMarket] = useState<MarketData | null>(null);
   const [result, setResult] = useState<AdviceResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -335,7 +370,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // 평단가만 입력하고 수량은 아직 안 넣은 임시 항목(qty=0)은 "실제 보유"가 아니므로 서버에는 제외하고 보낸다.
-        body: JSON.stringify({ portfolio: { ...portfolio, holdings: portfolio.holdings.filter((h) => h.qty > 0) } }),
+        body: JSON.stringify({ portfolio: { ...portfolio, holdings: portfolio.holdings.filter((h) => h.qty > 0) }, mode: investorMode }),
       });
       let json: AdviceResponse | null = null;
       try {
@@ -511,6 +546,22 @@ export default function Home() {
         </div>
       </div>
 
+      {/* 투자 모드 선택 — 일반(보수) / 천재(공격) */}
+      <div className="mode-toggle">
+        <button className={investorMode === "일반" ? "mode-btn active" : "mode-btn"} onClick={() => changeMode("일반")}>
+          🛡️ 일반 모드
+        </button>
+        <button className={investorMode === "천재" ? "mode-btn active genius" : "mode-btn"} onClick={() => changeMode("천재")}>
+          ⚡ 천재 모드
+        </button>
+      </div>
+      {investorMode === "천재" && (
+        <div className="mode-desc">
+          하루 1~2회, 변동성이 큰 종목의 눌림목에 지정가를 걸어 되돌림을 노리는 공격 모드예요.
+          지정가에 안 닿으면 그날은 매매하지 않는 것이 원칙(추격 금지)이에요.
+        </div>
+      )}
+
       {/* 마스터 스코어: 추적종목 전체+매크로 종합 "오늘의 매수 매력도" — AI 호출 없이 항상 즉시 계산됨 */}
       {displayMasterScore && (
         <div className={`card master-score master-score-${displayMasterScore.tone}`}>
@@ -520,6 +571,42 @@ export default function Home() {
           </div>
           <div className="master-score-tag">{displayMasterScore.label}</div>
           <div className="master-score-headline">{displayMasterScore.headline}</div>
+        </div>
+      )}
+
+      {/* 천재 모드: 오늘의 공격 셋업 */}
+      {investorMode === "천재" && result?.geniusPlan && (
+        <div className="genius-card">
+          <div className="genius-title">⚡ 오늘의 공격 셋업 (최대 2개)</div>
+          <div className="genius-note">{result.geniusPlan.marketNote}</div>
+          {result.geniusPlan.setups.map((g) => (
+            <div className="genius-setup" key={g.ticker}>
+              <div className="genius-setup-head">
+                <strong>{g.name}</strong>
+                <span className={g.bigMoveLikely ? "genius-range big" : "genius-range"}>
+                  예상 변동폭 {g.expectedRangePct.toFixed(1)}%{g.bigMoveLikely ? " · 5%+ 기회" : ""}
+                </span>
+              </div>
+              <div className="genius-prices">
+                <div><span>진입(지정가)</span><strong>{fmt(g.entryPrice, g.currency)}</strong></div>
+                <div><span>익절</span><strong style={{ color: "#1b64da" }}>{fmt(g.targetPrice, g.currency)}</strong></div>
+                <div><span>손절(필수)</span><strong style={{ color: "#c9353f" }}>{fmt(g.stopPrice, g.currency)}</strong></div>
+              </div>
+              {g.suggestedQty != null && g.suggestedBudget != null && (
+                <div className="genius-qty">제안 수량 {g.suggestedQty.toLocaleString()}주 (약 {manwon(g.suggestedBudget)}, 총자산 2% 리스크 기준)</div>
+              )}
+              <div className="genius-rationale">{g.rationale}</div>
+              {g.cautions.map((c, i) => (
+                <div className="genius-caution" key={i}>⚠️ {c}</div>
+              ))}
+            </div>
+          ))}
+          {result.geniusPlan.skippedNote && <div className="genius-skipped">{result.geniusPlan.skippedNote}</div>}
+          <div className="genius-honest">
+            📊 이 규칙의 과거 검증(거래비용 차감, 최악 순서 가정): 급변동장 전반 +21.0% · 후반 +7.1% · 2025년 +4.3% · 평온한 2024년 +10.7%.
+            네 구간 모두 플러스였지만 <strong>과거 성적이며 매일 수익 보장이 아닙니다</strong> — 최대 낙폭 -20% 구간도 있었습니다.
+            손절 없이는 이 모드를 쓰지 마세요.
+          </div>
         </div>
       )}
 

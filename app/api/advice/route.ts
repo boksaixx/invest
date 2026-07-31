@@ -6,6 +6,8 @@ import { fetchDartDisclosures } from "@/lib/dart";
 import { fetchInvestorFlows } from "@/lib/investorFlow";
 import { computeMasterScore, computeRelativeStrength, computeSectorConcentration, runEngine } from "@/lib/engine";
 import { computePortfolioRisk } from "@/lib/volatility";
+import { computeGeniusPlan } from "@/lib/genius";
+import { fetchCreditBalanceTrend } from "@/lib/creditBalance";
 import { computeIntradayInsight } from "@/lib/intraday";
 import { getMarketPhaseForMarket } from "@/lib/marketPhase";
 import { generateAdvice } from "@/lib/claude";
@@ -20,19 +22,21 @@ export const maxDuration = 300;
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json().catch(() => ({}))) as { portfolio?: Portfolio };
+    const body = (await req.json().catch(() => ({}))) as { portfolio?: Portfolio; mode?: "일반" | "천재" };
+    const investorMode: "일반" | "천재" = body.mode === "천재" ? "천재" : "일반";
     const portfolio: Portfolio = {
       cash: body.portfolio?.cash ?? 20_000_000,
       cashUSD: body.portfolio?.cashUSD ?? 0,
       holdings: body.portfolio?.holdings ?? [],
     };
 
-    const [macro, snapshot, backtest, disclosureResult, flowResult, ...stockData] = await Promise.all([
+    const [macro, snapshot, backtest, disclosureResult, flowResult, creditTrend, ...stockData] = await Promise.all([
       getMacroSnapshot(),
       fetchLatestSnapshot(),
       fetchBacktestSnapshot(),
       fetchDartDisclosures(),
       fetchInvestorFlows(),
+      fetchCreditBalanceTrend(), // KOFIA 신용잔고 — 실패 시 null (신호 자동 비활성)
       ...TICKER_LIST.map(async (t) => {
         const quote = await getStockQuote(t);
         const [candles, rawIntraday] = await Promise.all([getStockCandles(t), getStockIntradayCandles(t)]);
@@ -120,6 +124,7 @@ export async function POST(req: Request) {
           backtest: backtest?.perTicker[sd.ticker] ?? null,
           portfolioTotalAsset: market === "KR" ? totalAssetKR : totalAssetUS,
           changePct: sd.quote.changePct,
+          creditTrend,
           // DART/KRX 라이브 호출이 비었으면(키 미설정/일시 오류) 자동수집 스냅샷의 직전 값으로 대체
           disclosures:
             disclosureResult.data[sd.ticker] ??
@@ -158,6 +163,22 @@ export async function POST(req: Request) {
 
     const masterScore = computeMasterScore(signals);
 
+    // 천재(공격) 모드 플랜 — AI 호출 없이 엔진 데이터만으로 계산(무료). 모드와 무관하게 항상
+    // 계산해서 내려주고, 화면에서 모드 선택에 따라 보여줄지 결정한다.
+    const geniusPlan = computeGeniusPlan(
+      stockData.map((sd) => {
+        const sig = signals.find((s) => s.ticker === sd.ticker);
+        return {
+          ticker: sd.ticker,
+          quote: sd.quote,
+          candles: sd.candles,
+          volForecast: sig?.volForecast ?? null,
+          engineScore: sig?.score ?? 50,
+        };
+      }),
+      totalAssetKR,
+    );
+
     const { advice, error: adviceError } = await generateAdvice({
       signals,
       macro,
@@ -167,6 +188,9 @@ export async function POST(req: Request) {
       events: eventsData.events,
       relativeStrengthSummary,
       sectorConcentrationWarning: concentration.warning,
+      investorMode,
+      geniusPlan,
+      creditNote: creditTrend?.note ?? null,
     });
 
     return NextResponse.json({
@@ -182,6 +206,9 @@ export async function POST(req: Request) {
       relativeStrengthSummary,
       sectorConcentrationWarning: concentration.warning,
       portfolioRisk: portfolioRisk.available ? portfolioRisk : null,
+      geniusPlan,
+      creditBalance: creditTrend,
+      investorMode,
       backtestDisclaimer: backtest?.disclaimer ?? null,
       aiAvailable: Boolean(process.env.ANTHROPIC_API_KEY),
       newsLive,

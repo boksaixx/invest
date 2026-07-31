@@ -87,6 +87,37 @@ async function fetchInvestorTrend(isin: string, days = 7): Promise<InvestorFlowD
     .reverse(); // KRX는 최신순으로 내려주므로 오래된 날짜부터 오도록 뒤집는다 (배열의 마지막 = 가장 최근)
 }
 
+// [12009] 상세보기(detailView=1) — 투자자 유형을 세분화해서 내려준다(같은 화면의 "상세보기" 버튼과 동일).
+// pykrx 등 오픈소스가 쓰는 컬럼 배치 기준으로 TRDVAL7이 "연기금 등"이다:
+// 1금융투자 2보험 3투신 4사모 5은행 6기타금융 7연기금등 8기타법인 9개인 10외국인 11기타외국인.
+// 연기금은 국민연금 같은 장기 자금이라 순매수가 이어지면 "하방을 받쳐주는 큰손" 신호로 쓸 수 있다.
+// 컬럼 배치가 응답에 따라 다를 수 있으므로 실패/이상값이면 조용히 생략한다(핵심 수급엔 영향 없음).
+async function fetchPensionDetail(isin: string, days = 7): Promise<Map<string, number>> {
+  const endKst = new Date(Date.now() + 9 * 3600_000);
+  const startKst = new Date(endKst.getTime() - days * 24 * 3600_000);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, "");
+  const out = new Map<string, number>();
+  try {
+    const json = await krxPost("dbms/MDC/STAT/standard/MDCSTAT02303", {
+      strtDd: fmt(startKst),
+      endDd: fmt(endKst),
+      isuCd: isin,
+      trdVolVal: 1,
+      askBid: 3,
+      detailView: 1,
+    });
+    const rows = (json.output ?? []) as Record<string, unknown>[];
+    for (const r of rows) {
+      const date = String(r.TRD_DD ?? "").replace(/\//g, "-");
+      if (!date || r.TRDVAL7 == null) continue;
+      out.set(date, parseKrxNumber(r.TRDVAL7));
+    }
+  } catch (e) {
+    console.warn("KRX 연기금 상세 조회 실패(생략하고 진행):", String(e).slice(0, 120));
+  }
+  return out;
+}
+
 let flowCache: { data: Partial<Record<StockTicker, InvestorFlowDay[]>>; expiresAt: number } | null = null;
 const FLOW_CACHE_TTL_MS = 60 * 60_000; // 하루 1회 갱신되는 데이터라 1시간 캐시로 충분
 
@@ -105,7 +136,13 @@ export async function fetchInvestorFlows(): Promise<{ data: Partial<Record<Stock
           console.warn(`KRX ISIN을 찾지 못함: ${ticker}`);
           continue;
         }
-        result[ticker] = await fetchInvestorTrend(isin);
+        const base = await fetchInvestorTrend(isin);
+        // 연기금 상세는 부가 정보 — 실패해도 기본 수급(외국인/기관)은 그대로 살린다
+        const pension = await fetchPensionDetail(isin);
+        result[ticker] = base.map((day) => {
+          const p = pension.get(day.date);
+          return p == null ? day : { ...day, pensionNet: p };
+        });
       } catch (e) {
         console.error(`KRX 수급 조회 실패 (${ticker}):`, e);
         result[ticker] = [];

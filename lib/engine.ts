@@ -103,6 +103,25 @@ function investorFlowScore(
       `전일(${latest.date}) 외국인+기관 순매도 ${Math.abs(combined).toLocaleString()}주(20일평균거래량 대비 ${pctOfAvgVol.toFixed(1)}%) — 수급 이탈 주의`,
     );
   }
+
+  // 연기금 순매수 연속 — 연기금(국민연금 등)은 단타가 아니라 장기 자금이라, 며칠 연속
+  // 순매수가 이어지면 "급락해도 받아주는 큰손이 있다"는 하방 지지 신호로 읽는다.
+  // (KRX 상세 응답이 있을 때만 판단 — 데이터가 없으면 조용히 건너뜀)
+  const withPension = flows.filter((f) => f.pensionNet != null);
+  if (withPension.length >= 3) {
+    const last3 = withPension.slice(-3);
+    const sum3 = last3.reduce((a, f) => a + (f.pensionNet ?? 0), 0);
+    // 연기금은 거래대금 자체가 크지 않아(3일 합계가 20일평균거래량의 0.2~0.5% 수준이 보통)
+    // 규모보다 "방향의 지속성"이 신호다. 노이즈만 걸러낼 만큼만 임계값을 둔다.
+    const meaningful = Math.abs(sum3) / avgVolume20 > 0.002;
+    if (meaningful && last3.every((f) => (f.pensionNet ?? 0) > 0)) {
+      score += 2;
+      notes.push(`연기금 3일 연속 순매수(합 ${sum3.toLocaleString()}주) — 장기 자금이 하방을 받치는 중`);
+    } else if (meaningful && last3.every((f) => (f.pensionNet ?? 0) < 0)) {
+      score -= 1;
+      warnings.push(`연기금 3일 연속 순매도(합 ${Math.abs(sum3).toLocaleString()}주) — 장기 자금 이탈 흐름`);
+    }
+  }
   return { score, notes, warnings };
 }
 
@@ -623,6 +642,9 @@ export function runEngine(params: {
   backtest?: BacktestStats | null;
   disclosures?: DartFiling[];
   investorFlow?: InvestorFlowDay[];
+  // 시장 전체 신용융자 잔고(빚투) 추이 — 20영업일 대비 급증이면 급락 시 반대매매 연쇄 위험.
+  // KOFIA 공개 통계 연동이 실패하면 null로 들어오고, 이 신호 없이 정상 동작한다.
+  creditTrend?: { change20dPct: number; note: string } | null;
   // 이 종목과 "같은 통화" 기준 총자산(현금+보유평가금) — 원화 종목은 원화 총자산, 달러 종목은
   // 달러 총자산을 넘겨야 한다(환율 변환 없이 같은 단위로 비교하기 위함). 호출부가 여러 종목의
   // 정확한 현재가로 계산해 넘겨주는 게 정확하며, 생략 시 이 종목 하나만 보유한다고 근사한다.
@@ -654,6 +676,20 @@ export function runEngine(params: {
   const warnings = [...intra.warnings, ...tech.warnings, ...mac.warnings, ...sent.notes, ...disc.warnings, ...flow.warnings];
   if (phaseDampener < 1) {
     warnings.push(`현재 시간대(${marketPhase.phase})는 신호 신뢰도가 평소보다 낮습니다 — ${marketPhase.note}`);
+  }
+
+  // 시장 전체 신용잔고(빚투) 급증 — 국내 종목에만 적용. 신용이 몰린 장에서 급락이 시작되면
+  // 반대매매(강제청산)가 하락을 증폭시키므로, 방향 신호가 아니라 "하방 꼬리 리스크"로 감점한다.
+  if (params.creditTrend && STOCKS[ticker].market === "KR") {
+    if (params.creditTrend.change20dPct >= 15) {
+      score = Math.max(0, score - 3);
+      warnings.push(params.creditTrend.note);
+    } else if (params.creditTrend.change20dPct >= 10) {
+      score = Math.max(0, score - 1);
+      warnings.push(params.creditTrend.note);
+    } else if (params.creditTrend.change20dPct <= -15) {
+      reasons.push(params.creditTrend.note); // 청산 소진 = 하방 리스크 완화 참고
+    }
   }
 
   const holding = portfolio.holdings.find((h) => h.ticker === ticker && h.qty > 0) ?? null;

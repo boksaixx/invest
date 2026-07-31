@@ -6,6 +6,7 @@ import { getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuo
 import { collectNews } from "../lib/gemini";
 import { fetchDartDisclosures } from "../lib/dart";
 import { fetchInvestorFlows } from "../lib/investorFlow";
+import { fetchCreditBalanceTrend } from "../lib/creditBalance";
 import { computeMasterScore, computeRelativeStrength, runEngine } from "../lib/engine";
 import { computeIntradayInsight } from "../lib/intraday";
 import { getMarketPhaseForMarket } from "../lib/marketPhase";
@@ -26,12 +27,13 @@ async function main() {
   console.log("=== 수집 시작:", new Date().toISOString(), "===");
   mkdirSync(join(DATA_DIR, "log"), { recursive: true });
 
-  const [macro, newsResult, backtest, disclosureResult, flowResult, ...stockData] = await Promise.all([
+  const [macro, newsResult, backtest, disclosureResult, flowResult, creditTrend, ...stockData] = await Promise.all([
     getMacroSnapshot(),
     collectNews(),
     fetchBacktestSnapshot(),
     fetchDartDisclosures(),
     fetchInvestorFlows(),
+    fetchCreditBalanceTrend(),
     ...TICKER_LIST.map(async (t) => {
       const quote = await getStockQuote(t);
       const [candles, rawIntraday] = await Promise.all([getStockCandles(t), getStockIntradayCandles(t)]);
@@ -101,6 +103,7 @@ async function main() {
         relativeStrengthNote: noteFor(sd.ticker),
         backtest: backtest?.perTicker[sd.ticker] ?? null,
         changePct: sd.quote.changePct,
+        creditTrend,
         disclosures: disclosureResult.data[sd.ticker] ?? [],
         investorFlow: flowResult.data[sd.ticker] ?? [],
       }),

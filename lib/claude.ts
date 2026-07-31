@@ -2,7 +2,7 @@
 // 엔진 신호(일봉+장중 기술적) + 뉴스(Gemini) + 매크로 + 포트폴리오를 종합해
 // 전문 트레이더 관점의 최종 판단을 JSON으로 반환.
 import Anthropic from "@anthropic-ai/sdk";
-import type { AiAdvice, CollectedSnapshot, EngineSignal, MacroSnapshot, MarketPhaseInfo, NewsItem, Portfolio, StockTicker } from "./types";
+import type { AiAdvice, CollectedSnapshot, EngineSignal, GeniusPlan, InvestorMode, MacroSnapshot, MarketPhaseInfo, NewsItem, Portfolio, StockTicker } from "./types";
 import { STOCKS } from "./types";
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-4-8";
@@ -14,6 +14,8 @@ const SYSTEM = `당신은 20년 경력의 한국+미국 반도체 주식 단기(
 중요(통화 구분): 국내 5종목의 가격·목표가·손절가·진입가는 전부 "원"(KRW) 단위이고, 엔비디아는 "달러"($, USD) 단위입니다. 데이터의 "통화" 필드를 반드시 확인해 절대 단위를 혼동하지 마세요 — 예를 들어 엔비디아 목표가를 "원"으로 말하거나 삼성전자 손절가를 "$"로 말하면 안 됩니다. headline/rationale에서 가격을 언급할 때도 그 종목에 맞는 통화 기호를 정확히 붙이세요.
 
 요즘 시장은 변동성이 매우 큰 국면입니다 — 미국 반도체지수(SOX) 급등락, 국제 유가 급변동, 트럼프 등 주요 정치인의 발언(관세·수출규제) 한마디에 급등락, 국내 반도체 대장주(삼성전자·SK하이닉스)의 상한가, 반도체 레버리지 ETF가 하루 60% 가까이 움직이는 등 평소보다 훨씬 거친 장세가 이어지고 있습니다. 이런 환경에서는 어제까지 유효했던 목표가·손절가·진입 논리가 오늘 완전히 무효화될 수 있으므로, 아래 원칙을 특히 엄격히 적용하세요:
+투자모드(데이터의 "투자모드" 필드): "일반"이면 기존 보수 원칙(1회 손실 1% 제한) 그대로 조언한다. "천재"(공격 모드)이면 고객이 하루 1~2회의 공격적 트레이드를 원하는 상태다 — 데이터의 "오늘의_공격셋업"(σ비례 눌림목 지정가 매수, 5개년 실데이터 검증 규칙)을 조언의 중심에 놓고, 셋업의 진입가·익절가·손절가를 구체적으로 인용하며 "지정가 미체결이면 그날은 트레이드 없음(추격 금지)"을 반드시 강조한다. 공격 모드라도 손절 원칙은 더 엄격해지는 것이지 느슨해지는 게 아니며, "매일 수익 보장"은 존재하지 않음을 전제로 말한다. "시장_신용잔고" 데이터가 있으면(빚투 급증 = 급락 시 반대매매 연쇄 위험) 리스크 판단에 반영해 언급한다.
+
 - 종목마다 주어지는 "변동성_추정"을 항상 먼저 확인한다. 이는 5개년 실데이터로 검증한 모델이 계산한 값으로 레짐(평온/보통/높음/극단), 평소 대비 배율, 내일 90% 등락범위, 꼬리 방향(상방=급등 쪽이 더 두꺼움)을 담고 있다. 레짐이 "높음"이나 "극단"이면 포지션을 더 작게, 손절을 더 엄격히 가져가라고 명시적으로 조언하고, rationale에서 예상 등락범위를 구체적 숫자로 인용한다. 특히 손절가가 이 등락범위 안쪽에 있으면 "방향을 맞혀도 장중 흔들림에 손절당할 수 있다"는 점을 반드시 짚어준다.
 - 상한가/하한가(가격제한폭 도달) 신호가 있으면 절대 그날 추가로 쫓아 사지 말라고 강하게 경고하고, 익일 갭 리스크(다음날 시가가 크게 벌어질 위험)를 언급한다.
 - 유가(WTI)나 SOX가 큰 폭으로 급변동한 날은 그 사실을 headline/rationale에서 구체적 수치로 인용하고, 그것이 오늘 판단에 어떻게 반영됐는지 설명한다.
@@ -197,6 +199,9 @@ export async function generateAdvice(params: {
   events?: { date: string; title: string; note: string }[]; // 과거 주요 이벤트 타임라인
   relativeStrengthSummary?: string | null; // 국내/미국 그룹별 상대강도 랭킹 요약 (합쳐진 문자열)
   sectorConcentrationWarning?: string | null; // 섹터/테마 집중도 경고 (있으면)
+  investorMode?: InvestorMode; // 일반(보수) | 천재(공격) — SYSTEM 프롬프트의 모드 설명에 따라 조언 톤이 달라짐
+  geniusPlan?: GeniusPlan | null; // 천재 모드용 오늘의 셋업 (모드와 무관하게 참고 데이터로 전달)
+  creditNote?: string | null; // 시장 신용잔고(빚투) 요약 — KOFIA 연동 실패 시 null
 }): Promise<{ advice: AiAdvice | null; error: string | null }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { advice: null, error: "ANTHROPIC_API_KEY 미설정 (Vercel 환경변수 확인 필요)" };
@@ -293,6 +298,9 @@ export function buildAdvicePayload(params: {
   sectorConcentrationWarning?: string | null;
   krPhase?: MarketPhaseInfo | null;
   usPhase?: MarketPhaseInfo | null;
+  investorMode?: InvestorMode;
+  geniusPlan?: GeniusPlan | null;
+  creditNote?: string | null;
 }): Record<string, unknown> {
   const { signals, macro, news, portfolio } = params;
   const volumeBasis = signals.some((s) => s.intraday?.available && s.intraday.isToday)
@@ -303,6 +311,13 @@ export function buildAdvicePayload(params: {
     현재시각_KST: new Date(Date.now() + 9 * 3600_000).toISOString().replace("Z", "+09:00"),
     장상태_국내: params.krPhase ?? null,
     장상태_미국: params.usPhase ?? null,
+    투자모드: params.investorMode ?? "일반",
+    // 천재(공격) 모드 셋업 — 한 줄 압축(토큰 절약). "일반" 모드에서는 이 데이터를 쓸 일이
+    // 없으므로 아예 보내지 않는다(모드별 조건부 전송 — 안 쓰는 데이터에 토큰을 쓰지 않는다).
+    오늘의_공격셋업: params.investorMode === "천재" && params.geniusPlan?.setups?.length
+      ? params.geniusPlan.setups.map((g) => `${g.name}: ${g.entryPrice.toLocaleString()}${g.currency === "USD" ? "$" : "원"} 지정가(현재가-${(((g.currentPrice - g.entryPrice) / g.currentPrice) * 100).toFixed(1)}%) → 익절 ${g.targetPrice.toLocaleString()} / 손절 ${g.stopPrice.toLocaleString()}, 예상변동폭 ${g.expectedRangePct.toFixed(1)}%`)
+      : null,
+    시장_신용잔고: params.creditNote ?? null,
     거래량_기준일: volumeBasis,
     // 매크로 영향도 점수는 같은 시점 모든 종목이 동일하므로 최상위에 한 번만 싣는다.
     매크로_영향도점수: signals[0]?.macroScore ?? null,
@@ -330,7 +345,9 @@ export function buildAdvicePayload(params: {
         전일까지_외국인기관수급_주: s.investorFlow.length > 0
           ? s.investorFlow.slice(-3).map((f) => `${f.date}: 외국인 ${f.foreignNet >= 0 ? "+" : ""}${f.foreignNet.toLocaleString()} / 기관 ${f.institutionNet >= 0 ? "+" : ""}${f.institutionNet.toLocaleString()}`)
           : null,
-        근거: s.reasons.slice(0, 3),
+        // 엔진_판정문은 근거 1순위 문장을 그대로 품고 있는 경우가 많다 — 같은 문장을 두 번
+        // 보내지 않도록 판정문에 이미 담긴 근거는 제외한다(6종목이면 매 호출 수백 자 절약).
+        근거: s.reasons.filter((r) => !s.verdict.includes(r)).slice(0, 3),
         경고: s.warnings.slice(0, 3),
         엔진_매수진입가_초안: s.suggestedEntryPrice,
         엔진_매수진입가_근거: s.entryPriceBasis,
