@@ -25,9 +25,11 @@ import type {
   RankedStock,
   ScaledOrder,
   StockTicker,
+  VolForecast,
 } from "./types";
 import { STOCKS } from "./types";
 import { computeIndicators } from "./indicators";
+import { forecastVolatility } from "./volatility";
 
 const MAX_POSITION_WEIGHT = 0.5; // 한 종목 최대 비중 (총자산 대비)
 const ENTRY_FRACTION = 0.25; // 1회 매수 시 현금 대비 최대 비율
@@ -583,6 +585,31 @@ function buildVerdict(params: {
   return grounding ? `${icon} ${text} — ${grounding}` : `${icon} ${text}`;
 }
 
+// 변동성 경고 문구 — 추정 모델이 살아있으면 실제 예상 등락폭(원 단위까지)을 말해주고,
+// 모델이 없을 때만 구 지표(120일 대비 배율)로 물러선다.
+function volatilityHeadline(vf: VolForecast, ind: Indicators): string {
+  if (!vf.available) {
+    return `변동성 급확대 — 최근 변동폭이 평소(120일 평균) 대비 ${ind.volatilityRatio.toFixed(1)}배 커진 상태입니다.`;
+  }
+  return `변동성 ${vf.regime} — 지금 이 종목은 하루에 평균 ±${vf.sigmaDailyPct.toFixed(1)}%(연율 ${vf.annualizedPct.toFixed(0)}%) 움직이고 있고, 이는 평소의 ${vf.regimeRatio.toFixed(1)}배입니다.`;
+}
+
+function volatilityWarning(vf: VolForecast, ind: Indicators, price: number, mode: "보유" | "신규"): string {
+  const head = volatilityHeadline(vf, ind);
+  if (!vf.available) {
+    return `${head} ${mode === "보유" ? "추가매수 규모를 줄이고" : "진입 예산을 축소했습니다."} 손절선을 더 엄격히 관리하세요.`;
+  }
+  const lo = Math.round((price * vf.range90.lowPct) / 100);
+  const hi = Math.round((price * vf.range90.highPct) / 100);
+  const skewNote =
+    vf.skew === "상방"
+      ? " 최근에는 급등 쪽 꼬리가 더 두꺼워(상한가 사례) 성급한 매도가 불리할 수 있습니다."
+      : vf.skew === "하방"
+        ? " 최근에는 급락 쪽 꼬리가 더 두꺼우니 손절을 미루지 마세요."
+        : "";
+  return `${head} 내일 하루 등락 범위는 10번 중 9번꼴로 ${lo.toLocaleString()}원 ~ +${hi.toLocaleString()}원 안에 들어갑니다(주가 대비 ${vf.range90.lowPct.toFixed(1)}% ~ +${vf.range90.highPct.toFixed(1)}%). ${mode === "보유" ? "추가매수 규모를 줄이고" : "그만큼 진입 예산을 축소했습니다."} 손절선을 이 범위 밖에 두어야 노이즈에 털리지 않습니다.${skewNote}`;
+}
+
 export function runEngine(params: {
   ticker: StockTicker;
   price: number;
@@ -653,11 +680,31 @@ export function runEngine(params: {
   const atUpperLimit = isKR && params.changePct != null && params.changePct >= 29.5;
   const atLowerLimit = isKR && params.changePct != null && params.changePct <= -29.5;
 
-  // 변동성 급확대 국면 — 반도체 레버리지 ETF가 하루 60%씩 움직이는 최근 장세처럼,
-  // 지금(atr14, 최근 흐름 민감) 변동폭이 평소(120일 단순평균) 대비 크게 확대된 경우
-  // 같은 점수라도 포지션 크기를 줄이고 손절을 더 타이트하게 관리해야 한다.
-  const volatilityRegime = !isNaN(ind.volatilityRatio) && ind.volatilityRatio >= 1.6;
-  const volatilitySizeMultiplier = volatilityRegime ? 0.6 : 1;
+  // 변동성 추정 모델 (lib/volatility.ts) — 5개년 실데이터로 검증한 EWMA+조건부 모델.
+  // 구 volatilityRatio(120일 단순평균 대비 배율)는 레짐 전환에 뒤처져 검증에서 열위였으므로
+  // 판단의 주축을 이 모델로 옮긴다(volatilityRatio는 참고 지표로만 남김).
+  const volForecast = forecastVolatility(candles, {
+    soxOvernightPct: macro.sox?.changePct ?? null,
+    // 국내 종목만 "전일 미국장 → 오늘 국내장" 오버나이트 전이가 성립한다.
+    // 미국 종목은 SOX와 같은 시간대에 움직이므로 이 보정을 적용하지 않는다.
+    applySox: STOCKS[ticker].market === "KR",
+  });
+  const volatilityRegime = volForecast.available
+    ? volForecast.regime === "높음" || volForecast.regime === "극단"
+    : !isNaN(ind.volatilityRatio) && ind.volatilityRatio >= 1.6;
+  // 포지션 크기는 변동성에 반비례시킨다 — 같은 금액이라도 변동성이 2배면 손실 위험도 2배이므로,
+  // 레짐이 올라갈수록 단계적으로 축소한다(기존의 이분법적 0.6배보다 매끄럽고 근거가 명확).
+  const volatilitySizeMultiplier = !volForecast.available
+    ? volatilityRegime
+      ? 0.6
+      : 1
+    : volForecast.regime === "극단"
+      ? 0.45
+      : volForecast.regime === "높음"
+        ? 0.7
+        : volForecast.regime === "평온"
+          ? 1.1
+          : 1;
 
   let action: EngineSignal["action"] = "관망";
   let targetPrice: number | null = null;
@@ -689,9 +736,7 @@ export function runEngine(params: {
       );
     }
     if (volatilityRegime) {
-      warnings.push(
-        `변동성 급확대 — 최근 변동폭이 평소(120일 평균) 대비 ${ind.volatilityRatio.toFixed(1)}배 커진 상태입니다. 추가매수 규모를 줄이고 손절선을 더 타이트하게 관리하세요.`,
-      );
+      warnings.push(volatilityWarning(volForecast, ind, price, "보유"));
     }
     targetPrice = Math.round(holding.avgPrice + entryStopDist * 2); // 손익비 1:2
 
@@ -751,7 +796,7 @@ export function runEngine(params: {
       // 정상 진입시키되 예산만 줄인다.
       action = "관망";
       warnings.unshift(
-        `변동성 급확대 — 최근 변동폭이 평소(120일 평균) 대비 ${ind.volatilityRatio.toFixed(1)}배 커진 상태입니다. 신호가 아직 충분히 강하지 않아(점수 ${Math.round(score)}) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.`,
+        `${volatilityHeadline(volForecast, ind)} 신호가 아직 충분히 강하지 않아(점수 ${Math.round(score)}) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.`,
       );
     } else if (score >= 68 && overheatedNow) {
       action = "관망";
@@ -766,9 +811,7 @@ export function runEngine(params: {
       suggestedQty = Math.max(1, Math.floor(budget / price));
       reasons.unshift(`진입 신호 충족 (점수 ${Math.round(score)}) — 분할 매수 권장, 진입 즉시 손절가 설정`);
       if (volatilityRegime) {
-        warnings.push(
-          `변동성 급확대 — 최근 변동폭이 평소(120일 평균) 대비 ${ind.volatilityRatio.toFixed(1)}배 커진 상태라 진입 예산을 축소했습니다. 분할 매수를 더 잘게 나누고 손절선을 엄격히 지키세요.`,
-        );
+        warnings.push(volatilityWarning(volForecast, ind, price, "신규"));
       }
       scaledEntry = buildScaledEntry(price, suggestedQty);
       scaledExit = buildScaledExit(price, targetPrice, suggestedQty);
@@ -799,6 +842,19 @@ export function runEngine(params: {
     if (profitPct < ROUND_TRIP_COST_PCT * 100 * 3) {
       warnings.push(
         `목표가까지 예상 수익률(${profitPct.toFixed(2)}%)이 거래비용(왕복 약 ${(ROUND_TRIP_COST_PCT * 100).toFixed(2)}%) 대비 여유가 크지 않습니다 — 실익 재확인 필요`,
+      );
+    }
+  }
+
+  // 손절선이 "하루 정상 변동폭" 안에 있으면, 방향이 맞아도 장중 노이즈만으로 손절에 걸린다.
+  // 변동성이 평소의 2~3배인 지금 같은 장세에서 초보자가 가장 많이 당하는 실패 유형이라
+  // 추정 모델이 살아있을 때 명시적으로 경고한다.
+  if (volForecast.available && stopPrice != null && stopPrice > 0 && price > 0) {
+    const stopDistPct = ((price - stopPrice) / price) * 100;
+    const oneSigma = volForecast.sigmaDailyPct;
+    if (stopDistPct > 0 && stopDistPct < oneSigma) {
+      warnings.push(
+        `손절선이 너무 가깝습니다 — 손절까지 ${stopDistPct.toFixed(1)}%인데 이 종목은 하루 평균 ±${oneSigma.toFixed(1)}% 움직입니다. 방향을 맞혀도 장중 흔들림만으로 손절에 걸릴 가능성이 높으니, 손절선을 더 넓히거나(그만큼 수량을 줄여서) 진입 자체를 미루세요.`,
       );
     }
   }
@@ -849,6 +905,7 @@ export function runEngine(params: {
     macroScore: Math.round(mac.score),
     disclosures: params.disclosures ?? [],
     investorFlow: params.investorFlow ?? [],
+    volForecast: volForecast.available ? volForecast : null,
     suggestedEntryPrice: suggestedEntryPrice?.price ?? null,
     entryPriceBasis: suggestedEntryPrice?.basis ?? null,
   };

@@ -457,6 +457,90 @@ body {
   line-height: 1.45;
 }
 
+/* 종목 카드 하단의 "내일 예상 등락폭" 띠 */
+.vol-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: calc(12px * var(--font-scale));
+  color: var(--muted);
+  font-weight: 600;
+  line-height: 1.45;
+}
+.vol-badge {
+  border-radius: 7px;
+  padding: 2px 7px;
+  font-weight: 800;
+  font-size: calc(11.5px * var(--font-scale));
+  white-space: nowrap;
+}
+.vol-평온 { background: var(--blue-weak); color: #1b64da; }
+.vol-보통 { background: var(--border); color: var(--muted); }
+.vol-높음 { background: #fff3e0; color: #b26a00; }
+.vol-극단 { background: var(--red-weak); color: #c9353f; }
+
+/* 보유 기준 하루 예상 변동 카드 — 종목별 %가 아니라 "내 계좌 금액"으로 위험을 보여준다 */
+.risk-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid #c9353f;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.risk-title {
+  font-size: calc(13px * var(--font-scale));
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.risk-main {
+  font-size: calc(15px * var(--font-scale));
+  font-weight: 700;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.risk-main strong {
+  font-size: calc(19px * var(--font-scale));
+  color: #c9353f;
+}
+.risk-sub {
+  font-weight: 600;
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+}
+.risk-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: calc(13px * var(--font-scale));
+  padding: 5px 0;
+  border-top: 1px dashed var(--border);
+}
+.risk-row span {
+  color: var(--muted);
+}
+.risk-warn {
+  margin-top: 9px;
+  background: var(--red-weak);
+  color: #c9353f;
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-size: calc(12.5px * var(--font-scale));
+  font-weight: 600;
+  line-height: 1.5;
+}
+.risk-note {
+  margin-top: 9px;
+  font-size: calc(11.5px * var(--font-scale));
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .intraday-box {
   margin-top: 14px;
   padding-top: 14px;

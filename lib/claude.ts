@@ -2,7 +2,7 @@
 // 엔진 신호(일봉+장중 기술적) + 뉴스(Gemini) + 매크로 + 포트폴리오를 종합해
 // 전문 트레이더 관점의 최종 판단을 JSON으로 반환.
 import Anthropic from "@anthropic-ai/sdk";
-import type { AiAdvice, CollectedSnapshot, EngineSignal, MacroSnapshot, NewsItem, Portfolio, StockTicker } from "./types";
+import type { AiAdvice, CollectedSnapshot, EngineSignal, MacroSnapshot, MarketPhaseInfo, NewsItem, Portfolio, StockTicker } from "./types";
 import { STOCKS } from "./types";
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-4-8";
@@ -14,12 +14,15 @@ const SYSTEM = `당신은 20년 경력의 한국+미국 반도체 주식 단기(
 중요(통화 구분): 국내 5종목의 가격·목표가·손절가·진입가는 전부 "원"(KRW) 단위이고, 엔비디아는 "달러"($, USD) 단위입니다. 데이터의 "통화" 필드를 반드시 확인해 절대 단위를 혼동하지 마세요 — 예를 들어 엔비디아 목표가를 "원"으로 말하거나 삼성전자 손절가를 "$"로 말하면 안 됩니다. headline/rationale에서 가격을 언급할 때도 그 종목에 맞는 통화 기호를 정확히 붙이세요.
 
 요즘 시장은 변동성이 매우 큰 국면입니다 — 미국 반도체지수(SOX) 급등락, 국제 유가 급변동, 트럼프 등 주요 정치인의 발언(관세·수출규제) 한마디에 급등락, 국내 반도체 대장주(삼성전자·SK하이닉스)의 상한가, 반도체 레버리지 ETF가 하루 60% 가까이 움직이는 등 평소보다 훨씬 거친 장세가 이어지고 있습니다. 이런 환경에서는 어제까지 유효했던 목표가·손절가·진입 논리가 오늘 완전히 무효화될 수 있으므로, 아래 원칙을 특히 엄격히 적용하세요:
-- ADX_추세강도, 변동성_레짐(volatilityRegime true) 등 엔진이 감지한 "지금 변동성이 평소보다 확대된 상태"인지 여부를 항상 먼저 확인하고, 확대된 상태면 포지션 크기를 더 보수적으로, 손절 원칙을 더 엄격히 적용하라고 명시적으로 조언한다.
+- 종목마다 주어지는 "변동성_추정"을 항상 먼저 확인한다. 이는 5개년 실데이터로 검증한 모델이 계산한 값으로 레짐(평온/보통/높음/극단), 평소 대비 배율, 내일 90% 등락범위, 꼬리 방향(상방=급등 쪽이 더 두꺼움)을 담고 있다. 레짐이 "높음"이나 "극단"이면 포지션을 더 작게, 손절을 더 엄격히 가져가라고 명시적으로 조언하고, rationale에서 예상 등락범위를 구체적 숫자로 인용한다. 특히 손절가가 이 등락범위 안쪽에 있으면 "방향을 맞혀도 장중 흔들림에 손절당할 수 있다"는 점을 반드시 짚어준다.
 - 상한가/하한가(가격제한폭 도달) 신호가 있으면 절대 그날 추가로 쫓아 사지 말라고 강하게 경고하고, 익일 갭 리스크(다음날 시가가 크게 벌어질 위험)를 언급한다.
 - 유가(WTI)나 SOX가 큰 폭으로 급변동한 날은 그 사실을 headline/rationale에서 구체적 수치로 인용하고, 그것이 오늘 판단에 어떻게 반영됐는지 설명한다.
 
+데이터 읽는 법(중요): 토큰 절약을 위해 "값이 없거나 지금 의미 없는 필드는 아예 생략"되어 전달됩니다. 필드가 보이지 않으면 그 데이터가 없거나(미확보) 현재 특별히 의미 있는 구간이 아니라는 뜻이니, 없는 값을 지어내지 말고 있는 값만 근거로 쓰세요. 예: 스토캐스틱은 과매수(80+)/과매도(20-)일 때만, 피벗 R1/S1은 현재가가 그 레벨 3% 이내일 때만, 다이버전스·해머캔들 같은 신호는 실제로 발생했을 때만 실립니다.
+
 당신에게는 다음이 함께 주어집니다:
-- 일봉 기술적 지표 (RSI, 5/20/60일 이동평균선=추세선, 거래량Z점수=거래량 기준 매수/매도세, 거래량_주=최근 완성된 거래일의 실제 거래량과 20일평균거래량_주 대비 증감률=원시 수치. 실시간 장중 거래량 집계가 어려운 경우에도 이 값을 "가장 최근 확정된 거래량 근거"로 rationale에 구체적으로 인용할 것. 스토캐스틱 %K/%D=RSI를 보완하는 단기 모멘텀(80+ 과매수, 20- 과매도, %K가 %D를 상향/하향 돌파하면 전환 신호), 피벗 R1/S1=직전 거래일 기준 단기 저항/지지선 — 현재가가 이 레벨에 근접하면 목표가·손절가·entryTriggers를 이 레벨과 연계해 더 구체적으로 제시할 것)
+- 일봉 기술적 지표 (RSI, 20/60일 이동평균선=추세선, 거래량Z점수=거래량 기준 매수/매도세, 거래량_주=최근 완성된 거래일의 실제 거래량과 20일평균 대비 증감률=원시 수치. 실시간 장중 거래량 집계가 어려운 경우에도 이 값을 "가장 최근 확정된 거래량 근거"로 rationale에 구체적으로 인용할 것. 스토캐스틱=RSI를 보완하는 단기 모멘텀(과매수/과매도 구간일 때만 제공), 피벗 R1/S1=직전 거래일 기준 단기 저항/지지선(현재가가 근접했을 때만 제공되며, 제공되면 목표가·손절가·entryTriggers를 이 레벨과 연계해 더 구체적으로 제시할 것))
+- 변동성_추정: 5개년 실데이터로 검증한 모델이 산출한 "내일 이 종목이 얼마나 움직일 수 있는가". 검증상 90% 등락범위의 실제 적중률은 약 88%이므로 확정 예측이 아니라 "이 정도는 각오해야 하는 범위"로 해석하고, 경계값은 보수적으로 다룬다.
 - ADX_추세강도(방향과 무관하게 "추세가 얼마나 강한지"): "추세장"(25+)이면 추세추종(이평선/MACD 방향)을 우선 신뢰하고 저점매수는 신중히(추세가 강할 땐 떨어지는 칼날일 위험), "횡보장"(20 미만)이면 반대로 저점매수/되돌림 신호(RSI 과매도, 다이버전스, 해머캔들, 볼린저 하단, 피벗 S1)를 더 신뢰한다. 룰 엔진의 점수 자체가 이미 이 로직으로 가중치를 조정해 계산돼 있으니, rationale에서 "지금이 추세장인지 횡보장인지"를 근거로 명시적으로 언급할 것 — "오를 때만 올라타는" 단순 모멘텀 추종이 아니라 장세에 맞는 전략을 쓰고 있음을 보여줘야 한다.
 - RSI강세다이버전스(true면 가격은 이전 저점보다 낮은데 RSI는 더 높음 = 하락 모멘텀 약화, 저점매수 확인 신호), RSI약세다이버전스(반대로 상승 모멘텀 약화, 보유자 경고), 해머형반전캔들(하락 흐름 중 저가권 매도세 흡수 캔들), OBV다이버전스(가격 추세와 거래량 추세가 엇갈림 = 뒷받침 약한 움직임 경고) — 이런 신호가 true면 반드시 rationale에서 구체적으로 언급하고, 특히 RSI강세다이버전스나 해머형반전캔들은 "지금 막 오르고 있어서"가 아니라 "하락이 멈추는 신호가 나와서" 매수를 고려한다는 저점매수 논리로 headline/rationale을 구성할 수 있다.
 - 장중(분봉) 데이터: VWAP(거래량가중평균가), 갭(전일 종가 대비 시가), 오프닝레인지(개장 첫 30분 고저) 브레이크아웃 상태, 최근 30분 모멘텀
@@ -205,130 +208,42 @@ export async function generateAdvice(params: {
   const krPhase = signals.find((s) => STOCKS[s.ticker].market === "KR")?.marketPhase ?? null;
   const usPhase = signals.find((s) => STOCKS[s.ticker].market === "US")?.marketPhase ?? null;
 
-  const userContent = JSON.stringify(
-    {
-      현재시각_KST: new Date(Date.now() + 9 * 3600_000).toISOString().replace("Z", "+09:00"),
-      장상태_국내: krPhase,
-      장상태_미국: usPhase,
-      상대강도_랭킹: params.relativeStrengthSummary ?? null,
-      섹터집중도_경고: params.sectorConcentrationWarning ?? null,
-      포트폴리오: portfolio,
-      룰엔진_신호: signals.map((s) => ({
-        종목: s.name,
-        ticker: s.ticker,
-        통화: STOCKS[s.ticker].currency === "USD" ? "달러" : "원",
-        현재가: s.price,
-        엔진판단: s.action,
-        점수: s.score,
-        보유중여부: s.pnlPct != null,
-        엔진_매수강도_0to10: s.buyStrength,
-        엔진_매도강도_0to10: s.sellStrength,
-        엔진_판정문: s.verdict,
-        매크로_영향도점수: s.macroScore,
-        최근공시: s.disclosures.length > 0
-          ? s.disclosures.slice(0, 3).map((d) => `[${d.sentiment}] ${d.title} (${d.date})`)
-          : "최근 공시 없음",
-        전일까지_외국인기관수급_주: s.investorFlow.length > 0
-          ? s.investorFlow.slice(-3).map((f) => `${f.date}: 외국인 ${f.foreignNet >= 0 ? "+" : ""}${f.foreignNet.toLocaleString()}주 / 기관 ${f.institutionNet >= 0 ? "+" : ""}${f.institutionNet.toLocaleString()}주`)
-          : "수급 데이터 없음(KRX 연동 실패 또는 미확보)",
-        근거: s.reasons.slice(0, 3),
-        경고: s.warnings.slice(0, 3),
-        엔진_매수진입가_초안: s.suggestedEntryPrice,
-        엔진_매수진입가_근거: s.entryPriceBasis,
-        목표가: s.targetPrice,
-        손절가: s.stopPrice,
-        제안수량: s.suggestedQty,
-        수익률: s.pnlPct,
-        예상왕복거래비용_원: s.estimatedRoundTripCostWon,
-        상대강도: s.relativeStrengthNote,
-        진입트리거_엔진초안: s.entryTriggers,
-        무효화조건_엔진초안: s.invalidation,
-        분할매수라인: s.scaledEntry,
-        분할매도라인: s.scaledExit,
-        과거백테스트_참고용: s.backtest
-          ? {
-              표본수: s.backtest.sampleSignals,
-              "5일후_승률": s.backtest.winRate5d != null ? `${s.backtest.winRate5d}%` : "정보없음",
-              "5일후_평균수익률": s.backtest.avgReturn5d != null ? `${s.backtest.avgReturn5d}%` : "정보없음",
-            }
-          : "백테스트 데이터 없음",
-        // 일봉지표는 추세선(MA)·모멘텀(RSI)·수급 프록시(거래량)만 전달한다.
-        // MACD/볼린저/ATR/52주고저는 엔진의 근거·경고 텍스트에 이미 반영되어 있어 중복 전달을 생략(토큰 절약).
-        // 거래량은 Z점수뿐 아니라 실제 주수·20일 평균 대비 비율까지 원시 수치로 줘서 rationale에 구체적으로 인용할 수 있게 한다.
-        일봉지표: {
-          RSI14: round1(s.indicators.rsi14),
-          MA5: Math.round(s.indicators.ma5),
-          MA20: Math.round(s.indicators.ma20),
-          MA60: Math.round(s.indicators.ma60),
-          거래량Z점수: round2(s.indicators.volumeZ),
-          거래량_기준일: s.intraday?.available && s.intraday.isToday ? "오늘(장중 진행 중)" : "가장 최근 거래일(마감)",
-          거래량_주: Math.round(s.indicators.lastVolume).toLocaleString(),
-          "20일평균거래량_주": isNaN(s.indicators.avgVolume20) ? "정보없음" : Math.round(s.indicators.avgVolume20).toLocaleString(),
-          "20일평균대비": isNaN(s.indicators.avgVolume20) || s.indicators.avgVolume20 <= 0
-            ? "정보없음"
-            : `${s.indicators.lastVolume >= s.indicators.avgVolume20 ? "+" : ""}${((s.indicators.lastVolume / s.indicators.avgVolume20 - 1) * 100).toFixed(0)}%`,
-          "스토캐스틱_%K": isNaN(s.indicators.stochK) ? "정보없음" : round1(s.indicators.stochK),
-          "스토캐스틱_%D": isNaN(s.indicators.stochD) ? "정보없음" : round1(s.indicators.stochD),
-          피벗_R1: isNaN(s.indicators.pivotR1) ? "정보없음" : Math.round(s.indicators.pivotR1),
-          피벗_S1: isNaN(s.indicators.pivotS1) ? "정보없음" : Math.round(s.indicators.pivotS1),
-          "ADX_추세강도": isNaN(s.indicators.adx14)
-            ? "정보없음"
-            : `${round1(s.indicators.adx14)} (${s.indicators.adx14 >= 25 ? "추세장" : s.indicators.adx14 < 20 ? "횡보장" : "전환구간"})`,
-          변동성_레짐: isNaN(s.indicators.volatilityRatio)
-            ? "정보없음"
-            : `${round1(s.indicators.volatilityRatio)}배 (${s.indicators.volatilityRatio >= 1.6 ? "평소보다 변동성 급확대" : "평소 수준"})`,
-          RSI강세다이버전스: s.indicators.bullishDivergence,
-          RSI약세다이버전스: s.indicators.bearishDivergence,
-          해머형반전캔들: s.indicators.hammerReversal,
-          OBV다이버전스: s.indicators.obvDivergence,
-        },
-        장중지표: s.intraday?.available
-          ? {
-              VWAP: Math.round(s.intraday.vwap),
-              VWAP대비: `${s.intraday.distanceFromVwapPct >= 0 ? "+" : ""}${s.intraday.distanceFromVwapPct.toFixed(2)}%`,
-              갭: `${s.intraday.gapType} ${s.intraday.gapPct >= 0 ? "+" : ""}${s.intraday.gapPct.toFixed(2)}%`,
-              오프닝레인지상태: s.intraday.orbStatus,
-              당일모멘텀: s.intraday.momentum,
-            }
-          : "장중 데이터 수집 실패 (일봉 기준으로만 판단)",
-      })),
-      매크로: {
-        환율: fmtQ(macro.usdkrw),
-        코스피: fmtQ(macro.kospi),
-        나스닥: fmtQ(macro.nasdaq),
-        필라델피아반도체: fmtQ(macro.sox),
-        니케이: fmtQ(macro.nikkei),
-        상해: fmtQ(macro.shanghai),
-        SP500선물: fmtQ(macro.spFutures),
-        나스닥100선물: fmtQ(macro.nasdaqFutures),
-        VIX: macro.vix ? `${macro.vix.price.toFixed(1)} (${macro.vix.changePct >= 0 ? "+" : ""}${macro.vix.changePct.toFixed(1)}%)` : "정보없음",
-        공포탐욕지수: macro.fearGreed ? `${macro.fearGreed.value} (${macro.fearGreed.ratingKo}, 미국시장 기준)` : "정보없음",
-        국제유가_WTI: fmtQ(macro.oil),
-      },
-      최신뉴스: news.slice(0, 10), // 토큰 절약을 위해 속보/고영향 우선 상위 10건만 전달 (news는 이미 속보 우선 정렬됨)
-      직전_자동수집_요약: params.history?.aiSummary ?? null,
-      과거_주요이벤트_참고: params.events ?? [],
+  const userContent = JSON.stringify(buildAdvicePayload({ ...params, krPhase, usPhase }));
+
+  // 프롬프트 캐싱 — SYSTEM(약 4천 토큰)과 과거 이벤트 목록은 호출마다 완전히 동일하다.
+  // 캐시에 적중하면 이 부분 입력 비용이 1/10로 떨어지므로, 사용자가 분석 버튼을 여러 번
+  // 누르는 실제 사용 패턴에서 비용이 크게 줄어든다(캐시 유지 1시간).
+  const eventsText = `참고용 과거 주요 이벤트 타임라인(고정 데이터):\n${(params.events ?? []).map((e) => `${e.date} ${e.title}: ${e.note}`).join("\n")}`;
+  const userMessage = `아래 데이터를 종합해 지금 시점의 최종 매매 조언을 JSON으로 작성하세요. 단타이므로 "지금 뭘 봐야 하는지"를 반드시 구체적 가격과 조건으로 제시하세요.\n\n${userContent}`;
+  const baseRequest = {
+    model: MODEL,
+    max_tokens: 6800, // 5종목 분량 + insightReport 5개 섹션 출력이 필요해 상향 (실제 과금은 규칙15의 항목 수 제한으로 억제)
+    output_config: {
+      effort: "medium" as const, // 사용자가 화면에서 기다리는 호출이므로 응답 속도 우선
+      format: { type: "json_schema" as const, schema: ADVICE_SCHEMA as unknown as Record<string, unknown> },
     },
-    null,
-    1,
-  );
+    messages: [{ role: "user" as const, content: userMessage }],
+  };
 
   try {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 6800, // 5종목 분량 + insightReport 5개 섹션 출력이 필요해 상향 (실제 과금은 규칙15의 항목 수 제한으로 억제)
-      system: SYSTEM,
-      output_config: {
-        effort: "medium", // 사용자가 화면에서 기다리는 호출이므로 응답 속도 우선
-        format: { type: "json_schema", schema: ADVICE_SCHEMA as unknown as Record<string, unknown> },
-      },
-      messages: [
-        {
-          role: "user",
-          content: `아래 데이터를 종합해 지금 시점의 최종 매매 조언을 JSON으로 작성하세요. 단타이므로 "지금 뭘 봐야 하는지"를 반드시 구체적 가격과 조건으로 제시하세요.\n\n${userContent}`,
-        },
-      ],
-    });
+    let response;
+    try {
+      response = await client.messages.create({
+        ...baseRequest,
+        system: [
+          { type: "text" as const, text: SYSTEM },
+          { type: "text" as const, text: eventsText, cache_control: { type: "ephemeral" as const, ttl: "1h" as const } },
+        ],
+      });
+    } catch (cacheErr) {
+      // 캐싱은 비용 최적화일 뿐이라 실패해도 조언 자체는 나와야 한다.
+      // (예: 계정/모델이 1시간 캐시 TTL을 아직 지원하지 않는 경우) 캐시 없이 한 번 더 시도한다.
+      console.warn("프롬프트 캐싱 요청 실패 — 캐시 없이 재시도합니다:", cacheErr);
+      response = await client.messages.create({
+        ...baseRequest,
+        system: `${SYSTEM}\n\n${eventsText}`,
+      });
+    }
     if (response.stop_reason === "refusal") {
       return { advice: null, error: "AI가 이 요청의 응답을 거절했습니다. 잠시 후 다시 시도해주세요." };
     }
@@ -341,6 +256,153 @@ export async function generateAdvice(params: {
     console.error("Claude 조언 생성 실패:", e);
     return { advice: null, error: describeAnthropicError(e) };
   }
+}
+
+// 값이 없는 필드는 아예 빼서 토큰을 아낀다. "정보없음"/false/null을 6종목분 반복 전송하면
+// 정보량 0인 텍스트에 매 호출 수백 토큰을 쓰게 된다 — 없는 필드는 없는 것으로 읽히면 충분하다.
+// (SYSTEM 프롬프트에 "필드가 없으면 데이터 미확보"라는 규칙을 명시해두었다.)
+function prune<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v == null || v === false || v === "" ) continue;
+    if (typeof v === "number" && isNaN(v)) continue;
+    if (Array.isArray(v) && v.length === 0) continue;
+    out[k] = v;
+  }
+  return out as Partial<T>;
+}
+
+/**
+ * Claude에 보낼 데이터 페이로드를 만든다.
+ *
+ * 토큰 최소화 원칙 (scripts/measure-tokens.ts 로 실측하며 조정):
+ *  1. 종목마다 동일한 값(매크로 점수, 거래량 기준일 등)은 최상위로 한 번만 보낸다.
+ *  2. 값이 없거나 의미 없는 필드(false, null, "정보없음")는 생략한다.
+ *  3. 지표는 "지금 의미 있을 때만" 보낸다 — 예: 스토캐스틱은 과매수/과매도 구간일 때만,
+ *     피벗선은 현재가가 그 레벨 근처(3% 이내)일 때만.
+ *  4. 배열·객체 대신 사람이 읽는 한 줄 문자열로 압축한다(JSON 구조 문자 자체가 토큰이다).
+ */
+export function buildAdvicePayload(params: {
+  signals: EngineSignal[];
+  macro: MacroSnapshot;
+  news: NewsItem[];
+  portfolio: Portfolio;
+  history?: CollectedSnapshot | null;
+  events?: { date: string; title: string; note: string }[];
+  relativeStrengthSummary?: string | null;
+  sectorConcentrationWarning?: string | null;
+  krPhase?: MarketPhaseInfo | null;
+  usPhase?: MarketPhaseInfo | null;
+}): Record<string, unknown> {
+  const { signals, macro, news, portfolio } = params;
+  const volumeBasis = signals.some((s) => s.intraday?.available && s.intraday.isToday)
+    ? "오늘(장중 진행 중)"
+    : "가장 최근 거래일(마감)";
+
+  return prune({
+    현재시각_KST: new Date(Date.now() + 9 * 3600_000).toISOString().replace("Z", "+09:00"),
+    장상태_국내: params.krPhase ?? null,
+    장상태_미국: params.usPhase ?? null,
+    거래량_기준일: volumeBasis,
+    // 매크로 영향도 점수는 같은 시점 모든 종목이 동일하므로 최상위에 한 번만 싣는다.
+    매크로_영향도점수: signals[0]?.macroScore ?? null,
+    상대강도_랭킹: params.relativeStrengthSummary ?? null,
+    섹터집중도_경고: params.sectorConcentrationWarning ?? null,
+    포트폴리오: portfolio,
+    룰엔진_신호: signals.map((s) => {
+      const ind = s.indicators;
+      const near = (level: number) => !isNaN(level) && s.price > 0 && Math.abs(level - s.price) / s.price <= 0.03;
+      const vf = s.volForecast;
+      return prune({
+        종목: s.name,
+        ticker: s.ticker,
+        통화: STOCKS[s.ticker].currency === "USD" ? "달러" : "원",
+        현재가: s.price,
+        엔진판단: s.action,
+        점수: s.score,
+        보유중여부: s.pnlPct != null,
+        엔진_매수강도_0to10: s.buyStrength,
+        엔진_매도강도_0to10: s.sellStrength,
+        엔진_판정문: s.verdict,
+        최근공시: s.disclosures.length > 0
+          ? s.disclosures.slice(0, 3).map((d) => `[${d.sentiment}] ${d.title} (${d.date})`)
+          : null,
+        전일까지_외국인기관수급_주: s.investorFlow.length > 0
+          ? s.investorFlow.slice(-3).map((f) => `${f.date}: 외국인 ${f.foreignNet >= 0 ? "+" : ""}${f.foreignNet.toLocaleString()} / 기관 ${f.institutionNet >= 0 ? "+" : ""}${f.institutionNet.toLocaleString()}`)
+          : null,
+        근거: s.reasons.slice(0, 3),
+        경고: s.warnings.slice(0, 3),
+        엔진_매수진입가_초안: s.suggestedEntryPrice,
+        엔진_매수진입가_근거: s.entryPriceBasis,
+        목표가: s.targetPrice,
+        손절가: s.stopPrice,
+        제안수량: s.suggestedQty,
+        수익률: s.pnlPct,
+        예상왕복거래비용_원: s.estimatedRoundTripCostWon,
+        상대강도: s.relativeStrengthNote,
+        진입트리거_엔진초안: s.entryTriggers,
+        무효화조건_엔진초안: s.invalidation,
+        // 분할 라인은 객체 배열 대신 "가격x수량" 한 줄로 압축
+        분할매수라인: s.scaledEntry.length ? s.scaledEntry.map((o) => `${o.price}x${o.qty ?? "?"}`).join(", ") : null,
+        분할매도라인: s.scaledExit.length ? s.scaledExit.map((o) => `${o.price}x${o.qty ?? "?"}`).join(", ") : null,
+        과거백테스트_참고용: s.backtest
+          ? `표본 ${s.backtest.sampleSignals}회, 5일후 승률 ${s.backtest.winRate5d ?? "?"}% 평균 ${s.backtest.avgReturn5d ?? "?"}%`
+          : null,
+        // 내일 예상 등락폭 — 5개년 실데이터로 검증한 변동성 모델(lib/volatility.ts) 결과.
+        // 종목 카드에서 가장 실전적인 숫자라 한 줄로 압축해 항상 싣는다.
+        변동성_추정: vf
+          ? `레짐 ${vf.regime}(평소의 ${vf.regimeRatio.toFixed(1)}배, 일간 ±${vf.sigmaDailyPct.toFixed(1)}%), 내일 90% 등락범위 ${vf.range90.lowPct.toFixed(1)}%~+${vf.range90.highPct.toFixed(1)}%, 꼬리 ${vf.skew}`
+          : null,
+        일봉지표: prune({
+          RSI14: round1(ind.rsi14),
+          MA20: Math.round(ind.ma20),
+          MA60: Math.round(ind.ma60),
+          거래량Z점수: round2(ind.volumeZ),
+          거래량_주: Math.round(ind.lastVolume).toLocaleString(),
+          "20일평균대비": isNaN(ind.avgVolume20) || ind.avgVolume20 <= 0
+            ? null
+            : `${ind.lastVolume >= ind.avgVolume20 ? "+" : ""}${((ind.lastVolume / ind.avgVolume20 - 1) * 100).toFixed(0)}%`,
+          // 스토캐스틱은 과매수(80+)/과매도(20-) 구간일 때만 의미가 있다
+          스토캐스틱: !isNaN(ind.stochK) && (ind.stochK >= 80 || ind.stochK <= 20)
+            ? `%K ${round1(ind.stochK)} (${ind.stochK >= 80 ? "과매수" : "과매도"})`
+            : null,
+          // 피벗선은 현재가가 근처일 때만 의미가 있다
+          피벗_R1: near(ind.pivotR1) ? Math.round(ind.pivotR1) : null,
+          피벗_S1: near(ind.pivotS1) ? Math.round(ind.pivotS1) : null,
+          "ADX_추세강도": isNaN(ind.adx14)
+            ? null
+            : `${round1(ind.adx14)} (${ind.adx14 >= 25 ? "추세장" : ind.adx14 < 20 ? "횡보장" : "전환구간"})`,
+          // 아래 신호들은 true일 때만 의미가 있다 (false는 prune이 제거)
+          RSI강세다이버전스: ind.bullishDivergence,
+          RSI약세다이버전스: ind.bearishDivergence,
+          해머형반전캔들: ind.hammerReversal,
+          OBV다이버전스: ind.obvDivergence,
+        }),
+        장중지표: s.intraday?.available
+          ? `VWAP ${Math.round(s.intraday.vwap)}(${s.intraday.distanceFromVwapPct >= 0 ? "+" : ""}${s.intraday.distanceFromVwapPct.toFixed(2)}%), 갭 ${s.intraday.gapType} ${s.intraday.gapPct >= 0 ? "+" : ""}${s.intraday.gapPct.toFixed(2)}%, ${s.intraday.orbStatus}, 모멘텀 ${s.intraday.momentum}`
+          : "장중 데이터 없음(일봉 기준 판단)",
+      });
+    }),
+    매크로: prune({
+      환율: fmtQ(macro.usdkrw),
+      코스피: fmtQ(macro.kospi),
+      나스닥: fmtQ(macro.nasdaq),
+      필라델피아반도체: fmtQ(macro.sox),
+      니케이: fmtQ(macro.nikkei),
+      상해: fmtQ(macro.shanghai),
+      SP500선물: fmtQ(macro.spFutures),
+      나스닥100선물: fmtQ(macro.nasdaqFutures),
+      VIX: macro.vix ? `${macro.vix.price.toFixed(1)} (${macro.vix.changePct >= 0 ? "+" : ""}${macro.vix.changePct.toFixed(1)}%)` : null,
+      공포탐욕지수: macro.fearGreed ? `${macro.fearGreed.value} (${macro.fearGreed.ratingKo})` : null,
+      국제유가_WTI: fmtQ(macro.oil),
+    }),
+    // 뉴스는 객체 배열 대신 한 줄 문자열로 — 필드명 반복(title/summary/sentiment...)만으로도
+    // 10건이면 수백 토큰이 낭비된다. 판단에 필요한 정보는 그대로 유지된다.
+    최신뉴스: news.slice(0, 10).map((n) =>
+      `${n.isBreaking ? "[속보]" : ""}[${n.sentiment}/${n.impact}] ${n.title} — ${n.summary} (${n.relatedTo}, ${n.source}, ${n.publishedAt})`,
+    ),
+    직전_자동수집_요약: params.history?.aiSummary ?? null,
+  });
 }
 
 const CONSISTENCY_DIVERGENCE_PCT = 20; // AI 목표가/손절가가 룰 엔진 계산값과 이 이상 차이나면 경고

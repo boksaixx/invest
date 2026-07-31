@@ -169,6 +169,21 @@ export interface EngineSignal {
   suggestedEntryPrice: number | null; // "얼마에 사야 하는지" 대표 진입가. 미보유 시 신규매수 진입가, 보유 중이면서 action이 "추가매수"(피라미딩)일 때도 채워짐. 그 외 보유 중(매도 판단/단순 보유)은 매수 진입 개념이 없으므로 null
   entryPriceBasis: string | null; // 위 진입가의 구체적 근거 (예: "VWAP 상향 돌파 확인 시")
   investorFlow: InvestorFlowDay[]; // 최근 일별 외국인/기관 순매수 (KRX 연동 실패 시 항상 빈 배열)
+  volForecast: VolForecast | null; // 내일 하루 예상 변동폭 추정 (lib/volatility.ts, 5개년 실데이터 검증)
+}
+
+// 변동성 추정 결과 — 상세 설명과 검증 근거는 lib/volatility.ts 상단 주석 참고.
+export interface VolForecast {
+  available: boolean;
+  sigmaDailyPct: number; // 내일 1일 표준편차 추정 (%)
+  annualizedPct: number; // 연율 환산 (%)
+  range90: { lowPct: number; highPct: number }; // 90% 확률 등락 구간 (경험분위수 기반, 비대칭 가능)
+  range98: { lowPct: number; highPct: number }; // 98% 확률 등락 구간 (꼬리위험)
+  regime: "평온" | "보통" | "높음" | "극단";
+  regimePercentile: number; // 과거 대비 현재 변동성 분위 (0~100)
+  regimeRatio: number; // 현재 σ ÷ 과거 중앙값 σ
+  skew: "상방" | "하방" | "대칭"; // 어느 쪽 꼬리가 더 두꺼운가 (상방=상한가 위험/기회)
+  drivers: string[]; // 변동성을 밀어올린 요인
 }
 
 // 5개년 일봉만으로 재현한 단순 백테스트 통계 (장중/뉴스/매크로는 과거 재현 불가하므로 제외).

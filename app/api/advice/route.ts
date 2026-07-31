@@ -5,6 +5,7 @@ import { collectNews } from "@/lib/gemini";
 import { fetchDartDisclosures } from "@/lib/dart";
 import { fetchInvestorFlows } from "@/lib/investorFlow";
 import { computeMasterScore, computeRelativeStrength, computeSectorConcentration, runEngine } from "@/lib/engine";
+import { computePortfolioRisk } from "@/lib/volatility";
 import { computeIntradayInsight } from "@/lib/intraday";
 import { getMarketPhaseForMarket } from "@/lib/marketPhase";
 import { generateAdvice } from "@/lib/claude";
@@ -136,6 +137,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "시세 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해주세요." }, { status: 502 });
     }
 
+    // 포트폴리오 전체 위험 — 반도체주끼리 상관이 매우 높아(실측 삼성전자-SK하이닉스 0.86)
+    // 종목별 위험을 따로 보면 실제 위험을 크게 과소평가한다. 원화 환산 후 상관을 반영해 합산.
+    const portfolioRisk = computePortfolioRisk(
+      portfolio.holdings
+        .map((holding) => {
+          const sd = stockData.find((s) => s.ticker === holding.ticker);
+          const sig = signals.find((s) => s.ticker === holding.ticker);
+          const price = sd?.quote?.price ?? holding.avgPrice;
+          const currency = STOCKS[holding.ticker].currency;
+          return {
+            name: STOCKS[holding.ticker].name,
+            value: toKrw(holding.qty * price, currency),
+            candles: sd?.candles ?? [],
+            sigmaDailyPct: sig?.volForecast?.sigmaDailyPct ?? NaN,
+          };
+        })
+        .filter((p) => p.value > 0),
+    );
+
     const masterScore = computeMasterScore(signals);
 
     const { advice, error: adviceError } = await generateAdvice({
@@ -161,6 +181,7 @@ export async function POST(req: Request) {
       marketPhaseUS,
       relativeStrengthSummary,
       sectorConcentrationWarning: concentration.warning,
+      portfolioRisk: portfolioRisk.available ? portfolioRisk : null,
       backtestDisclaimer: backtest?.disclaimer ?? null,
       aiAvailable: Boolean(process.env.ANTHROPIC_API_KEY),
       newsLive,
