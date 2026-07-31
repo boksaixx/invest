@@ -46,7 +46,7 @@ function readPortfolioCookie(): Portfolio | null {
 // localStorage만 쓰면 iOS "홈 화면에 추가" PWA 등 일부 환경에서 저장소가 예고 없이
 // 초기화되는 경우가 있어(iOS의 스토리지 정리 정책), 1년짜리 쿠키를 이중 백업으로 둔다.
 // localStorage가 비어있으면 쿠키에서 복구하고, 복구한 값을 다시 localStorage에도 채워둔다.
-// cashUSD는 미국 종목(테슬라 등) 추가 이전 버전엔 없었을 수 있으니 항상 기본값 0으로 보정한다.
+// cashUSD는 미국 종목(엔비디아) 추가 이전 버전엔 없었을 수 있으니 항상 기본값 0으로 보정한다.
 function normalizePortfolio(p: Partial<Portfolio> | null | undefined): Portfolio {
   if (!p) return DEFAULT_PORTFOLIO;
   return { cash: p.cash ?? 0, cashUSD: p.cashUSD ?? 0, holdings: p.holdings ?? [] };
@@ -391,6 +391,7 @@ export default function Home() {
     { key: "spFutures", label: "S&P선물" },
     { key: "nasdaqFutures", label: "나스닥선물" },
     { key: "vix", label: "VIX" },
+    { key: "oil", label: "WTI유가" },
     { key: "nikkei", label: "니케이" },
     { key: "shanghai", label: "상해" },
   ];
@@ -422,7 +423,7 @@ export default function Home() {
         <div>
           <h1>반도체 트레이딩 AI</h1>
           <div className="sub">
-            반도체 5종목 + 미국 빅테크 4종목 단타 어드바이저
+            반도체 5종목 + 엔비디아 단타 어드바이저
             {snapshotTime && ` · 자동수집 ${new Date(snapshotTime).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`}
           </div>
           {hostname && <div className="hostname-tag">접속 주소: {hostname}</div>}

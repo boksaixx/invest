@@ -1,4 +1,4 @@
-// 5개년 과거 데이터 백필: 국내 5종목(삼성전자 등)+미국 4종목(테슬라 등)+코스피/환율/해외지수 일봉을 저장소에 적재
+// 5개년 과거 데이터 백필: 국내 5종목(삼성전자 등)+엔비디아+코스피/환율/해외지수/유가 일봉을 저장소에 적재
 // GitHub Actions에서 data/market-history.json 이 없을 때, 또는 주간 스케줄로 자동 실행됨.
 // 이미 저장된 심볼은 건너뛰고 새로 추가된 심볼만 받아오는 증분 방식이라(merge), 기존 파일이 있는
 // 상태에서 SYMBOLS에 새 종목을 추가해도 그 종목만 5년치를 새로 받아오면 된다.
@@ -13,10 +13,7 @@ const SYMBOLS: { symbol: string; name: string }[] = [
   { symbol: "042700.KS", name: "한미반도체" },
   { symbol: "009150.KS", name: "삼성전기" },
   { symbol: "000990.KS", name: "DB하이텍" },
-  { symbol: "TSLA", name: "테슬라" },
   { symbol: "NVDA", name: "엔비디아" },
-  { symbol: "GOOGL", name: "구글(알파벳)" },
-  { symbol: "META", name: "메타" },
   { symbol: "^KS11", name: "코스피" },
   { symbol: "KRW=X", name: "원달러환율" },
   { symbol: "^IXIC", name: "나스닥" },
@@ -24,6 +21,7 @@ const SYMBOLS: { symbol: string; name: string }[] = [
   { symbol: "^N225", name: "니케이225" },
   { symbol: "000001.SS", name: "상해종합" },
   { symbol: "^VIX", name: "VIX변동성지수" },
+  { symbol: "CL=F", name: "WTI원유" },
 ];
 
 async function main() {

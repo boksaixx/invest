@@ -15,6 +15,7 @@ const INDEX_NAMES: Record<string, string> = {
   "^VIX": "변동성지수(VIX)",
   "ES=F": "S&P500 선물",
   "NQ=F": "나스닥100 선물",
+  "CL=F": "WTI 원유",
 };
 
 interface YahooChart {
@@ -275,7 +276,7 @@ export async function getStockQuote(ticker: StockTicker): Promise<Quote | null> 
   // 네이버 실시간 시세(polling.finance.naver.com)는 국내 종목 한정으로 야후보다 지연이 훨씬 짧다
   // (야후는 KRX 데이터 라이선스 특성상 15~20분 이상 지연되는 경우가 흔함) — 국내 종목은
   // 네이버를 우선 시도하고, 실패할 때만(응답 오류·형식 이상 등) 야후로 폴백한다.
-  // 미국 종목(테슬라 등)은 네이버에 데이터가 없으므로 애초에 시도하지 않고 야후로 바로 간다.
+  // 미국 종목(엔비디아 등)은 네이버에 데이터가 없으므로 애초에 시도하지 않고 야후로 바로 간다.
   if (STOCKS[ticker].market === "KR") {
     const n = await fetchNaverRealtime(ticker);
     if (n) return n;
@@ -329,7 +330,7 @@ async function fetchFearGreedIndex(): Promise<FearGreedIndex | null> {
 }
 
 export async function getMacroSnapshot(): Promise<MacroSnapshot> {
-  const [usdkrw, kospi, nasdaq, sox, nikkei, shanghai, vix, spFutures, nasdaqFutures, fearGreed] = await Promise.all([
+  const [usdkrw, kospi, nasdaq, sox, nikkei, shanghai, vix, spFutures, nasdaqFutures, fearGreed, oil] = await Promise.all([
     fetchQuote("KRW=X"),
     fetchQuote("^KS11"),
     fetchQuote("^IXIC"),
@@ -340,6 +341,7 @@ export async function getMacroSnapshot(): Promise<MacroSnapshot> {
     fetchQuote("ES=F"),
     fetchQuote("NQ=F"),
     fetchFearGreedIndex(),
+    fetchQuote("CL=F"),
   ]);
-  return { usdkrw, kospi, nasdaq, sox, nikkei, shanghai, vix, spFutures, nasdaqFutures, fearGreed };
+  return { usdkrw, kospi, nasdaq, sox, nikkei, shanghai, vix, spFutures, nasdaqFutures, fearGreed, oil };
 }

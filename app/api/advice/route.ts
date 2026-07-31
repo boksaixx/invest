@@ -71,13 +71,13 @@ export async function POST(req: Request) {
     );
     const rsUS = computeRelativeStrength(
       withQuote.filter((sd) => STOCKS[sd.ticker].market === "US").map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
-      "미국 빅테크",
+      "해외 반도체",
     );
     const relativeStrengthSummary = [rsKR.summary, rsUS.summary].filter(Boolean).join("\n") || null;
     const noteFor = (ticker: (typeof TICKER_LIST)[number]) =>
       STOCKS[ticker].market === "KR" ? rsKR.noteFor(ticker) : rsUS.noteFor(ticker);
 
-    // 섹터/테마 집중도 (국내 반도체 + 미국 빅테크 — 둘 다 'AI 밸류체인' 테마라 분산투자 착시 방지).
+    // 섹터 집중도 (국내 반도체 + 해외 반도체(엔비디아) — 결국 같은 반도체 섹터라 분산투자 착시 방지).
     // 통화가 섞여 있으므로 원/달러 환율로 원화 환산해 비교한다.
     const quotesMap = Object.fromEntries(stockData.map((sd) => [sd.ticker, sd.quote]));
     const usdKrwRate = macro.usdkrw?.price ?? null;
@@ -118,6 +118,7 @@ export async function POST(req: Request) {
           relativeStrengthNote: noteFor(sd.ticker),
           backtest: backtest?.perTicker[sd.ticker] ?? null,
           portfolioTotalAsset: market === "KR" ? totalAssetKR : totalAssetUS,
+          changePct: sd.quote.changePct,
           // DART/KRX 라이브 호출이 비었으면(키 미설정/일시 오류) 자동수집 스냅샷의 직전 값으로 대체
           disclosures:
             disclosureResult.data[sd.ticker] ??

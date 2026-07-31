@@ -38,6 +38,7 @@ export interface MacroSnapshot {
   spFutures: Quote | null; // S&P500 선물 — 미장 마감 후~한국장 개장 전 오버나이트 방향성 지표
   nasdaqFutures: Quote | null; // 나스닥100 선물
   fearGreed: FearGreedIndex | null; // CNN 공포탐욕지수 (수집 실패 시 null, 판단에서 선택적으로만 반영)
+  oil: Quote | null; // WTI 원유 선물(CL=F) — 유가 급변동은 반도체 제조원가·글로벌 리스크심리에 영향
 }
 
 export interface Indicators {
@@ -71,6 +72,7 @@ export interface Indicators {
   bearishDivergence: boolean; // RSI 약세 다이버전스: 가격은 더 높은 고점, RSI는 더 낮은 고점 (상승 모멘텀 약화 = 보유자 경고 신호)
   obvDivergence: boolean; // 최근 20일 가격 추세와 OBV(누적거래량) 추세가 엇갈림 — 거래량 뒷받침 없는 "약한" 움직임
   hammerReversal: boolean; // 최근 하락 흐름 중 해머형 캔들 발생 — 저가권 매도세 흡수(단기 반전 시도) 신호
+  volatilityRatio: number; // 최근(atr14) 변동폭 ÷ 장기(120일) 평소 변동폭. 1.0=평소 수준, 1.6 이상이면 "변동성 급확대" 국면으로 취급
 }
 
 // 장중(인트라데이) 인사이트 — "오늘 지금" 판단의 핵심 데이터
@@ -123,10 +125,7 @@ export type StockTicker =
   | "042700"
   | "009150"
   | "000990"
-  | "TSLA"
-  | "NVDA"
-  | "GOOGL"
-  | "META";
+  | "NVDA";
 
 export type Action =
   | "신규매수"
@@ -288,10 +287,7 @@ export const STOCKS: Record<StockTicker, { name: string; yahoo: string; market: 
   "042700": { name: "한미반도체", yahoo: "042700.KS", market: "KR", currency: "KRW" },
   "009150": { name: "삼성전기", yahoo: "009150.KS", market: "KR", currency: "KRW" },
   "000990": { name: "DB하이텍", yahoo: "000990.KS", market: "KR", currency: "KRW" },
-  TSLA: { name: "테슬라", yahoo: "TSLA", market: "US", currency: "USD" },
   NVDA: { name: "엔비디아", yahoo: "NVDA", market: "US", currency: "USD" },
-  GOOGL: { name: "구글(알파벳)", yahoo: "GOOGL", market: "US", currency: "USD" },
-  META: { name: "메타", yahoo: "META", market: "US", currency: "USD" },
 };
 
 export const TICKER_LIST: StockTicker[] = [
@@ -300,10 +296,7 @@ export const TICKER_LIST: StockTicker[] = [
   "042700",
   "009150",
   "000990",
-  "TSLA",
   "NVDA",
-  "GOOGL",
-  "META",
 ];
 
 // 국내(KRX)/미국(나스닥 등) 종목 구분 — DART 공시·KRX 수급처럼 한국 시장 전용 데이터 소스를

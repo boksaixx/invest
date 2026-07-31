@@ -73,7 +73,7 @@ async function main() {
   );
   const rsUS = computeRelativeStrength(
     withQuote.filter((sd) => STOCKS[sd.ticker].market === "US").map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
-    "미국 빅테크",
+    "해외 반도체",
   );
   console.log(rsKR.summary);
   console.log(rsUS.summary);
@@ -100,6 +100,7 @@ async function main() {
         marketPhase: market === "KR" ? marketPhaseKR : marketPhaseUS,
         relativeStrengthNote: noteFor(sd.ticker),
         backtest: backtest?.perTicker[sd.ticker] ?? null,
+        changePct: sd.quote.changePct,
         disclosures: disclosureResult.data[sd.ticker] ?? [],
         investorFlow: flowResult.data[sd.ticker] ?? [],
       }),

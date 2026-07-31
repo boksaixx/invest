@@ -41,7 +41,6 @@ export function newsSentimentScore(news: NewsItem[], stockName: string): { score
     const related =
       n.relatedTo.includes(stockName) ||
       n.relatedTo.includes("반도체") ||
-      n.relatedTo.includes("빅테크") ||
       n.relatedTo.includes("AI") ||
       n.relatedTo.includes("매크로") ||
       n.relatedTo.includes("파생시장");
@@ -110,11 +109,20 @@ function macroScore(macro: MacroSnapshot, marketPhase: MarketPhaseInfo): { score
   const notes: string[] = [];
   const warnings: string[] = [];
   if (macro.sox) {
-    if (macro.sox.changePct >= 1.5) {
+    // 폭등/폭락(±3.5% 이상) 구간은 요즘처럼 SOX가 하루에도 크게 흔들리는 장세를 반영해 별도 최상위
+    // 티어로 훨씬 강하게 가중치를 준다 — 간밤 SOX 급변동은 다음날 국내 반도체주 갭(시가 급등/급락)으로
+    // 거의 그대로 이어지는 경우가 많다.
+    if (macro.sox.changePct >= 3.5) {
+      score += 16;
+      notes.push(`미 반도체지수(SOX) 폭등 +${macro.sox.changePct.toFixed(1)}% — 초강세, 오늘 국내 반도체주 갭상승 가능성 큼`);
+    } else if (macro.sox.changePct >= 1.5) {
       score += 10;
       notes.push(`미 반도체지수(SOX) 강세 +${macro.sox.changePct.toFixed(1)}%`);
     } else if (macro.sox.changePct >= 0.3) score += 5;
-    else if (macro.sox.changePct <= -1.5) {
+    else if (macro.sox.changePct <= -3.5) {
+      score -= 16;
+      warnings.push(`미 반도체지수(SOX) 폭락 ${macro.sox.changePct.toFixed(1)}% — 초약세, 오늘 국내 반도체주 갭하락 위험 큼, 신규 진입 보수적으로`);
+    } else if (macro.sox.changePct <= -1.5) {
       score -= 10;
       notes.push(`미 반도체지수(SOX) 급락 ${macro.sox.changePct.toFixed(1)}%`);
     } else if (macro.sox.changePct <= -0.3) score -= 5;
@@ -130,6 +138,18 @@ function macroScore(macro: MacroSnapshot, marketPhase: MarketPhaseInfo): { score
   if (macro.usdkrw && Math.abs(macro.usdkrw.changePct) >= 0.7) {
     score -= 3;
     notes.push(`환율 변동성 확대(${macro.usdkrw.changePct > 0 ? "원화 약세" : "원화 강세"} ${Math.abs(macro.usdkrw.changePct).toFixed(1)}%) — 외국인 수급 유의`);
+  }
+
+  // 국제 유가(WTI) 급변동 — 급등이든 급락이든 방향과 무관하게 매크로 리스크가 커진 신호로 다룬다
+  // (급등=인플레이션/지정학 리스크, 급락=수요둔화·경기침체 우려로 둘 다 증시엔 부담 요인인 경우가 많음).
+  if (macro.oil) {
+    if (Math.abs(macro.oil.changePct) >= 4) {
+      score -= 5;
+      warnings.push(`국제 유가(WTI) 급변동 ${macro.oil.changePct >= 0 ? "+" : ""}${macro.oil.changePct.toFixed(1)}% — 매크로 리스크 확대 신호, 변동성 확대 유의`);
+    } else if (Math.abs(macro.oil.changePct) >= 2) {
+      score -= 2;
+      notes.push(`국제 유가(WTI) ${macro.oil.changePct >= 0 ? "+" : ""}${macro.oil.changePct.toFixed(1)}%`);
+    }
   }
 
   // 미국 지수 선물 — 장전/장초반에는 밤사이 형성된 가장 신선한 방향성 지표라 가중치를 더 준다
@@ -580,6 +600,9 @@ export function runEngine(params: {
   // 달러 총자산을 넘겨야 한다(환율 변환 없이 같은 단위로 비교하기 위함). 호출부가 여러 종목의
   // 정확한 현재가로 계산해 넘겨주는 게 정확하며, 생략 시 이 종목 하나만 보유한다고 근사한다.
   portfolioTotalAsset?: number;
+  // 전일 종가 대비 오늘 등락률(%) — 국내 종목의 상한가/하한가(가격제한폭 ±30%) 도달 여부를
+  // 판단하는 데 쓴다. 생략하면 상한가/하한가 판정을 건너뛴다(다른 로직에는 영향 없음).
+  changePct?: number;
 }): EngineSignal {
   const { ticker, price, candles, macro, news, portfolio, intraday, marketPhase } = params;
   const name = STOCKS[ticker].name;
@@ -623,6 +646,19 @@ export function runEngine(params: {
   // 당일 고가권(레인지 상위 95%+) 근접이면 신규 진입을 보류한다 (미보유 시에만 의미 있는 판단).
   const overheatedNow = ind.rsi14 > 72 || (intraday?.available === true && intraday.rangePositionPct >= 95);
 
+  // 상한가/하한가(국내 가격제한폭 ±30%) 도달 — 요즘처럼 대장주가 상한가를 치는 장세에서는
+  // RSI 과매수보다 훨씬 강력하고 명확한 "오늘은 더 못 오른다/더 못 내린다" 신호다.
+  // 틱 단위 반올림 때문에 정확히 30.00%가 아닐 수 있어 29.5%를 임계값으로 잡는다.
+  const isKR = STOCKS[ticker].market === "KR";
+  const atUpperLimit = isKR && params.changePct != null && params.changePct >= 29.5;
+  const atLowerLimit = isKR && params.changePct != null && params.changePct <= -29.5;
+
+  // 변동성 급확대 국면 — 반도체 레버리지 ETF가 하루 60%씩 움직이는 최근 장세처럼,
+  // 지금(atr14, 최근 흐름 민감) 변동폭이 평소(120일 단순평균) 대비 크게 확대된 경우
+  // 같은 점수라도 포지션 크기를 줄이고 손절을 더 타이트하게 관리해야 한다.
+  const volatilityRegime = !isNaN(ind.volatilityRatio) && ind.volatilityRatio >= 1.6;
+  const volatilitySizeMultiplier = volatilityRegime ? 0.6 : 1;
+
   let action: EngineSignal["action"] = "관망";
   let targetPrice: number | null = null;
   let stopPrice: number | null = null;
@@ -641,6 +677,21 @@ export function runEngine(params: {
     if (price > holding.avgPrice + entryStopDist) {
       stopPrice = Math.max(stopPrice, Math.round(price - ind.atr14 * 2));
       reasons.push("수익 구간 — 트레일링 스탑(고점 추적 손절선) 적용");
+    }
+    if (atUpperLimit) {
+      warnings.unshift(
+        `오늘 상한가(+${params.changePct!.toFixed(1)}%) 도달 — 오늘은 더 이상 오를 여력이 없습니다. 추가매수는 절대 금지, 익일 시가가 크게 벌어질 수 있는 갭 리스크에 대비해 일부 차익실현을 고려하세요.`,
+      );
+    }
+    if (atLowerLimit) {
+      warnings.unshift(
+        `오늘 하한가(${params.changePct!.toFixed(1)}%) 도달 — 패닉 매도 국면입니다. 저가에서 물타기하지 말고 손절 원칙을 예외 없이 지키세요.`,
+      );
+    }
+    if (volatilityRegime) {
+      warnings.push(
+        `변동성 급확대 — 최근 변동폭이 평소(120일 평균) 대비 ${ind.volatilityRatio.toFixed(1)}배 커진 상태입니다. 추가매수 규모를 줄이고 손절선을 더 타이트하게 관리하세요.`,
+      );
     }
     targetPrice = Math.round(holding.avgPrice + entryStopDist * 2); // 손익비 1:2
 
@@ -669,7 +720,8 @@ export function runEngine(params: {
       stockCash > price
     ) {
       action = "추가매수";
-      const budget = Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist);
+      const budget =
+        Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist) * volatilitySizeMultiplier;
       suggestedBudget = Math.floor(budget);
       suggestedQty = Math.max(1, Math.floor(budget / price));
       reasons.unshift("수익 중 + 신호 강세 — 피라미딩(불타기) 조건 충족");
@@ -683,17 +735,41 @@ export function runEngine(params: {
     targetPrice = Math.round(price + atrStopDist * 2);
     entryTriggers = buildEntryTriggers(intraday, ind);
 
-    if (score >= 68 && overheatedNow) {
+    if (atUpperLimit) {
+      action = "관망";
+      warnings.unshift(
+        `오늘 상한가(+${params.changePct!.toFixed(1)}%) 도달 — 더 이상 오늘은 오를 여력이 없습니다. 지금 추격 매수는 절대 금지, 익일 시가가 크게 벌어질 수 있는 갭 리스크(급등 출발 또는 급락 출발 모두 가능)를 확인한 뒤 재진입을 검토하세요.`,
+      );
+    } else if (atLowerLimit) {
+      action = "관망";
+      warnings.unshift(
+        `오늘 하한가(${params.changePct!.toFixed(1)}%) 도달 — 패닉 매도 국면입니다. 지금 저가 매수(칼날 잡기)를 시도하지 말고 시장이 안정되고 반등 신호가 뚜렷해질 때까지 관망하세요.`,
+      );
+    } else if (volatilityRegime && score < 68) {
+      // 변동성 급확대 상태에서는 점수가 애매한 구간(진입 근접~보통)이면 아예 관망시켜
+      // 거친 장세에서 성급한 신규 진입을 막는다. 점수가 충분히 높으면(68+) 아래 분기에서
+      // 정상 진입시키되 예산만 줄인다.
+      action = "관망";
+      warnings.unshift(
+        `변동성 급확대 — 최근 변동폭이 평소(120일 평균) 대비 ${ind.volatilityRatio.toFixed(1)}배 커진 상태입니다. 신호가 아직 충분히 강하지 않아(점수 ${Math.round(score)}) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.`,
+      );
+    } else if (score >= 68 && overheatedNow) {
       action = "관망";
       warnings.unshift(
         `기술적 과열 보정 — 종합 점수(${Math.round(score)}점)는 매수 신호였지만 RSI ${ind.rsi14.toFixed(0)}(과매수) 또는 당일 고가권 근접으로 신규 진입을 보류합니다. 뉴스·매크로가 우호적이어도 추격 매수는 금지, 눌림목 또는 과열 해소 후 재진입 검토`,
       );
     } else if (score >= 68 && stockCash > price) {
       action = "신규매수";
-      const budget = Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist);
+      const budget =
+        Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist) * volatilitySizeMultiplier;
       suggestedBudget = Math.floor(budget);
       suggestedQty = Math.max(1, Math.floor(budget / price));
       reasons.unshift(`진입 신호 충족 (점수 ${Math.round(score)}) — 분할 매수 권장, 진입 즉시 손절가 설정`);
+      if (volatilityRegime) {
+        warnings.push(
+          `변동성 급확대 — 최근 변동폭이 평소(120일 평균) 대비 ${ind.volatilityRatio.toFixed(1)}배 커진 상태라 진입 예산을 축소했습니다. 분할 매수를 더 잘게 나누고 손절선을 엄격히 지키세요.`,
+        );
+      }
       scaledEntry = buildScaledEntry(price, suggestedQty);
       scaledExit = buildScaledExit(price, targetPrice, suggestedQty);
     } else if (score >= 58) {
@@ -824,7 +900,7 @@ export function computeMasterScore(signals: EngineSignal[]): MasterScore {
   return { attractivenessPct, label, tone, headline, buyCount, sellCount, strongestTicker: strongest.ticker, strongestName: strongest.name };
 }
 
-// 그룹(예: 국내 반도체 / 미국 빅테크) 내 상대강도 순위 — 단타에서는 "가장 강한 놈"을 골라 타는 게 원칙.
+// 그룹(예: 국내 반도체 / 해외 반도체) 내 상대강도 순위 — 단타에서는 "가장 강한 놈"을 골라 타는 게 원칙.
 // 서로 다른 통화·거래시간대인 국내/미국 종목을 같은 등락률 랭킹에 섞으면(원화 vs 달러, 장 시간대도 다름)
 // 의미 없는 비교가 되므로, 호출부에서 그룹별로 나눠 각각 이 함수를 호출한다.
 export function computeRelativeStrength(
@@ -853,9 +929,9 @@ export function computeRelativeStrength(
   return { ranked, noteFor, summary };
 }
 
-// 섹터/테마 집중도 점검 — 국내 반도체 5종목과 미국 빅테크(AI 관련주) 4종목은 통화·거래소는
-// 다르지만 결국 "AI 밸류체인"이라는 같은 테마로 묶이므로, 여러 종목에 나눠 담아도 분산투자로
-// 착각하게 두지 않고 명시적으로 경고한다. 통화가 섞여 있으므로 usdKrwRate로 원화 환산해 비교한다.
+// 섹터 집중도 점검 — 국내 반도체 5종목과 해외 반도체(엔비디아)는 통화·거래소는 다르지만
+// 결국 같은 반도체 섹터로 묶이므로, 여러 종목에 나눠 담아도 분산투자로 착각하게 두지 않고
+// 명시적으로 경고한다. 통화가 섞여 있으므로 usdKrwRate로 원화 환산해 비교한다.
 export function computeSectorConcentration(
   holdings: Portfolio["holdings"],
   quotes: Record<string, { price: number } | null | undefined>,
@@ -882,13 +958,13 @@ export function computeSectorConcentration(
 
   const parts: string[] = [];
   if (krPct >= 70) parts.push(`국내 반도체 섹터에 ${krPct.toFixed(0)}%`);
-  if (usPct >= 70) parts.push(`미국 빅테크(AI 관련주)에 ${usPct.toFixed(0)}%`);
-  if (parts.length === 0 && pct >= 85) parts.push(`반도체+미국 빅테크(AI 관련주) 전체에 ${pct.toFixed(0)}%`);
+  if (usPct >= 70) parts.push(`해외 반도체(엔비디아)에 ${usPct.toFixed(0)}%`);
+  if (parts.length === 0 && pct >= 85) parts.push(`국내외 반도체 섹터 전체에 ${pct.toFixed(0)}%`);
 
   if (parts.length > 0) {
     return {
       pct,
-      warning: `보유 자산 중 ${parts.join(", ")}가 집중되어 있습니다 — 국내외로 나눠 담았어도 결국 같은 'AI 밸류체인' 테마라 업황이 동시에 흔들리면 분산 효과가 거의 없습니다. 전체 포지션 크기를 재고하세요.`,
+      warning: `보유 자산 중 ${parts.join(", ")}가 집중되어 있습니다 — 국내외로 나눠 담았어도 결국 같은 반도체 섹터라 업황이 동시에 흔들리면 분산 효과가 거의 없습니다. 전체 포지션 크기를 재고하세요.`,
     };
   }
   return { pct, warning: null };

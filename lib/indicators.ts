@@ -87,6 +87,22 @@ export function atr(candles: Candle[], period = 14): number {
   return val;
 }
 
+// 윌더 스무딩 없는 단순 산술평균 True Range — "평소(장기 기준) 변동폭" 베이스라인으로 쓴다.
+// atr14(윌더 스무딩, 최근 흐름에 민감하게 반응)를 이 값과 비교하면 "지금이 평소보다
+// 변동성이 커진 국면인지"를 판단할 수 있다 — 반도체 레버리지 ETF가 하루 60%씩 움직이는
+// 것처럼 최근 변동성이 급격히 커진 장세를 감지하기 위한 용도.
+export function simpleAvgTrueRange(candles: Candle[], period: number): number {
+  if (candles.length < period + 1) return NaN;
+  const window = candles.slice(-period);
+  const trs: number[] = [];
+  for (let i = 0; i < window.length; i++) {
+    const c = window[i];
+    const prevClose = i === 0 ? candles[candles.length - period - 1].close : window[i - 1].close;
+    trs.push(Math.max(c.high - c.low, Math.abs(c.high - prevClose), Math.abs(c.low - prevClose)));
+  }
+  return trs.reduce((a, b) => a + b, 0) / trs.length;
+}
+
 export function volumeZScore(volumes: number[], period = 20): number {
   if (volumes.length < period + 1) return NaN;
   const hist = volumes.slice(-(period + 1), -1);
@@ -359,5 +375,11 @@ export function computeIndicators(candles: Candle[]): Indicators {
     bearishDivergence: div.bearish,
     obvDivergence: obvDiverges(candles),
     hammerReversal: hammerReversalSignal(candles),
+    volatilityRatio: (() => {
+      const currentAtr = atr(candles);
+      const baseline = simpleAvgTrueRange(candles, 120);
+      if (isNaN(currentAtr) || isNaN(baseline) || baseline <= 0) return NaN;
+      return currentAtr / baseline;
+    })(),
   };
 }
