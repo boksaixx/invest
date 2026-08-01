@@ -122,13 +122,45 @@ function main() {
     );
   }
 
-  if (added === 0) {
-    console.log("추가할 새 거래일이 없습니다 (히스토리가 이미 최신).");
+  // --- 전체 캔들 OHLC 정합성 보정 ---
+  // (1) high는 o/h/l/c의 최댓값, low는 최솟값이어야 한다. 야후 원본에도 어긋난 캔들이 소수 있고
+  //     로그 병합분은 15분 스냅샷 사이 움직임을 못 잡아 범위가 좁다. 그대로 두면 ATR·Parkinson
+  //     같은 변동폭 지표가 실제보다 작게 나와 위험을 과소평가한다.
+  // (2) 거래량 0인 종목 캔들은 20일 중앙값으로 채운다(지수는 원래 0이라 대상에서 제외).
+  let fixedOhlc = 0;
+  let fixedVol = 0;
+  for (const [sym, v] of Object.entries(hist.symbols)) {
+    const isIndex = sym.startsWith("^") || sym.includes("=");
+    const cs = v.candles;
+    for (let i = 0; i < cs.length; i++) {
+      const c = cs[i];
+      const hi = Math.max(c.open, c.high, c.low, c.close);
+      const lo = Math.min(c.open, c.high, c.low, c.close);
+      if (c.high !== hi || c.low !== lo) {
+        c.high = hi;
+        c.low = lo;
+        fixedOhlc++;
+      }
+      if (!isIndex && !(c.volume > 0)) {
+        const near = cs.slice(Math.max(0, i - 20), i).map((x) => x.volume).filter((x) => x > 0).sort((a, b) => a - b);
+        if (near.length) {
+          c.volume = near[Math.floor(near.length / 2)];
+          fixedVol++;
+        }
+      }
+    }
+  }
+  if (fixedOhlc || fixedVol) {
+    report.push(`정합성 보정: OHLC ${fixedOhlc}개, 거래량 결측 ${fixedVol}개`);
+  }
+
+  if (added === 0 && fixedOhlc === 0 && fixedVol === 0) {
+    console.log("추가할 새 거래일이 없고 보정할 캔들도 없습니다 (히스토리가 이미 최신·정합).");
     return;
   }
   hist.generatedAt = new Date().toISOString();
   writeFileSync(histPath, JSON.stringify(hist, null, 1));
-  console.log(`=== 자동수집 로그 → 일봉 히스토리 병합 (총 ${added}개 캔들 추가) ===\n`);
+  console.log(`=== 자동수집 로그 → 일봉 히스토리 병합·보정 (신규 ${added}개 캔들) ===\n`);
   for (const r of report) console.log(r);
   console.log("\n※ 고가/저가는 15분 간격 스냅샷 기준 추정이라 실제보다 좁을 수 있습니다(변동성 과소추정 방향).");
   console.log("※ 다음 주간 백필이 돌면 야후 공식 데이터로 덮어써져 자동 교정됩니다.");

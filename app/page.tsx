@@ -279,7 +279,7 @@ function loadFontScaleIndex(): number {
 export default function Home() {
   const [portfolio, setPortfolio] = useState<Portfolio>(DEFAULT_PORTFOLIO);
   // 화면 탭 — 스크롤 지옥을 없애기 위해 3개 탭으로 분리 (오늘 할 일 / 종목 / 뉴스·시장정보)
-  const [tab, setTab] = useState<"오늘" | "종목" | "정보">("오늘");
+  const [tab, setTab] = useState<"오늘" | "종목" | "정보" | "분석방식">("오늘");
   // 작전 카드에서 트레이드별 "왜 이 판단인가"(검증 통계) 펼침 상태
   const [openWhy, setOpenWhy] = useState<Record<string, boolean>>({});
   const [market, setMarket] = useState<MarketData | null>(null);
@@ -657,7 +657,7 @@ export default function Home() {
       </div>
 
       {/* 내 돈 기준 하루 변동 예상 — 종목별 %보다 "내 계좌가 얼마 흔들리나"가 훨씬 체감된다 */}
-      {result?.portfolioRisk && (
+      {result?.portfolioRisk && portfolio.holdings.some((h) => h.qty > 0) && (
         <div className="risk-card">
           <div className="risk-title">💰 내 보유 기준 하루 예상 변동</div>
           <div className="risk-main">
@@ -1317,6 +1317,114 @@ export default function Home() {
 
       </div>{/* ===== /탭: 종목 2구간 ===== */}
 
+      {/* ===== 탭: 분석 방식 — 어떤 변수를 어떻게 쓰는지 전부 공개 ===== */}
+      <div style={{ display: tab === "분석방식" ? undefined : "none" }}>
+        <div className="doc-intro">
+          이 앱이 <strong>무엇을 보고</strong>, <strong>어떻게 판단하며</strong>, <strong>어디까지 믿을 수 있는지</strong>를
+          전부 공개합니다. 숫자는 모두 5개년 실데이터로 검증한 값이며, 검증 스크립트로 언제든 재현할 수 있습니다.
+        </div>
+
+        <div className="doc-sec">
+          <div className="doc-h">① 무엇을 보고 판단하나 — 입력 변수</div>
+          {[
+            { g: "가격·차트", items: [
+              ["일봉 5년치", "추세선(20·60일), RSI, MACD, 볼린저, 스토캐스틱, 피벗, ADX, 다이버전스, 해머캔들, OBV"],
+              ["장중 분봉", "VWAP(거래량가중평균가), 갭, 개장 30분 고저 돌파, 최근 30분 모멘텀"],
+              ["거래량", "20일 평균 대비 증감, Z점수 — 움직임에 실체가 있는지 확인"],
+            ]},
+            { g: "해외·매크로", items: [
+              ["미 반도체지수(SOX)", "★가장 중요. 전일 미국장 SOX와 국내 반도체주의 상관이 같은 날짜보다 2배 강함(0.33~0.43 vs 0.18~0.22). 밤사이 갭으로 거의 그대로 전이됨"],
+              ["원/달러 환율", "급등 시 외국인 이탈 압력"],
+              ["국제유가(WTI)", "급등이든 급락이든 방향과 무관하게 매크로 리스크 확대 신호"],
+              ["VIX·공포탐욕지수", "시장 전체 공포 수준 — 포지션 축소 판단"],
+              ["나스닥·S&P500 선물", "장 시작 전 방향성 참고"],
+              ["코스피", "국내장 전반 리스크"],
+            ]},
+            { g: "수급·공시", items: [
+              ["외국인·기관 순매수", "KRX 공식 데이터, 전일 확정치. 20일 평균거래량 대비 비율로 정규화"],
+              ["연기금 순매수", "3일 연속 순매수면 장기 자금이 하방을 받치는 신호(+2점)"],
+              ["신용융자 잔고", "빚투가 20일새 15%+ 급증하면 감점 — 급락 시 반대매매가 하락을 증폭"],
+              ["DART 전자공시", "실적·자사주·유상증자 등. 뉴스보다 빠르고 공식적이라 1차 근거로 우선"],
+            ]},
+            { g: "뉴스·이벤트", items: [
+              ["실시간 속보(Gemini)", "3시간 이내 고영향 뉴스 우선. 트럼프 등 정치인 관세·규제 발언, AI 업황, 전쟁·지정학"],
+              ["과거 이벤트 타임라인", "2023~2026 반도체·매크로 주요 사건과 그때의 교훈"],
+            ]},
+          ].map((blk) => (
+            <div className="doc-grp" key={blk.g}>
+              <div className="doc-grp-t">{blk.g}</div>
+              {blk.items.map(([k, v]) => (
+                <div className="doc-row" key={k as string}>
+                  <div className="doc-k">{k}</div>
+                  <div className="doc-v">{v}</div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div className="doc-sec">
+          <div className="doc-h">② 어떻게 예측하나 — 4단계</div>
+          <div className="doc-step"><span className="doc-num">1</span><div>
+            <strong>변동성 추정</strong> — 내일 얼마나 움직일지를 확률 구간으로 계산합니다.
+            최근 변동에 가중치를 크게 두는 방식(EWMA)에 전일 SOX 급변동과 거래량 급증을 반영하고,
+            정규분포 대신 이 종목의 실제 분포(꼬리가 두꺼움)를 씁니다.
+            <div className="doc-chk">검증: 90% 구간 적중률 88.1%, 98% 구간 97.4% (목표 90/98)</div>
+          </div></div>
+          <div className="doc-step"><span className="doc-num">2</span><div>
+            <strong>장세 판별</strong> — 오늘이 어떤 장인지 엔진이 스스로 분류합니다.
+            폭락장(SOX -3.5%↓ / 코스피 -3%↓ / 종목 -7%↓) · 급등과열(+12%↑) · 변동성확대 · 보통.
+            <div className="doc-chk">모드를 사람이 고르지 않고 데이터가 정합니다</div>
+          </div></div>
+          <div className="doc-step"><span className="doc-num">3</span><div>
+            <strong>국면별 조건부 통계</strong> — &quot;지금과 같은 상태였던 과거 시점&quot;만 골라 그 다음 20거래일에
+            실제로 무슨 일이 있었는지 분포로 봅니다. 여러 장세를 뭉갠 평균은 쓰지 않습니다.
+            <div className="doc-chk">상승 국면 손실확률 37~42% vs 조정·붕괴 국면 52~56%로 뚜렷이 갈림</div>
+          </div></div>
+          <div className="doc-step"><span className="doc-num">4</span><div>
+            <strong>장세별 작전</strong> — 그 국면에서 통계적 우위가 검증된 행동만 제안합니다.
+            폭락장이면 소액 반등 노림수 + 패닉 매도 방지, 급등과열이면 다음날 지정가 분할 익절,
+            평상시면 변동성 비례 눌림목 지정가.
+            <div className="doc-chk">우위가 없는 날은 &quot;오늘은 없음&quot;이 정답입니다</div>
+          </div></div>
+        </div>
+
+        <div className="doc-sec">
+          <div className="doc-h">③ 검증된 숫자</div>
+          <table className="doc-tbl"><tbody>
+            <tr><th>폭락(-7%↓) 다음날</th><td>평균 +0.75% · 승률 58% (표본 127회, 거래비용 차감)</td></tr>
+            <tr><th>급등(+12%↑) 다음날</th><td>고가 평균 +5.4% · +3% 지정가 도달 64% · 갭하락 출발 42% (50회)</td></tr>
+            <tr><th>SOX 폭락 다음날 시가 매도</th><td>그냥 보유 대비 -0.13%p — 무익 (395회)</td></tr>
+            <tr><th>눌림목 규칙</th><td>급변동 전반 +21.0% / 2025년 +4.3% / 평온한 2024년 +10.2%</td></tr>
+            <tr><th>삼성전자·하이닉스 상관</th><td>0.86 — 둘 다 보유해도 분산 효과 거의 없음</td></tr>
+          </tbody></table>
+        </div>
+
+        <div className="doc-sec doc-warn">
+          <div className="doc-h">④ 믿으면 안 되는 것 (한계)</div>
+          <ul className="doc-ul">
+            <li><strong>&quot;매일 5% 수익&quot;은 불가능합니다.</strong> 기회가 있는 날은 96%였지만, 순진하게 추격하는 전략은 6개월 -54%였습니다.</li>
+            <li><strong>과거 통계는 미래 보장이 아닙니다.</strong> 특히 표본이 적은 국면(예: 폭락바닥권 23회)은 우연의 영향이 큽니다.</li>
+            <li><strong>구조적 리스크는 과거 가격에 없습니다.</strong> AI 업황 둔화, 전쟁, 환율 급등, 국채금리 변동은 5년 데이터에 없던 형태로 올 수 있습니다.</li>
+            <li><strong>강세장 수익률을 지금에 적용하지 않습니다.</strong> 고점 대비 15% 이상 무너지면 &quot;보유가 유리했다&quot;는 판정을 자동으로 철회합니다.</li>
+            <li><strong>시세는 최대 15~20분 지연</strong>될 수 있습니다. 주문 직전 증권사 앱에서 반드시 재확인하세요.</li>
+            <li><strong>플레이북은 수익 증폭기가 아니라 낙폭 방어 장치</strong>입니다. 최근 1개월 최대낙폭이 보유 34~43% vs 플레이북 8~11%였습니다.</li>
+          </ul>
+        </div>
+
+        <div className="doc-sec">
+          <div className="doc-h">⑤ 직접 확인하기</div>
+          <div className="doc-code">npx tsx scripts/validate-volatility.ts</div>
+          <div className="doc-cap">변동성 모델 적중률 — 실제 배포 코드를 그대로 호출해 검증</div>
+          <div className="doc-code">npx tsx scripts/validate-modes.ts</div>
+          <div className="doc-cap">작전 규칙 성적 — 4개 기간, 거래비용 차감, 최악 순서 가정</div>
+          <div className="doc-code">npx tsx scripts/validate-holding.ts</div>
+          <div className="doc-cap">매매 vs 보유 비교 — 1주/1개월/6개월</div>
+          <div className="doc-code">npx tsx scripts/build-scenarios.ts</div>
+          <div className="doc-cap">국면별 통계 테이블 재생성</div>
+        </div>
+      </div>
+
       {/* 하단 고정 탭바 — 한 손 조작 기준으로 화면을 3개 영역으로 나눈다 */}
       <nav className="tabbar">
         <button className={tab === "오늘" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("오늘")}>
@@ -1327,6 +1435,9 @@ export default function Home() {
         </button>
         <button className={tab === "정보" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("정보")}>
           <span className="tabbar-icon">📰</span>뉴스·시장
+        </button>
+        <button className={tab === "분석방식" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("분석방식")}>
+          <span className="tabbar-icon">📚</span>분석 방식
         </button>
       </nav>
     </main>

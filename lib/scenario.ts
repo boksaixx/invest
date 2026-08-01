@@ -25,6 +25,13 @@ export interface ScenarioStat {
   surgeProb: number; // +20% 이상 확률 (%)
 }
 
+// 플레이북 실적 통계 — 코드에 하드코딩하지 않고 data/scenarios.json에서 읽는다.
+// (데이터가 갱신되면 엔진이 사용자에게 말하는 숫자도 함께 갱신되어야 하므로)
+export interface PlaybookStats {
+  crashRebound: { thresholdPct: number; n: number; avgNextDay: number; medianNextDay: number; winRate: number; consecutiveCrashPct: number };
+  surgeTakeProfit: { thresholdPct: number; n: number; avgNextHigh: number; hit3Pct: number; gapDownPct: number };
+}
+
 export interface ScenarioTable {
   generatedAt: string;
   periodStart: string;
@@ -32,6 +39,7 @@ export interface ScenarioTable {
   universe: string;
   disclaimer: string;
   scenarios: Record<string, { d5?: ScenarioStat; d20?: ScenarioStat }>;
+  playbook?: PlaybookStats;
 }
 
 export interface ScenarioOutlook {

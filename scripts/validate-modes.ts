@@ -16,6 +16,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  CRASH_REBOUND_THRESHOLD_PCT,
   GENIUS_DIP_SIGMA,
   GENIUS_STOP_SIGMA,
   GENIUS_TARGET_SIGMA,
@@ -115,7 +116,7 @@ function runCrashRebound(hist: Hist, days: (d: string) => boolean) {
     for (let i = 1; i < c.length - 1; i++) {
       if (!days(c[i].date)) continue;
       const crash = (c[i].close / c[i - 1].close - 1) * 100;
-      if (crash > -8) continue;
+      if (crash > CRASH_REBOUND_THRESHOLD_PCT) continue;
       const ret = (c[i + 1].close / c[i].close - 1) * 100 - ROUND_TRIP_COST_PCT;
       rets.push(ret);
     }
@@ -155,7 +156,7 @@ function main() {
     );
   }
 
-  console.log("\n=== 폭락 반등 규칙 (당일 -8%↓ 마감 동시호가 매수 → 익일 종가 청산, 비용 차감) ===\n");
+  console.log(`\n=== 폭락 반등 규칙 (당일 ${CRASH_REBOUND_THRESHOLD_PCT}%↓ 마감 동시호가 매수 → 익일 종가 청산, 비용 차감) ===\n`);
   for (const [name, fn] of [
     ["5년 전체", () => true],
     ["최근 6개월(급변동)", (d: string) => d >= "2026-01-31"],

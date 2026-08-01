@@ -16,7 +16,7 @@
 //  - SOX 폭락 아침의 보유자: 시가 패닉 매도 후 재매수는 그냥 보유 대비 평균 -0.13%p로 무익.
 //    갭(-2.4%)에 낙폭이 이미 반영돼 있어 시가 투매는 손실 확정일 뿐이다.
 import type { Candle, HoldEdge, Holding, MarketRegime, Quote, StockTicker, TodayPlan, TodayTrade, VolForecast } from "./types";
-import { computeScenarioOutlook, type ScenarioTable } from "./scenario";
+import { computeScenarioOutlook, type PlaybookStats, type ScenarioTable } from "./scenario";
 import { STOCKS } from "./types";
 
 // σ비례 눌림목 파라미터 — 그리드 최적화가 아니라 선험적 설계값(0.6/1.0/0.8)을 네 구간 검증으로 채택.
@@ -26,7 +26,10 @@ export const GENIUS_TARGET_SIGMA = 1.0;
 export const GENIUS_STOP_SIGMA = 0.8;
 export const GENIUS_RISK_PER_TRADE = 0.02; // 눌림목 1회 리스크 = 총자산의 2%
 export const GENIUS_MAX_TRADES = 2;
-export const CRASH_REBOUND_MAX_WEIGHT = 0.1; // 폭락반등은 총자산 10% 이내 소액 (연속 폭락 13.6% 대비)
+export const CRASH_REBOUND_MAX_WEIGHT = 0.1;
+// 폭락 반등 규칙의 진입 임계값 — 엔진과 검증 스크립트가 반드시 같은 값을 쓰도록 여기서 한 번만 정의한다.
+// (과거에 엔진 -7% / 검증 -8%로 어긋나 "검증되지 않은 조건으로 매수를 제안"하는 상태가 있었다.)
+export const CRASH_REBOUND_THRESHOLD_PCT = -7; // 폭락반등은 총자산 10% 이내 소액 (연속 폭락 13.6% 대비)
 
 const RANGE_PER_SIGMA = 1.6; // 하루 고저범위 기대값 ≈ 1.6σ (Parkinson 관계식, 실측 부합)
 
@@ -102,6 +105,7 @@ export function computeTodayPlan(
   scenarioTable?: ScenarioTable | null,
 ): TodayPlan {
   const heldTickers = new Set(holdings.filter((h) => h.qty > 0).map((h) => h.ticker));
+  const pb: PlaybookStats | null = scenarioTable?.playbook ?? null;
   const skipped: string[] = [];
   const holderGuide: string[] = [];
 
@@ -109,7 +113,7 @@ export function computeTodayPlan(
   const todayMoves = stocks
     .filter((s) => s.quote)
     .map((s) => ({ ticker: s.ticker, name: STOCKS[s.ticker].name, chg: s.quote!.changePct }));
-  const crashers = todayMoves.filter((m) => m.chg <= -7);
+  const crashers = todayMoves.filter((m) => m.chg <= CRASH_REBOUND_THRESHOLD_PCT);
   const surgers = todayMoves.filter((m) => m.chg >= 12);
   const soxCrash = macro.soxChangePct != null && macro.soxChangePct <= -3.5;
   const kospiCrash = macro.kospiChangePct != null && macro.kospiChangePct <= -3;
@@ -170,9 +174,11 @@ export function computeTodayPlan(
         suggestedQty: qty,
         suggestedBudget: qty != null ? qty * price : null,
         headline: `마감 동시호가(15:20~15:30) 소액 분할 매수 → 내일 종가 부근 청산`,
-        rationale: `당일 ${cr.chg.toFixed(1)}% 폭락 — 5년 실측상 -8%↓ 폭락 마감 후 익일 평균 +1.4%(최근 급변동장 +2.1%), 승률 64~65%, 2일 누적 +2.8%. 익절·손절을 미리 거는 변형은 검증에서 오히려 열위라 "익일 종가 청산" 원형 그대로 제안합니다.`,
+        rationale: pb
+          ? `당일 ${cr.chg.toFixed(1)}% 폭락 — 5년 실측상 ${pb.crashRebound.thresholdPct}%↓ 폭락 마감 후 익일 수익률은 평균 ${pb.crashRebound.avgNextDay >= 0 ? "+" : ""}${pb.crashRebound.avgNextDay}%, 승률 ${pb.crashRebound.winRate}% (표본 ${pb.crashRebound.n}회, 거래비용 차감 후). 익절·손절을 미리 거는 변형은 검증에서 오히려 열위라 "익일 종가 청산" 원형 그대로 제안합니다.`
+          : `당일 ${cr.chg.toFixed(1)}% 폭락 — 과거 통계 파일을 불러오지 못해 구체적 수치는 생략합니다.`,
         cautions: [
-          `13.6% 확률로 다음날 또 -8% 이상 폭락(연속 폭락)한 전례가 있습니다 — 그래서 총자산의 ${CRASH_REBOUND_MAX_WEIGHT * 100}% 이내 소액만, 잃어도 계획이 안 무너지는 금액으로.`,
+          `평균이 플러스여도 개별 사례의 편차가 큽니다 — 다음날 더 빠지는 경우도 흔하니 총자산의 ${CRASH_REBOUND_MAX_WEIGHT * 100}% 이내 소액만, 잃어도 계획이 안 무너지는 금액으로.`,
           "뉴스가 '개별 악재'(회계 문제, 대규모 소송 등)면 이 통계가 적용되지 않습니다 — 시장 전체 패닉일 때만 유효한 규칙입니다.",
         ],
       });
@@ -207,8 +213,14 @@ export function computeTodayPlan(
           suggestedQty: Math.max(1, Math.floor(holdingQty / 2)),
           suggestedBudget: null,
           headline: `내일 아침 ${limit.toLocaleString()}${currency === "USD" ? "$" : "원"}에 절반 매도 지정가를 미리 걸어두세요`,
-          rationale: `당일 +${su.chg.toFixed(1)}% 급등 — 5년 실측상 +12%↑ 급등 다음날 고가는 평균 +5.4%였고 64%의 날에 +3% 지정가가 체결됐습니다. 시가 매도(평균 갭 +0.7%)보다 장중 고점 지정가가 유리합니다.`,
-          cautions: ["갭하락 출발도 42%나 됩니다 — 전량 홀드는 금물이고, 지정가 미체결 시 장 후반에 상황 보고 정리하세요."],
+          rationale: pb
+            ? `당일 +${su.chg.toFixed(1)}% 급등 — 5년 실측상 +${pb.surgeTakeProfit.thresholdPct}%↑ 급등 다음날 고가는 평균 +${pb.surgeTakeProfit.avgNextHigh}%였고, ${pb.surgeTakeProfit.hit3Pct}%의 날에 +3% 지정가가 체결됐습니다(표본 ${pb.surgeTakeProfit.n}회). 시가에 파는 것보다 장중 고점 지정가가 유리했습니다.`
+            : `당일 +${su.chg.toFixed(1)}% 급등 — 과거 통계 파일을 불러오지 못해 구체적 수치는 생략합니다.`,
+          cautions: [
+            pb
+              ? `갭하락 출발도 ${pb.surgeTakeProfit.gapDownPct}%나 됩니다 — 전량 홀드는 금물이고, 지정가 미체결 시 장 후반에 상황 보고 정리하세요.`
+              : "갭하락 출발 가능성이 상당하니 전량 홀드는 금물입니다.",
+          ],
         });
       } else {
         skipped.push(`${su.name}(+${su.chg.toFixed(1)}% 급등 — 미보유 추격 매수 금지)`);

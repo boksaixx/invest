@@ -620,7 +620,7 @@ body {
   font-weight: 700;
   color: var(--muted);
   cursor: pointer;
-  min-height: 36px;
+  min-height: 40px; /* 모바일 터치 타겟 최소 기준 */
 }
 
 .plan-holder {
@@ -646,6 +646,130 @@ body {
   line-height: 1.5;
 }
 
+/* 분석 방식 탭 — 변수·예측방식·한계 공개 문서 */
+.doc-intro {
+  background: var(--blue-weak);
+  color: #1b64da;
+  border-radius: 14px;
+  padding: 13px 14px;
+  font-size: calc(13px * var(--font-scale));
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+.doc-sec {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.doc-warn { border: 1.5px solid #c9353f; }
+.doc-h {
+  font-size: calc(14.5px * var(--font-scale));
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+.doc-grp { margin-bottom: 12px; }
+.doc-grp-t {
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 800;
+  color: #1b64da;
+  background: var(--blue-weak);
+  display: inline-block;
+  border-radius: 6px;
+  padding: 3px 9px;
+  margin-bottom: 6px;
+}
+.doc-row {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+.doc-k {
+  font-size: calc(11.5px * var(--font-scale));
+  font-weight: 700;
+  line-height: 1.4;
+}
+.doc-v {
+  font-size: calc(11.5px * var(--font-scale));
+  color: var(--text-sub);
+  line-height: 1.55;
+}
+.doc-step {
+  display: flex;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--border);
+  font-size: calc(12.5px * var(--font-scale));
+  line-height: 1.6;
+}
+.doc-num {
+  flex: 0 0 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #1b64da;
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.doc-chk {
+  margin-top: 5px;
+  font-size: calc(11.5px * var(--font-scale));
+  color: #1b64da;
+  background: var(--blue-weak);
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-weight: 600;
+}
+.doc-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: calc(11.5px * var(--font-scale));
+}
+.doc-tbl th {
+  text-align: left;
+  vertical-align: top;
+  padding: 7px 8px 7px 0;
+  width: 40%;
+  font-weight: 700;
+  border-top: 1px solid var(--border);
+  line-height: 1.45;
+}
+.doc-tbl td {
+  padding: 7px 0;
+  color: var(--text-sub);
+  border-top: 1px solid var(--border);
+  line-height: 1.5;
+}
+.doc-ul { margin: 0; padding-left: 17px; }
+.doc-ul li {
+  font-size: calc(12px * var(--font-scale));
+  line-height: 1.6;
+  margin-bottom: 7px;
+  color: var(--text-sub);
+}
+.doc-code {
+  background: #191f28;
+  color: #e8f3ff;
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: calc(11px * var(--font-scale));
+  margin-top: 8px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.doc-cap {
+  font-size: calc(11px * var(--font-scale));
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
 /* 하단 고정 탭바 */
 .tabbar {
   position: fixed;
@@ -666,17 +790,18 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 8px 0 9px;
+  padding: 8px 2px 9px;
   border: none;
   background: none;
-  font-size: calc(11.5px * var(--font-scale));
+  font-size: calc(10.5px * var(--font-scale));
+  white-space: nowrap;
   font-weight: 700;
   color: var(--muted);
   cursor: pointer;
   min-height: 48px;
 }
 .tabbar-btn.active { color: #1b64da; }
-.tabbar-icon { font-size: 18px; line-height: 1; }
+.tabbar-icon { font-size: 17px; line-height: 1; }
 
 /* 천재 모드: 오늘의 공격 셋업 카드 */
 .genius-card {

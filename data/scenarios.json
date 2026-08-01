@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-01T08:40:41.090Z",
+ "generatedAt": "2026-08-01T08:49:53.576Z",
  "periodStart": "2021-07-16",
  "periodEnd": "2026-07-31",
  "universe": "국내 반도체 5종목 (삼성전자·SK하이닉스·삼성전기·한미반도체·DB하이텍)",
@@ -144,6 +144,23 @@
     "crashProb": 8,
     "surgeProb": 15
    }
+  }
+ },
+ "playbook": {
+  "crashRebound": {
+   "thresholdPct": -7,
+   "n": 127,
+   "avgNextDay": 0.75,
+   "medianNextDay": 0.73,
+   "winRate": 58,
+   "consecutiveCrashPct": 15
+  },
+  "surgeTakeProfit": {
+   "thresholdPct": 12,
+   "n": 50,
+   "avgNextHigh": 5.4,
+   "hit3Pct": 64,
+   "gapDownPct": 42
   }
  }
 }
