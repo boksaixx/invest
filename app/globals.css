@@ -541,6 +541,27 @@ body {
   color: var(--text-sub);
 }
 
+.plan-scen { margin-bottom: 10px; }
+.plan-scen-body {
+  margin-top: 7px;
+  background: var(--bg-weak);
+  border-radius: 10px;
+  padding: 10px 11px;
+}
+.plan-scen-item {
+  font-size: calc(12px * var(--font-scale));
+  line-height: 1.55;
+  color: var(--text-sub);
+  margin-bottom: 7px;
+}
+.plan-scen-foot {
+  font-size: calc(11px * var(--font-scale));
+  color: var(--muted);
+  line-height: 1.5;
+  border-top: 1px dashed var(--border);
+  padding-top: 7px;
+}
+
 .plan-trade {
   border-top: 1px dashed var(--border);
   padding: 10px 0;

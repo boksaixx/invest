@@ -226,6 +226,9 @@ export interface TodayPlan {
   marketNote: string;
   skippedNote: string | null;
   holdEdge: HoldEdge | null; // 보유 vs 트레이딩 우열 (대표 종목 기준)
+  // 국면별 조건부 전망 — "지금과 같은 상태였던 과거 시점들"의 향후 수익률 분포.
+  // 여러 장세를 뭉갠 평균 대신 조건부 분포를 쓰는 이유는 lib/scenario.ts 상단 주석 참고.
+  scenarios: { name: string; label: string; note: string; lowConfidence: boolean }[];
 }
 
 // 변동성 추정 결과 — 상세 설명과 검증 근거는 lib/volatility.ts 상단 주석 참고.

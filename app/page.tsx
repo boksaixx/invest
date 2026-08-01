@@ -57,6 +57,7 @@ interface AdviceResponse {
       verdict: "보유우위" | "장중우위" | "혼재";
       note: string;
     } | null;
+    scenarios: { name: string; label: string; note: string; lowConfidence: boolean }[];
   } | null;
   creditBalance?: { latestTrillionKrw: number; change20dPct: number; note: string } | null;
   portfolioRisk?: {
@@ -548,6 +549,25 @@ export default function Home() {
                 <div><span>장중(시가→종가)</span><strong>{result.todayPlan.holdEdge.intradayPct >= 0 ? "+" : ""}{result.todayPlan.holdEdge.intradayPct.toFixed(0)}%p</strong></div>
               </div>
               <div className="plan-edge-note">{result.todayPlan.holdEdge.note}</div>
+            </div>
+          )}
+          {/* 국면별 조건부 전망 — 여러 장세를 뭉갠 평균이 아니라 "지금과 같은 상태"의 과거 기록 */}
+          {result.todayPlan.scenarios.length > 0 && (
+            <div className="plan-scen">
+              <button className="plan-why" onClick={() => setOpenWhy((v) => ({ ...v, __scen: !v.__scen }))}>
+                {openWhy.__scen ? "국면 분석 접기 ▲" : `📐 지금 국면과 과거 통계 보기 (${result.todayPlan.scenarios[0].label}) ▼`}
+              </button>
+              {openWhy.__scen && (
+                <div className="plan-scen-body">
+                  {Array.from(new Set(result.todayPlan.scenarios.map((sc) => sc.note))).map((note, i) => (
+                    <div className="plan-scen-item" key={i}>{note}</div>
+                  ))}
+                  <div className="plan-scen-foot">
+                    같은 국면으로 분류된 과거 시점들의 실제 기록입니다. 미래 예측이 아니며, AI 업황 둔화·전쟁·환율 같은
+                    구조적 리스크는 과거 통계에 반영돼 있지 않습니다.
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {result.todayPlan.trades.map((t, ti) => (

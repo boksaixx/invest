@@ -16,6 +16,7 @@ import { STOCKS, TICKER_LIST } from "@/lib/types";
 import { fetchLatestSnapshot } from "@/lib/snapshot";
 import { fetchBacktestSnapshot } from "@/lib/backtest";
 import eventsData from "@/data/events.json";
+import scenarioData from "@/data/scenarios.json";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -178,6 +179,7 @@ export async function POST(req: Request) {
       totalAssetKR,
       portfolio.holdings,
       { soxChangePct: macro.sox?.changePct ?? null, kospiChangePct: macro.kospi?.changePct ?? null },
+      scenarioData as unknown as import("@/lib/scenario").ScenarioTable,
     );
 
     const { advice, error: adviceError } = await generateAdvice({

@@ -16,6 +16,7 @@
 //  - SOX 폭락 아침의 보유자: 시가 패닉 매도 후 재매수는 그냥 보유 대비 평균 -0.13%p로 무익.
 //    갭(-2.4%)에 낙폭이 이미 반영돼 있어 시가 투매는 손실 확정일 뿐이다.
 import type { Candle, HoldEdge, Holding, MarketRegime, Quote, StockTicker, TodayPlan, TodayTrade, VolForecast } from "./types";
+import { computeScenarioOutlook, type ScenarioTable } from "./scenario";
 import { STOCKS } from "./types";
 
 // σ비례 눌림목 파라미터 — 그리드 최적화가 아니라 선험적 설계값(0.6/1.0/0.8)을 네 구간 검증으로 채택.
@@ -55,16 +56,32 @@ export function computeHoldEdge(candles: Candle[]): HoldEdge {
   const overnightPct = (gap - 1) * 100;
   const intradayPct = (intra - 1) * 100;
   const totalPct = (tot - 1) * 100;
-  // 갭이 전체 수익의 대부분을 만들었고 장중이 미미하면 "보유우위"
+
+  // 낙폭 인지 — 여기가 핵심이다.
+  // 이 지표는 "지난 6개월 동안" 무엇이 유리했는지를 재는 후행 지표다. 그런데 그 6개월에
+  // 대세 상승장이 들어 있고 지금은 이미 고점 대비 크게 무너진 상태라면, 그 평균을 근거로
+  // "보유가 유리하다"고 말하는 순간 정확히 반대로 조언하게 된다.
+  // (실제 사례: 2026-07 기준 삼성전기는 6개월 누적으론 플러스였지만 고점 대비 -61%였다.)
+  // 그래서 고점 대비 15% 이상 무너진 상태에서는 "보유우위" 판정을 내지 않는다.
+  const recent = candles.slice(-60);
+  const high60 = Math.max(...recent.map((c) => c.close));
+  const lastClose = candles[candles.length - 1].close;
+  const drawdownPct = high60 > 0 ? (lastClose / high60 - 1) * 100 : 0;
+  const trendBroken = drawdownPct <= -15;
+
   const verdict: HoldEdge["verdict"] =
-    totalPct > 5 && overnightPct > intradayPct * 2 && overnightPct > 5
-      ? "보유우위"
-      : intradayPct > overnightPct * 2 && intradayPct > 5
-        ? "장중우위"
-        : "혼재";
-  const note =
-    verdict === "보유우위"
-      ? `최근 6개월 이 종목 수익은 대부분 밤사이 갭에서 나왔습니다(전체 ${totalPct.toFixed(0)}% 중 갭 ${overnightPct.toFixed(0)}%p, 장중 ${intradayPct.toFixed(0)}%p). 매일 종가에 파는 단타는 이 수익을 못 가져가니, 이 구간에선 들고 가는 쪽이 유리했습니다.`
+    trendBroken
+      ? "혼재"
+      : totalPct > 5 && overnightPct > intradayPct * 2 && overnightPct > 5
+        ? "보유우위"
+        : intradayPct > overnightPct * 2 && intradayPct > 5
+          ? "장중우위"
+          : "혼재";
+
+  const note = trendBroken
+    ? `최근 6개월 누적으로는 갭 ${overnightPct.toFixed(0)}%p / 장중 ${intradayPct.toFixed(0)}%p였지만, 지금은 60일 고점 대비 ${drawdownPct.toFixed(0)}%까지 무너진 상태입니다. 그 누적 수치는 이미 끝난 상승 구간이 만든 것이라 지금 국면에 그대로 적용할 수 없습니다 — "그동안 올랐으니 들고 있으면 된다"는 판단은 금물입니다.`
+    : verdict === "보유우위"
+      ? `최근 6개월 이 종목 수익은 대부분 밤사이 갭에서 나왔습니다(전체 ${totalPct.toFixed(0)}% 중 갭 ${overnightPct.toFixed(0)}%p, 장중 ${intradayPct.toFixed(0)}%p). 매일 종가에 파는 단타는 이 수익을 못 가져가니, 이 구간에선 들고 가는 쪽이 유리했습니다. 다만 이는 후행 지표이니 추세가 깨지면 즉시 무효입니다.`
       : verdict === "장중우위"
         ? `최근 6개월 수익이 주로 장중에서 나왔습니다(장중 ${intradayPct.toFixed(0)}%p vs 갭 ${overnightPct.toFixed(0)}%p) — 단타가 상대적으로 유리했던 구간입니다.`
         : `최근 6개월 갭 ${overnightPct.toFixed(0)}%p / 장중 ${intradayPct.toFixed(0)}%p — 어느 쪽이 낫다고 단정하기 어려운 구간입니다.`;
@@ -82,6 +99,7 @@ export function computeTodayPlan(
   totalAssetKrw: number,
   holdings: Holding[],
   macro: { soxChangePct: number | null; kospiChangePct: number | null },
+  scenarioTable?: ScenarioTable | null,
 ): TodayPlan {
   const heldTickers = new Set(holdings.filter((h) => h.qty > 0).map((h) => h.ticker));
   const skipped: string[] = [];
@@ -284,6 +302,17 @@ export function computeTodayPlan(
   // 보유 vs 트레이딩 우열 — 거래대금이 가장 큰 대표 종목(삼성전자 우선) 기준으로 한 번만 계산
   const repr = stocks.find((s) => s.ticker === "005930") ?? stocks.find((s) => s.candles.length >= 60);
   const holdEdge = repr ? computeHoldEdge(repr.candles) : null;
+
+  // 국면별 조건부 전망 — 종목마다 지금 어떤 국면이고 과거 같은 국면이 어떻게 흘렀는지.
+  // "6개월 평균 수익률" 같은 뭉뚱그린 숫자 대신 조건부 분포를 쓴다.
+  const scenarios = stocks
+    .map((st) => {
+      const o = computeScenarioOutlook(st.candles, scenarioTable ?? null);
+      return o.available
+        ? { name: STOCKS[st.ticker].name, label: o.label, note: o.note, lowConfidence: o.lowConfidence }
+        : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x != null);
   if (holdEdge?.available && holdEdge.verdict === "보유우위") {
     holderGuide.unshift(holdEdge.note);
     // 단타 셋업이 있는데 보유가 유리했던 국면이면, 그 사실을 셋업 자체에 경고로 붙인다
@@ -302,6 +331,7 @@ export function computeTodayPlan(
     marketNote,
     skippedNote: skipped.length ? `제외: ${skipped.join(", ")}` : null,
     holdEdge,
+    scenarios,
   };
 }
 
