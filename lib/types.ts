@@ -170,6 +170,29 @@ export interface EngineSignal {
   entryPriceBasis: string | null; // 위 진입가의 구체적 근거 (예: "VWAP 상향 돌파 확인 시")
   investorFlow: InvestorFlowDay[]; // 최근 일별 외국인/기관 순매수 (KRX 연동 실패 시 항상 빈 배열)
   volForecast: VolForecast | null; // 내일 하루 예상 변동폭 추정 (lib/volatility.ts, 5개년 실데이터 검증)
+  // 예상 경로(팬 차트용) — 조회 시점부터 마감까지 + D+1/D+2 확률 구간.
+  // 검증: D+1/D+2/D+3의 90% 구간 실제 적중률 88.3~89.4% (scripts/validate-forecast-path.ts)
+  forecastPath: ForecastPathData | null;
+}
+
+// 예상 경로 데이터 (lib/forecastPath.ts 가 계산). UI 차트 전용이라 Claude에는 보내지 않는다
+// — 파생 데이터라 토큰을 쓸 이유가 없고, Claude는 이미 σ와 국면 통계를 받는다.
+export interface ForecastPathData {
+  available: boolean;
+  currentPrice: number;
+  asOfLabel: string;
+  points: {
+    label: string;
+    minutesAhead: number;
+    median: number;
+    p25: number;
+    p75: number;
+    p05: number;
+    p95: number;
+    isDayBoundary: boolean;
+  }[];
+  intradayRemainingPct: number;
+  note: string;
 }
 
 // 시장 레짐 — 엔진이 그날 장세를 스스로 판별해 "오늘의 작전"을 바꾼다.
@@ -243,6 +266,9 @@ export interface VolForecast {
   regimeRatio: number; // 현재 σ ÷ 과거 중앙값 σ
   skew: "상방" | "하방" | "대칭"; // 어느 쪽 꼬리가 더 두꺼운가 (상방=상한가 위험/기회)
   drivers: string[]; // 변동성을 밀어올린 요인
+  // 표준화잔차 분위수 원값 — sigma를 곱하기 전 값. 조회 시점부터 마감까지처럼
+  // "하루보다 짧은/긴" 구간으로 구간폭을 다시 계산할 때 쓴다.
+  zQuantiles: { q05: number; q25: number; q75: number; q95: number };
 }
 
 // 5개년 일봉만으로 재현한 단순 백테스트 통계 (장중/뉴스/매크로는 과거 재현 불가하므로 제외).

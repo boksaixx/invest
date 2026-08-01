@@ -30,6 +30,8 @@ import type {
 import { STOCKS } from "./types";
 import { computeIndicators } from "./indicators";
 import { forecastVolatility } from "./volatility";
+import { buildForecastPath, driftFromScenario, kstMinutesNow } from "./forecastPath";
+import { computeScenarioOutlook, type ScenarioTable } from "./scenario";
 
 const MAX_POSITION_WEIGHT = 0.5; // 한 종목 최대 비중 (총자산 대비)
 const ENTRY_FRACTION = 0.25; // 1회 매수 시 현금 대비 최대 비율
@@ -652,6 +654,9 @@ export function runEngine(params: {
   // 전일 종가 대비 오늘 등락률(%) — 국내 종목의 상한가/하한가(가격제한폭 ±30%) 도달 여부를
   // 판단하는 데 쓴다. 생략하면 상한가/하한가 판정을 건너뛴다(다른 로직에는 영향 없음).
   changePct?: number;
+  // 국면별 조건부 통계 테이블(data/scenarios.json). 예상 경로 차트의 아주 약한 방향성(drift)에만
+  // 쓴다. 없으면 방향성 0(제자리)으로 폭만 그린다.
+  scenarioTable?: ScenarioTable | null;
 }): EngineSignal {
   const { ticker, price, candles, macro, news, portfolio, intraday, marketPhase } = params;
   const name = STOCKS[ticker].name;
@@ -910,6 +915,21 @@ export function runEngine(params: {
       : buyStrengthSummary(buyStrength, price);
   const verdict = buildVerdict({ held: Boolean(holding), action, buyStrength, sellStrength, reasons, warnings, overheated: overheatedNow });
 
+  // 예상 경로(차트용) — 조회 시점부터 마감까지 + D+1/D+2의 확률 구간.
+  // 방향성은 과거 같은 국면의 5일 중앙값을 하루치로 환산한 값만(±0.5% 제한) 반영한다.
+  // 순수 파생 데이터라 Claude 프롬프트에는 넣지 않는다(토큰 0).
+  const scenarioDrift = params.scenarioTable
+    ? driftFromScenario(computeScenarioOutlook(candles, params.scenarioTable).d5?.median)
+    : 0;
+  const forecastPath = buildForecastPath(
+    price,
+    volForecast.available ? volForecast : null,
+    kstMinutesNow(),
+    STOCKS[ticker].market === "KR",
+    scenarioDrift,
+    !marketPhase.phase.startsWith("휴장"), // 주말·공휴일엔 장중 구간을 그리지 않는다
+  );
+
   return {
     ticker,
     name,
@@ -942,6 +962,7 @@ export function runEngine(params: {
     disclosures: params.disclosures ?? [],
     investorFlow: params.investorFlow ?? [],
     volForecast: volForecast.available ? volForecast : null,
+    forecastPath: forecastPath.available ? forecastPath : null,
     suggestedEntryPrice: suggestedEntryPrice?.price ?? null,
     entryPriceBasis: suggestedEntryPrice?.basis ?? null,
   };

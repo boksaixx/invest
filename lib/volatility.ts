@@ -74,6 +74,7 @@ export function forecastVolatility(
     regimeRatio: NaN,
     skew: "대칭",
     drivers: [],
+    zQuantiles: { q05: -1.645, q25: -0.674, q75: 0.674, q95: 1.645 },
   };
   if (candles.length < MIN_CANDLES) return empty;
 
@@ -162,12 +163,18 @@ export function forecastVolatility(
   const skew: VolForecast["skew"] =
     q95 > Math.abs(q05) * 1.15 ? "상방" : Math.abs(q05) > q95 * 1.15 ? "하방" : "대칭";
 
+  const q25 = z.length >= 60 ? quantile(z, 0.25) : -0.674;
+  const q75 = z.length >= 60 ? quantile(z, 0.75) : 0.674;
+
   return {
     available: true,
     sigmaDailyPct: sigma,
     annualizedPct: sigma * Math.sqrt(252),
     range90: { lowPct: q05 * sigma, highPct: q95 * sigma },
     range98: { lowPct: q01 * sigma, highPct: q99 * sigma },
+    // 표준화잔차 분위수 원값 — 하루 미만/이상 구간으로 다시 스케일할 때 필요하다
+    // (예: 10시에 조회하면 마감까지 남은 변동성으로 다시 계산해야 하므로)
+    zQuantiles: { q05, q25, q75, q95 },
     regime,
     regimePercentile,
     regimeRatio,

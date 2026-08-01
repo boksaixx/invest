@@ -1364,3 +1364,128 @@ body {
   font-family: inherit;
 }
 .detail-toggle-btn:active { transform: scale(0.99); }
+
+/* ── 예상 경로 팬 차트 (app/ForecastChart.tsx) ──────────────────────────────
+   "지금부터 마감까지, 그리고 내일·모레"의 확률 구간을 그린다. 글로만 된 예상 등락폭은
+   초보자가 감을 못 잡아서 시각화했다. 눈금 글자는 SVG가 아니라 DOM으로 겹쳐 놓아
+   화면 폭이 달라져도 글자 크기가 일정하게 유지된다. */
+.fc {
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px dashed var(--border);
+}
+.fc-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.fc-head strong {
+  font-size: calc(13px * var(--font-scale));
+  font-weight: 800;
+  color: var(--text-sub);
+}
+.fc-asof {
+  font-size: calc(11.5px * var(--font-scale));
+  color: var(--text-weak);
+  font-weight: 600;
+}
+.fc-plot {
+  position: relative;
+  width: 100%;
+}
+.fc-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.fc-ylabels span,
+.fc-xlabels span {
+  position: absolute;
+  font-size: calc(10.5px * var(--font-scale));
+  color: var(--text-weak);
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.fc-ylabels span {
+  right: 0;
+  transform: translateY(-50%);
+}
+.fc-ylabels span.cur {
+  color: var(--text-sub);
+  font-weight: 800;
+}
+.fc-xlabels span {
+  bottom: 0;
+  transform: translateX(-50%);
+}
+/* 첫 라벨은 왼쪽 끝에 붙어 잘리므로 안쪽으로 정렬 */
+.fc-xlabels span:first-child {
+  transform: none;
+}
+.fc-xlabels span.b {
+  color: var(--text-sub);
+  font-weight: 800;
+}
+.fc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 6px;
+  font-size: calc(11px * var(--font-scale));
+  color: var(--text-weak);
+  font-weight: 600;
+}
+.fc-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.fc-legend .sw {
+  width: 12px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.fc-legend .sw-in { background: rgba(49, 130, 246, 0.4); }
+.fc-legend .sw-out { background: rgba(49, 130, 246, 0.17); }
+.fc-legend .sw-stop { height: 0; border-top: 2px dashed var(--red); border-radius: 0; }
+.fc-legend .sw-target { height: 0; border-top: 2px dashed var(--green); border-radius: 0; }
+.fc-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--bg-weak);
+  border-radius: 10px;
+}
+.fc-readout > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.fc-readout .k {
+  font-size: calc(11.5px * var(--font-scale));
+  color: var(--text-weak);
+  font-weight: 600;
+}
+.fc-readout .v {
+  font-size: calc(12.5px * var(--font-scale));
+  color: var(--text);
+  font-weight: 800;
+  text-align: right;
+}
+.fc-note {
+  margin-top: 6px;
+  font-size: calc(11px * var(--font-scale));
+  line-height: 1.5;
+  color: var(--text-weak);
+}
+.fc-note b {
+  color: var(--text-sub);
+}

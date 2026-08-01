@@ -120,7 +120,9 @@ async function main() {
     quotes: Object.fromEntries(stockData.map((s) => [s.ticker, s.quote])),
     macro,
     news,
-    signals: signals.length > 0 ? signals : null,
+    // 예상 경로는 "조회한 그 시각" 기준이라 저장해두면 곧바로 무의미해진다. 게다가 종목당 13개
+    // 지점 × 하루 26회 수집이면 저장소만 불필요하게 커진다 — 저장에서 제외하고 조회 시 재계산한다.
+    signals: signals.length > 0 ? signals.map((s) => ({ ...s, forecastPath: null })) : null,
     aiSummary,
     masterScore: signals.length > 0 ? computeMasterScore(signals) : null,
   };

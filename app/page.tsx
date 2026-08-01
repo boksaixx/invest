@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AiAdvice, EngineSignal, MasterScore, NewsItem, Portfolio, Quote } from "@/lib/types";
 import { STOCKS, TICKER_LIST } from "@/lib/types";
+import ForecastChart from "./ForecastChart";
 
 const TICKERS = TICKER_LIST.map((ticker) => ({ ticker, name: STOCKS[ticker].name }));
 
@@ -1150,6 +1151,11 @@ export default function Home() {
               </div>
             )}
 
+            {/* 위 변동성 한 줄을 그림으로 풀어준 것 — 조회 시점부터 마감, 그리고 내일·모레까지 */}
+            {sig?.forecastPath && (
+              <ForecastChart path={sig.forecastPath} currency={currency} stopPrice={sig.stopPrice} targetPrice={sig.targetPrice} />
+            )}
+
             {sig && (
               <button className="detail-toggle-btn" onClick={() => toggleExpand(ticker)}>
                 {isOpen ? "자세한 지표 숨기기 ▲" : "자세한 지표 보기 (VWAP·매매플랜·백테스트 등) ▼"}
@@ -1387,6 +1393,15 @@ export default function Home() {
             평상시면 변동성 비례 눌림목 지정가.
             <div className="doc-chk">우위가 없는 날은 &quot;오늘은 없음&quot;이 정답입니다</div>
           </div></div>
+          <div className="doc-step"><span className="doc-num">5</span><div>
+            <strong>예상 경로 차트</strong> — 위 ①의 변동성을 &quot;조회 시점 → 오늘 마감 → 다음 거래일 → 2거래일 뒤&quot;
+            그림으로 펼친 것입니다. 불확실성은 시간에 비례해 쌓이므로 폭은 √시간으로 벌어지고,
+            하루 안에서는 개장 직후·마감 무렵이 크고 점심때가 작은 U자 배분을 씁니다.
+            중앙선은 예측이 아니라 &quot;제자리 + 과거 같은 국면의 아주 약한 평균 흐름(하루 ±0.5% 제한)&quot;입니다.
+            <div className="doc-chk">검증: 다음 거래일 90% 구간 적중 88.3% / 2거래일 89.4% / 3거래일 88.6% (표본 각 1,235회)</div>
+            <div className="doc-chk">안쪽 50% 띠는 실제 적중 44.8~48.0% — 표시보다 살짝 좁게 잡힙니다(하루 기준 분위수를 여러 날에 그대로 써서 생기는 오차)</div>
+            <div className="doc-chk">√시간 가정 실측 비율 0.87~1.04 (1.0이면 가정 정확)</div>
+          </div></div>
         </div>
 
         <div className="doc-sec">
@@ -1407,6 +1422,7 @@ export default function Home() {
             <li><strong>과거 통계는 미래 보장이 아닙니다.</strong> 특히 표본이 적은 국면(예: 폭락바닥권 23회)은 우연의 영향이 큽니다.</li>
             <li><strong>구조적 리스크는 과거 가격에 없습니다.</strong> AI 업황 둔화, 전쟁, 환율 급등, 국채금리 변동은 5년 데이터에 없던 형태로 올 수 있습니다.</li>
             <li><strong>강세장 수익률을 지금에 적용하지 않습니다.</strong> 고점 대비 15% 이상 무너지면 &quot;보유가 유리했다&quot;는 판정을 자동으로 철회합니다.</li>
+            <li><strong>예상 경로 차트는 &quot;방향&quot;이 아니라 &quot;폭&quot;의 그림</strong>입니다. 언제 어느 쪽으로 튈지는 어떤 통계 모델도 모릅니다. 또한 하루 안의 U자 배분은 자체 수집 표본이 부족해(20건) 시장에서 통상 관찰되는 표준 형태를 쓴 값이라, 장중 부분구간은 일 단위만큼 정밀하게 검증되지 않았습니다.</li>
             <li><strong>시세는 최대 15~20분 지연</strong>될 수 있습니다. 주문 직전 증권사 앱에서 반드시 재확인하세요.</li>
             <li><strong>플레이북은 수익 증폭기가 아니라 낙폭 방어 장치</strong>입니다. 최근 1개월 최대낙폭이 보유 34~43% vs 플레이북 8~11%였습니다.</li>
           </ul>
@@ -1420,6 +1436,8 @@ export default function Home() {
           <div className="doc-cap">작전 규칙 성적 — 4개 기간, 거래비용 차감, 최악 순서 가정</div>
           <div className="doc-code">npx tsx scripts/validate-holding.ts</div>
           <div className="doc-cap">매매 vs 보유 비교 — 1주/1개월/6개월</div>
+          <div className="doc-code">npx tsx scripts/validate-forecast-path.ts</div>
+          <div className="doc-cap">예상 경로 차트의 구간 적중률 + √시간 가정 점검</div>
           <div className="doc-code">npx tsx scripts/build-scenarios.ts</div>
           <div className="doc-cap">국면별 통계 테이블 재생성</div>
         </div>

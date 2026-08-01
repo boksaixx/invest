@@ -125,6 +125,7 @@ export async function POST(req: Request) {
           portfolioTotalAsset: market === "KR" ? totalAssetKR : totalAssetUS,
           changePct: sd.quote.changePct,
           creditTrend,
+          scenarioTable: scenarioData as unknown as import("@/lib/scenario").ScenarioTable,
           // DART/KRX 라이브 호출이 비었으면(키 미설정/일시 오류) 자동수집 스냅샷의 직전 값으로 대체
           disclosures:
             disclosureResult.data[sd.ticker] ??
