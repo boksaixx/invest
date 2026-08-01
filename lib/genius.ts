@@ -15,7 +15,7 @@
 //    매도. 실측 익일 고가 +3% 도달 64%, 고가 평균 +5.4% — 단 갭하락 출발도 42%라 전량 홀드 금물.
 //  - SOX 폭락 아침의 보유자: 시가 패닉 매도 후 재매수는 그냥 보유 대비 평균 -0.13%p로 무익.
 //    갭(-2.4%)에 낙폭이 이미 반영돼 있어 시가 투매는 손실 확정일 뿐이다.
-import type { Candle, Holding, MarketRegime, Quote, StockTicker, TodayPlan, TodayTrade, VolForecast } from "./types";
+import type { Candle, HoldEdge, Holding, MarketRegime, Quote, StockTicker, TodayPlan, TodayTrade, VolForecast } from "./types";
 import { STOCKS } from "./types";
 
 // σ비례 눌림목 파라미터 — 그리드 최적화가 아니라 선험적 설계값(0.6/1.0/0.8)을 네 구간 검증으로 채택.
@@ -28,6 +28,48 @@ export const GENIUS_MAX_TRADES = 2;
 export const CRASH_REBOUND_MAX_WEIGHT = 0.1; // 폭락반등은 총자산 10% 이내 소액 (연속 폭락 13.6% 대비)
 
 const RANGE_PER_SIGMA = 1.6; // 하루 고저범위 기대값 ≈ 1.6σ (Parkinson 관계식, 실측 부합)
+
+/**
+ * 보유 대 트레이딩 우열 분해 — 최근 120거래일 수익을 "오버나이트 갭"과 "장중"으로 나눈다.
+ *
+ * 검증으로 확인한 사실(scripts/validate-holding.ts): 최근 6개월 삼성전자는 전체 +71.3% 중
+ * 오버나이트 갭이 +71.1%, 장중은 +0.1%였다. 매일 종가 청산하는 단타 규칙은 갭 수익에
+ * 접근할 수 없어 같은 구간 단순 보유(+74%)에 크게 뒤졌다(-13%). 예측이 아니라 과거 사실이며,
+ * 사용자가 "지금 이 국면에서 사고팔기가 유리한가"를 스스로 판단할 근거로 쓴다.
+ */
+export function computeHoldEdge(candles: Candle[]): HoldEdge {
+  const empty: HoldEdge = { available: false, overnightPct: 0, intradayPct: 0, totalPct: 0, verdict: "혼재", note: "" };
+  if (candles.length < 60) return empty;
+  const w = candles.slice(-121);
+  let gap = 1;
+  let intra = 1;
+  let tot = 1;
+  for (let i = 1; i < w.length; i++) {
+    const p = w[i - 1];
+    const x = w[i];
+    if (!(p.close > 0 && x.open > 0 && x.close > 0)) continue;
+    gap *= x.open / p.close;
+    intra *= x.close / x.open;
+    tot *= x.close / p.close;
+  }
+  const overnightPct = (gap - 1) * 100;
+  const intradayPct = (intra - 1) * 100;
+  const totalPct = (tot - 1) * 100;
+  // 갭이 전체 수익의 대부분을 만들었고 장중이 미미하면 "보유우위"
+  const verdict: HoldEdge["verdict"] =
+    totalPct > 5 && overnightPct > intradayPct * 2 && overnightPct > 5
+      ? "보유우위"
+      : intradayPct > overnightPct * 2 && intradayPct > 5
+        ? "장중우위"
+        : "혼재";
+  const note =
+    verdict === "보유우위"
+      ? `최근 6개월 이 종목 수익은 대부분 밤사이 갭에서 나왔습니다(전체 ${totalPct.toFixed(0)}% 중 갭 ${overnightPct.toFixed(0)}%p, 장중 ${intradayPct.toFixed(0)}%p). 매일 종가에 파는 단타는 이 수익을 못 가져가니, 이 구간에선 들고 가는 쪽이 유리했습니다.`
+      : verdict === "장중우위"
+        ? `최근 6개월 수익이 주로 장중에서 나왔습니다(장중 ${intradayPct.toFixed(0)}%p vs 갭 ${overnightPct.toFixed(0)}%p) — 단타가 상대적으로 유리했던 구간입니다.`
+        : `최근 6개월 갭 ${overnightPct.toFixed(0)}%p / 장중 ${intradayPct.toFixed(0)}%p — 어느 쪽이 낫다고 단정하기 어려운 구간입니다.`;
+  return { available: true, overnightPct, intradayPct, totalPct, verdict, note };
+}
 
 export function computeTodayPlan(
   stocks: {
@@ -239,6 +281,19 @@ export function computeTodayPlan(
           ? "오늘은 조건을 만족하는 셋업이 없습니다 — 억지로 만들지 않는 것이 원칙입니다."
           : `오늘 최대 예상 변동폭 ${Math.max(...trades.map((t) => t.sigmaDailyPct * RANGE_PER_SIGMA)).toFixed(1)}% — 지정가 미체결이면 그날 트레이드는 없습니다(추격 금지).`;
 
+  // 보유 vs 트레이딩 우열 — 거래대금이 가장 큰 대표 종목(삼성전자 우선) 기준으로 한 번만 계산
+  const repr = stocks.find((s) => s.ticker === "005930") ?? stocks.find((s) => s.candles.length >= 60);
+  const holdEdge = repr ? computeHoldEdge(repr.candles) : null;
+  if (holdEdge?.available && holdEdge.verdict === "보유우위") {
+    holderGuide.unshift(holdEdge.note);
+    // 단타 셋업이 있는데 보유가 유리했던 국면이면, 그 사실을 셋업 자체에 경고로 붙인다
+    for (const t of trades) {
+      if (t.kind === "눌림목매수") {
+        t.cautions.push("최근 이 종목은 사고파는 것보다 들고 있는 편이 유리했습니다 — 이 셋업은 소액으로만, 보유 물량을 팔아서 하지는 마세요.");
+      }
+    }
+  }
+
   return {
     regime,
     regimeNote,
@@ -246,6 +301,7 @@ export function computeTodayPlan(
     holderGuide,
     marketNote,
     skippedNote: skipped.length ? `제외: ${skipped.join(", ")}` : null,
+    holdEdge,
   };
 }
 

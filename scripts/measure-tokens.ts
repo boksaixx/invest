@@ -136,6 +136,14 @@ async function main() {
     ],
     marketNote: "폭락장 플레이북 — 반등 통계가 있는 자리만 소액으로 노리고, 나머지는 원칙 방어.",
     skippedNote: null,
+    holdEdge: {
+      available: true,
+      overnightPct: 71.1,
+      intradayPct: 0.1,
+      totalPct: 71.3,
+      verdict: "보유우위" as const,
+      note: "최근 6개월 이 종목 수익은 대부분 밤사이 갭에서 나왔습니다(전체 71% 중 갭 71%p, 장중 0%p). 매일 종가에 파는 단타는 이 수익을 못 가져가니, 이 구간에선 들고 가는 쪽이 유리했습니다.",
+    },
   };
 
   const next = buildAdvicePayload({

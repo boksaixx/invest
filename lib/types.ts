@@ -202,6 +202,22 @@ export interface TodayTrade {
   cautions: string[];
 }
 
+// 보유 대 트레이딩 우열 — "지금 이 종목은 들고 있는 게 나았나, 사고파는 게 나았나"를
+// 최근 120거래일 실적으로 분해해 보여준다. 예측이 아니라 사실 공시다.
+//
+// 왜 필요한가: 최근 6개월 삼성전자는 전체 +71.3% 중 오버나이트 갭이 +71.1%, 장중(시가→종가)은
+// +0.1%였다. 즉 수익이 전부 밤사이에 발생했고, 매일 종가에 청산하는 단타 규칙은 그 수익에
+// 구조적으로 접근할 수 없다. 실제로 같은 구간 단순 보유 +74% vs 플레이북 매매 -13%였다.
+// 엔진이 이 사실을 숨기고 트레이딩만 권하면 사용자 돈에 해가 되므로 항상 함께 노출한다.
+export interface HoldEdge {
+  available: boolean;
+  overnightPct: number; // 최근 120일 오버나이트 갭 누적 수익률 (%)
+  intradayPct: number; // 최근 120일 장중(시가→종가) 누적 수익률 (%)
+  totalPct: number; // 최근 120일 전체 수익률 (%)
+  verdict: "보유우위" | "장중우위" | "혼재";
+  note: string; // 사람이 읽는 한 줄 요약
+}
+
 export interface TodayPlan {
   regime: MarketRegime;
   regimeNote: string; // 왜 이 레짐으로 판정했는지 (예: "간밤 SOX -5.2% 폭락")
@@ -209,6 +225,7 @@ export interface TodayPlan {
   holderGuide: string[]; // 보유자 행동 지침 (레짐별로 다름, 실측 근거 포함)
   marketNote: string;
   skippedNote: string | null;
+  holdEdge: HoldEdge | null; // 보유 vs 트레이딩 우열 (대표 종목 기준)
 }
 
 // 변동성 추정 결과 — 상세 설명과 검증 근거는 lib/volatility.ts 상단 주석 참고.

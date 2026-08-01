@@ -49,6 +49,14 @@ interface AdviceResponse {
     holderGuide: string[];
     marketNote: string;
     skippedNote: string | null;
+    holdEdge: {
+      available: boolean;
+      overnightPct: number;
+      intradayPct: number;
+      totalPct: number;
+      verdict: "보유우위" | "장중우위" | "혼재";
+      note: string;
+    } | null;
   } | null;
   creditBalance?: { latestTrillionKrw: number; change20dPct: number; note: string } | null;
   portfolioRisk?: {
@@ -528,6 +536,20 @@ export default function Home() {
             <span className="plan-regime-note">{result.todayPlan.regimeNote}</span>
           </div>
           <div className="plan-market-note">{result.todayPlan.marketNote}</div>
+          {/* 보유 vs 트레이딩 — 단타를 권하기 전에 "지금 사고파는 게 유리한 국면인가"부터 알린다 */}
+          {result.todayPlan.holdEdge?.available && (
+            <div className={`plan-edge plan-edge-${result.todayPlan.holdEdge.verdict}`}>
+              <div className="plan-edge-title">
+                {result.todayPlan.holdEdge.verdict === "보유우위" ? "🏆 지금은 '보유'가 유리했던 국면" :
+                 result.todayPlan.holdEdge.verdict === "장중우위" ? "⚡ 지금은 '장중 매매'가 유리했던 국면" : "⚖️ 보유·매매 우열이 뚜렷하지 않은 국면"}
+              </div>
+              <div className="plan-edge-bars">
+                <div><span>밤사이 갭</span><strong>{result.todayPlan.holdEdge.overnightPct >= 0 ? "+" : ""}{result.todayPlan.holdEdge.overnightPct.toFixed(0)}%p</strong></div>
+                <div><span>장중(시가→종가)</span><strong>{result.todayPlan.holdEdge.intradayPct >= 0 ? "+" : ""}{result.todayPlan.holdEdge.intradayPct.toFixed(0)}%p</strong></div>
+              </div>
+              <div className="plan-edge-note">{result.todayPlan.holdEdge.note}</div>
+            </div>
+          )}
           {result.todayPlan.trades.map((t, ti) => (
             <div className="plan-trade" key={ti}>
               <div className="plan-trade-head">
