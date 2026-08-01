@@ -6,7 +6,7 @@ import { fetchDartDisclosures } from "@/lib/dart";
 import { fetchInvestorFlows } from "@/lib/investorFlow";
 import { computeMasterScore, computeRelativeStrength, computeSectorConcentration, runEngine } from "@/lib/engine";
 import { computePortfolioRisk } from "@/lib/volatility";
-import { computeGeniusPlan } from "@/lib/genius";
+import { computeTodayPlan } from "@/lib/genius";
 import { fetchCreditBalanceTrend } from "@/lib/creditBalance";
 import { computeIntradayInsight } from "@/lib/intraday";
 import { getMarketPhaseForMarket } from "@/lib/marketPhase";
@@ -22,8 +22,7 @@ export const maxDuration = 300;
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json().catch(() => ({}))) as { portfolio?: Portfolio; mode?: "일반" | "천재" };
-    const investorMode: "일반" | "천재" = body.mode === "천재" ? "천재" : "일반";
+    const body = (await req.json().catch(() => ({}))) as { portfolio?: Portfolio };
     const portfolio: Portfolio = {
       cash: body.portfolio?.cash ?? 20_000_000,
       cashUSD: body.portfolio?.cashUSD ?? 0,
@@ -163,9 +162,9 @@ export async function POST(req: Request) {
 
     const masterScore = computeMasterScore(signals);
 
-    // 천재(공격) 모드 플랜 — AI 호출 없이 엔진 데이터만으로 계산(무료). 모드와 무관하게 항상
-    // 계산해서 내려주고, 화면에서 모드 선택에 따라 보여줄지 결정한다.
-    const geniusPlan = computeGeniusPlan(
+    // 오늘의 작전 — 엔진이 레짐(폭락장/급등과열/변동성확대/보통)을 판별해 그날의 플레이북을
+    // 계산한다. AI 호출 없이 엔진 데이터만 사용(무료).
+    const todayPlan = computeTodayPlan(
       stockData.map((sd) => {
         const sig = signals.find((s) => s.ticker === sd.ticker);
         return {
@@ -177,6 +176,8 @@ export async function POST(req: Request) {
         };
       }),
       totalAssetKR,
+      portfolio.holdings,
+      { soxChangePct: macro.sox?.changePct ?? null, kospiChangePct: macro.kospi?.changePct ?? null },
     );
 
     const { advice, error: adviceError } = await generateAdvice({
@@ -188,8 +189,7 @@ export async function POST(req: Request) {
       events: eventsData.events,
       relativeStrengthSummary,
       sectorConcentrationWarning: concentration.warning,
-      investorMode,
-      geniusPlan,
+      todayPlan,
       creditNote: creditTrend?.note ?? null,
     });
 
@@ -206,9 +206,8 @@ export async function POST(req: Request) {
       relativeStrengthSummary,
       sectorConcentrationWarning: concentration.warning,
       portfolioRisk: portfolioRisk.available ? portfolioRisk : null,
-      geniusPlan,
+      todayPlan,
       creditBalance: creditTrend,
-      investorMode,
       backtestDisclaimer: backtest?.disclaimer ?? null,
       aiAvailable: Boolean(process.env.ANTHROPIC_API_KEY),
       newsLive,

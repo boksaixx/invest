@@ -172,37 +172,43 @@ export interface EngineSignal {
   volForecast: VolForecast | null; // 내일 하루 예상 변동폭 추정 (lib/volatility.ts, 5개년 실데이터 검증)
 }
 
-// 투자 모드 — "일반"은 기존 보수적 원칙(1회 손실 1% 제한), "천재"는 하루 1~2회 공격적
-// 눌림목 트레이드를 제안하는 모드다. 이름과 달리 수익을 보장하는 마법이 아니라,
-// 변동성이 큰 날 통계적 우위가 있는 셋업만 골라 제시하는 "기회 탐색기"다
-// (scripts/validate-modes.ts 로 실데이터 검증 — 매일 수익은 어떤 규칙으로도 불가능함이 확인됨).
-export type InvestorMode = "일반" | "천재";
+// 시장 레짐 — 엔진이 그날 장세를 스스로 판별해 "오늘의 작전"을 바꾼다.
+// (기존 일반/천재 모드 토글을 대체 — 모드를 사람이 고르는 게 아니라 장세가 정한다)
+export type MarketRegime = "폭락장" | "급등과열" | "변동성확대" | "보통";
 
-// 천재(공격) 모드의 하루 1~2회 트레이드 셋업 — σ(변동성 추정치) 비례로 산출.
-// 고정 % 파라미터는 학습구간 +36% → 검증구간 -5.5%로 뒤집히는 과적합이 확인돼,
-// 네 구간(급변동 전/후반, 2025, 평온한 2024) 모두에서 플러스였던 σ비례 방식을 쓴다.
-export interface GeniusSetup {
+// 오늘의 작전에 담기는 개별 트레이드 지시.
+// kind별 근거 (모두 5개년 실데이터 검증, scripts/validate-modes.ts 로 재현):
+//  - 눌림목매수: σ비례 지정가 매수(-0.6σ 진입/+1.0σ 익절/-0.8σ 손절) — 4개 구간 모두 플러스
+//  - 폭락반등매수: 당일 -7%↓ 폭락 종목을 마감 동시호가 소액 매수 → 익일 종가 청산.
+//    실측 익일 평균 +1.4%(최근 급변동장 +2.1%), 승률 64~65%. 단 13.6% 확률로 연속 폭락이
+//    있어 총자산 10% 이내 소액 전제. 익절/손절 변형은 검증에서 오히려 열위라 쓰지 않는다.
+//  - 급등익절: 당일 +12%↑ 급등 보유 종목 — 익일 시가 투매 대신 전일종가 +3% 지정가 분할 매도.
+//    실측 익일 고가가 +3% 도달 64%, 고가 평균 +5.4% (갭하락 출발도 42%라 전량 홀드는 금물).
+export interface TodayTrade {
+  kind: "눌림목매수" | "폭락반등매수" | "급등익절";
   ticker: StockTicker;
   name: string;
   currency: "KRW" | "USD";
   currentPrice: number;
-  entryPrice: number; // 시가(또는 현재가) 대비 -0.6σ 지정가 — 체결 안 되면 그날 트레이드 없음
-  targetPrice: number; // 진입가 +1.0σ
-  stopPrice: number; // 진입가 -0.8σ (예외 없이 실행)
-  sigmaDailyPct: number; // 이 종목의 하루 σ
-  expectedRangePct: number; // 예상 하루 고저 변동폭 (≈1.6σ)
-  bigMoveLikely: boolean; // 예상 변동폭이 5% 이상인가 (="5% 기회"가 실재하는 날인가)
-  suggestedQty: number | null; // 리스크 기반 수량 (총자산 2% 리스크 ÷ 손절폭)
+  entryPrice: number | null; // 매수 계열: 지정가(눌림목) 또는 동시호가 참고가(폭락반등)
+  targetPrice: number | null;
+  stopPrice: number | null;
+  sellLimitPrice: number | null; // 급등익절: 내일 걸어둘 매도 지정가
+  sigmaDailyPct: number; // 변동성 추정치 (참고)
+  suggestedQty: number | null;
   suggestedBudget: number | null;
-  rationale: string; // 왜 이 종목·이 가격인지 한 줄
-  cautions: string[]; // 폭락 직후 제외 등 필터에 걸린 이유 또는 주의사항
+  headline: string; // "마감 동시호가 소액 분할 매수" 처럼 무엇을 하라는지 한 줄
+  rationale: string; // 왜 — 실측 통계 인용 포함
+  cautions: string[];
 }
 
-export interface GeniusPlan {
-  available: boolean;
-  setups: GeniusSetup[]; // 최대 2개 (없으면 "오늘은 셋업 없음"이 정직한 답)
-  marketNote: string; // 오늘 변동성 상황 요약 한 줄
-  skippedNote: string | null; // 필터로 제외된 종목 요약 (폭락 직후 등)
+export interface TodayPlan {
+  regime: MarketRegime;
+  regimeNote: string; // 왜 이 레짐으로 판정했는지 (예: "간밤 SOX -5.2% 폭락")
+  trades: TodayTrade[]; // 최대 2개 — 없으면 "오늘은 없음"이 정직한 답
+  holderGuide: string[]; // 보유자 행동 지침 (레짐별로 다름, 실측 근거 포함)
+  marketNote: string;
+  skippedNote: string | null;
 }
 
 // 변동성 추정 결과 — 상세 설명과 검증 근거는 lib/volatility.ts 상단 주석 참고.

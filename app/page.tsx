@@ -26,24 +26,27 @@ interface AdviceResponse {
   marketPhaseUS?: { phase: string; kstTime: string; note: string };
   relativeStrengthSummary?: string | null;
   sectorConcentrationWarning?: string | null;
-  geniusPlan?: {
-    available: boolean;
-    setups: {
+  todayPlan?: {
+    regime: "폭락장" | "급등과열" | "변동성확대" | "보통";
+    regimeNote: string;
+    trades: {
+      kind: "눌림목매수" | "폭락반등매수" | "급등익절";
       ticker: string;
       name: string;
       currency: "KRW" | "USD";
       currentPrice: number;
-      entryPrice: number;
-      targetPrice: number;
-      stopPrice: number;
+      entryPrice: number | null;
+      targetPrice: number | null;
+      stopPrice: number | null;
+      sellLimitPrice: number | null;
       sigmaDailyPct: number;
-      expectedRangePct: number;
-      bigMoveLikely: boolean;
       suggestedQty: number | null;
       suggestedBudget: number | null;
+      headline: string;
       rationale: string;
       cautions: string[];
     }[];
+    holderGuide: string[];
     marketNote: string;
     skippedNote: string | null;
   } | null;
@@ -266,19 +269,10 @@ function loadFontScaleIndex(): number {
 
 export default function Home() {
   const [portfolio, setPortfolio] = useState<Portfolio>(DEFAULT_PORTFOLIO);
-  // 투자 모드 — "일반"(보수, 1% 리스크) / "천재"(공격, 하루 1~2회 눌림목 트레이드).
-  // 새로고침해도 유지되도록 저장한다.
-  const [investorMode, setInvestorMode] = useState<"일반" | "천재">("일반");
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("investor-mode-v1");
-      if (saved === "천재" || saved === "일반") setInvestorMode(saved);
-    } catch {}
-  }, []);
-  const changeMode = (m: "일반" | "천재") => {
-    setInvestorMode(m);
-    try { localStorage.setItem("investor-mode-v1", m); } catch {}
-  };
+  // 화면 탭 — 스크롤 지옥을 없애기 위해 3개 탭으로 분리 (오늘 할 일 / 종목 / 뉴스·시장정보)
+  const [tab, setTab] = useState<"오늘" | "종목" | "정보">("오늘");
+  // 작전 카드에서 트레이드별 "왜 이 판단인가"(검증 통계) 펼침 상태
+  const [openWhy, setOpenWhy] = useState<Record<string, boolean>>({});
   const [market, setMarket] = useState<MarketData | null>(null);
   const [result, setResult] = useState<AdviceResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -370,7 +364,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // 평단가만 입력하고 수량은 아직 안 넣은 임시 항목(qty=0)은 "실제 보유"가 아니므로 서버에는 제외하고 보낸다.
-        body: JSON.stringify({ portfolio: { ...portfolio, holdings: portfolio.holdings.filter((h) => h.qty > 0) }, mode: investorMode }),
+        body: JSON.stringify({ portfolio: { ...portfolio, holdings: portfolio.holdings.filter((h) => h.qty > 0) } }),
       });
       let json: AdviceResponse | null = null;
       try {
@@ -523,42 +517,62 @@ export default function Home() {
       )}
 
       {/* 글자 크기 조절 — 가- / 가+ 로 전체 화면 글자 크기를 바꿀 수 있다 (다음에 켜도 유지됨) */}
-      <div className="font-size-row">
-        <span className="font-size-label">글자 크기</span>
-        <div className="font-size-controls">
-          <button
-            className="font-size-btn"
-            aria-label="글자 작게"
-            disabled={fontScaleIdx === 0}
-            onClick={() => setFontScaleIdx((i) => Math.max(0, i - 1))}
-          >
-            가<span style={{ fontSize: "0.7em" }}>−</span>
-          </button>
-          <span className="font-size-current">{FONT_SCALE_LABELS[fontScaleIdx]}</span>
-          <button
-            className="font-size-btn"
-            aria-label="글자 크게"
-            disabled={fontScaleIdx === FONT_SCALE_STEPS.length - 1}
-            onClick={() => setFontScaleIdx((i) => Math.min(FONT_SCALE_STEPS.length - 1, i + 1))}
-          >
-            가<span style={{ fontSize: "1.25em" }}>+</span>
-          </button>
-        </div>
-      </div>
+      {/* ===== 탭: 오늘 ===== */}
+      <div style={{ display: tab === "오늘" ? undefined : "none" }}>
 
-      {/* 투자 모드 선택 — 일반(보수) / 천재(공격) */}
-      <div className="mode-toggle">
-        <button className={investorMode === "일반" ? "mode-btn active" : "mode-btn"} onClick={() => changeMode("일반")}>
-          🛡️ 일반 모드
-        </button>
-        <button className={investorMode === "천재" ? "mode-btn active genius" : "mode-btn"} onClick={() => changeMode("천재")}>
-          ⚡ 천재 모드
-        </button>
-      </div>
-      {investorMode === "천재" && (
-        <div className="mode-desc">
-          하루 1~2회, 변동성이 큰 종목의 눌림목에 지정가를 걸어 되돌림을 노리는 공격 모드예요.
-          지정가에 안 닿으면 그날은 매매하지 않는 것이 원칙(추격 금지)이에요.
+      {/* 오늘의 작전 — 엔진이 장세(폭락장/급등과열/변동성확대/보통)를 스스로 판별해 그날의 플레이북 제시 */}
+      {result?.todayPlan && (
+        <div className={`plan-card plan-${result.todayPlan.regime}`}>
+          <div className="plan-head">
+            <span className={`plan-badge plan-badge-${result.todayPlan.regime}`}>{result.todayPlan.regime}</span>
+            <span className="plan-regime-note">{result.todayPlan.regimeNote}</span>
+          </div>
+          <div className="plan-market-note">{result.todayPlan.marketNote}</div>
+          {result.todayPlan.trades.map((t, ti) => (
+            <div className="plan-trade" key={ti}>
+              <div className="plan-trade-head">
+                <strong>{t.name}</strong>
+                <span className="plan-kind">{t.kind}</span>
+              </div>
+              <div className="plan-headline">👉 {t.headline}</div>
+              {t.kind === "눌림목매수" && t.entryPrice != null && (
+                <div className="genius-prices">
+                  <div><span>진입(지정가)</span><strong>{fmt(t.entryPrice, t.currency)}</strong></div>
+                  <div><span>익절</span><strong style={{ color: "#1b64da" }}>{fmt(t.targetPrice, t.currency)}</strong></div>
+                  <div><span>손절(필수)</span><strong style={{ color: "#c9353f" }}>{fmt(t.stopPrice, t.currency)}</strong></div>
+                </div>
+              )}
+              {t.suggestedQty != null && (
+                <div className="plan-qty">
+                  수량 {t.suggestedQty.toLocaleString()}주
+                  {t.suggestedBudget != null && ` (약 ${manwon(t.suggestedBudget)})`}
+                </div>
+              )}
+              {/* 안전에 직결되는 첫 경고는 항상 보이고, 통계 근거와 나머지 주의는 접어둔다 —
+                  화면에서 "지금 뭘 하라"가 먼저 읽히도록 */}
+              {t.cautions[0] && <div className="plan-caution">⚠️ {t.cautions[0]}</div>}
+              <button className="plan-why" onClick={() => setOpenWhy((v) => ({ ...v, [t.ticker + t.kind]: !v[t.ticker + t.kind] }))}>
+                {openWhy[t.ticker + t.kind] ? "근거 접기 ▲" : "왜 이 판단인가? (검증 통계 보기) ▼"}
+              </button>
+              {openWhy[t.ticker + t.kind] && (
+                <>
+                  <div className="plan-rationale">{t.rationale}</div>
+                  {t.cautions.slice(1).map((c, ci) => (
+                    <div className="plan-caution" key={ci}>⚠️ {c}</div>
+                  ))}
+                </>
+              )}
+            </div>
+          ))}
+          {result.todayPlan.holderGuide.length > 0 && (
+            <div className="plan-holder">
+              <div className="plan-holder-title">보유 중이라면</div>
+              {result.todayPlan.holderGuide.map((g, gi) => (
+                <div className="plan-holder-item" key={gi}>· {g}</div>
+              ))}
+            </div>
+          )}
+          {result.todayPlan.skippedNote && <div className="plan-skipped">{result.todayPlan.skippedNote}</div>}
         </div>
       )}
 
@@ -574,42 +588,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* 천재 모드: 오늘의 공격 셋업 */}
-      {investorMode === "천재" && result?.geniusPlan && (
-        <div className="genius-card">
-          <div className="genius-title">⚡ 오늘의 공격 셋업 (최대 2개)</div>
-          <div className="genius-note">{result.geniusPlan.marketNote}</div>
-          {result.geniusPlan.setups.map((g) => (
-            <div className="genius-setup" key={g.ticker}>
-              <div className="genius-setup-head">
-                <strong>{g.name}</strong>
-                <span className={g.bigMoveLikely ? "genius-range big" : "genius-range"}>
-                  예상 변동폭 {g.expectedRangePct.toFixed(1)}%{g.bigMoveLikely ? " · 5%+ 기회" : ""}
-                </span>
-              </div>
-              <div className="genius-prices">
-                <div><span>진입(지정가)</span><strong>{fmt(g.entryPrice, g.currency)}</strong></div>
-                <div><span>익절</span><strong style={{ color: "#1b64da" }}>{fmt(g.targetPrice, g.currency)}</strong></div>
-                <div><span>손절(필수)</span><strong style={{ color: "#c9353f" }}>{fmt(g.stopPrice, g.currency)}</strong></div>
-              </div>
-              {g.suggestedQty != null && g.suggestedBudget != null && (
-                <div className="genius-qty">제안 수량 {g.suggestedQty.toLocaleString()}주 (약 {manwon(g.suggestedBudget)}, 총자산 2% 리스크 기준)</div>
-              )}
-              <div className="genius-rationale">{g.rationale}</div>
-              {g.cautions.map((c, i) => (
-                <div className="genius-caution" key={i}>⚠️ {c}</div>
-              ))}
-            </div>
-          ))}
-          {result.geniusPlan.skippedNote && <div className="genius-skipped">{result.geniusPlan.skippedNote}</div>}
-          <div className="genius-honest">
-            📊 이 규칙의 과거 검증(거래비용 차감, 최악 순서 가정): 급변동장 전반 +21.0% · 후반 +7.1% · 2025년 +4.3% · 평온한 2024년 +10.7%.
-            네 구간 모두 플러스였지만 <strong>과거 성적이며 매일 수익 보장이 아닙니다</strong> — 최대 낙폭 -20% 구간도 있었습니다.
-            손절 없이는 이 모드를 쓰지 마세요.
-          </div>
-        </div>
-      )}
+      </div>{/* ===== /탭: 오늘 1구간 ===== */}
 
+      {/* ===== 탭: 종목 ===== */}
+      <div style={{ display: tab === "종목" ? undefined : "none" }}>
       {/* 총 자산 — 원화+달러 보유를 실시간 환율로 환산해 하나의 숫자로 합산 */}
       <div className="card">
         <div className="asset-label">총 자산 (현금 + 주식 평가금, 원화 환산)</div>
@@ -631,6 +613,36 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* 내 돈 기준 하루 변동 예상 — 종목별 %보다 "내 계좌가 얼마 흔들리나"가 훨씬 체감된다 */}
+      {result?.portfolioRisk && (
+        <div className="risk-card">
+          <div className="risk-title">💰 내 보유 기준 하루 예상 변동</div>
+          <div className="risk-main">
+            평가금 {manwon(result.portfolioRisk.totalValue)} 기준 하루 ±
+            <strong>{manwon(result.portfolioRisk.sigmaDailyAmount)}</strong>
+            <span className="risk-sub"> (±{result.portfolioRisk.sigmaDailyPct.toFixed(1)}%)</span>
+          </div>
+          <div className="risk-row">
+            <span>20일에 한 번 겪는 나쁜 날</span>
+            <strong style={{ color: "#c9353f" }}>{manwon(result.portfolioRisk.loss5Pct)}</strong>
+          </div>
+          <div className="risk-row">
+            <span>100일에 한 번 오는 최악의 날</span>
+            <strong style={{ color: "#c9353f" }}>{manwon(result.portfolioRisk.loss1Pct)}</strong>
+          </div>
+          <div className="risk-row">
+            <span>실질 분산 효과</span>
+            <strong>{result.portfolioRisk.effectiveBets.toFixed(1)}종목 수준</strong>
+          </div>
+          {result.portfolioRisk.warnings.map((w, i) => (
+            <div key={i} className="risk-warn">⚠️ {w}</div>
+          ))}
+          <div className="risk-note">
+            과거 5년 실데이터로 검증한 추정치입니다(90% 구간 적중률 약 88%). 확정 예측이 아니라 "이 정도 범위는 각오해야 한다"는 기준으로만 쓰세요.
+          </div>
+        </div>
+      )}
 
       {/* 자산 입력 */}
       {editOpen && (
@@ -711,6 +723,55 @@ export default function Home() {
         </div>
       )}
 
+      </div>{/* ===== /탭: 종목 1구간 ===== */}
+
+      {/* ===== 탭: 정보 ===== */}
+      <div style={{ display: tab === "정보" ? undefined : "none" }}>
+      {/* 장 상태(국내/미국) + 상대강도 + 섹터집중도 배너 */}
+      {result?.marketPhase && (
+        <div className="phase-banner">
+          <span className="phase-tag">국내 {result.marketPhase.phase}</span>
+          <span className="phase-time">{result.marketPhase.kstTime} KST</span>
+          <span className="phase-note">{result.marketPhase.note}</span>
+        </div>
+      )}
+      {result?.marketPhaseUS && (
+        <div className="phase-banner">
+          <span className="phase-tag">미국 {result.marketPhaseUS.phase}</span>
+          <span className="phase-time">{result.marketPhaseUS.kstTime} KST</span>
+          <span className="phase-note">{result.marketPhaseUS.note}</span>
+        </div>
+      )}
+      {result?.relativeStrengthSummary && (
+        <div className="rs-banner">
+          {result.relativeStrengthSummary.split("\n").map((line, i) => (
+            <div key={i}>⚖️ {line}</div>
+          ))}
+        </div>
+      )}
+      <div className="font-size-row">
+        <span className="font-size-label">글자 크기</span>
+        <div className="font-size-controls">
+          <button
+            className="font-size-btn"
+            aria-label="글자 작게"
+            disabled={fontScaleIdx === 0}
+            onClick={() => setFontScaleIdx((i) => Math.max(0, i - 1))}
+          >
+            가<span style={{ fontSize: "0.7em" }}>−</span>
+          </button>
+          <span className="font-size-current">{FONT_SCALE_LABELS[fontScaleIdx]}</span>
+          <button
+            className="font-size-btn"
+            aria-label="글자 크게"
+            disabled={fontScaleIdx === FONT_SCALE_STEPS.length - 1}
+            onClick={() => setFontScaleIdx((i) => Math.min(FONT_SCALE_STEPS.length - 1, i + 1))}
+          >
+            가<span style={{ fontSize: "1.25em" }}>+</span>
+          </button>
+        </div>
+      </div>
+
       {/* 매크로 스트립 */}
       <div className="macro-strip">
         {macroChips.map(({ key, label }) => {
@@ -746,61 +807,13 @@ export default function Home() {
         )}
       </div>
 
-      {/* 장 상태(국내/미국) + 상대강도 + 섹터집중도 배너 */}
-      {result?.marketPhase && (
-        <div className="phase-banner">
-          <span className="phase-tag">국내 {result.marketPhase.phase}</span>
-          <span className="phase-time">{result.marketPhase.kstTime} KST</span>
-          <span className="phase-note">{result.marketPhase.note}</span>
-        </div>
-      )}
-      {result?.marketPhaseUS && (
-        <div className="phase-banner">
-          <span className="phase-tag">미국 {result.marketPhaseUS.phase}</span>
-          <span className="phase-time">{result.marketPhaseUS.kstTime} KST</span>
-          <span className="phase-note">{result.marketPhaseUS.note}</span>
-        </div>
-      )}
-      {result?.relativeStrengthSummary && (
-        <div className="rs-banner">
-          {result.relativeStrengthSummary.split("\n").map((line, i) => (
-            <div key={i}>⚖️ {line}</div>
-          ))}
-        </div>
-      )}
+      </div>{/* ===== /탭: 정보 1구간 ===== */}
+
+      <div style={{ display: tab === "오늘" ? undefined : "none" }}>
+      {/* 섹터집중도 경고 — 행동에 직접 영향을 주므로 '오늘' 탭에 남긴다 */}
       {result?.sectorConcentrationWarning && (
         <div className="rs-banner" style={{ background: "var(--red-weak)", color: "#c9353f" }}>
           🎯 {result.sectorConcentrationWarning}
-        </div>
-      )}
-
-      {/* 내 돈 기준 하루 변동 예상 — 종목별 %보다 "내 계좌가 얼마 흔들리나"가 훨씬 체감된다 */}
-      {result?.portfolioRisk && (
-        <div className="risk-card">
-          <div className="risk-title">💰 내 보유 기준 하루 예상 변동</div>
-          <div className="risk-main">
-            평가금 {manwon(result.portfolioRisk.totalValue)} 기준 하루 ±
-            <strong>{manwon(result.portfolioRisk.sigmaDailyAmount)}</strong>
-            <span className="risk-sub"> (±{result.portfolioRisk.sigmaDailyPct.toFixed(1)}%)</span>
-          </div>
-          <div className="risk-row">
-            <span>20일에 한 번 겪는 나쁜 날</span>
-            <strong style={{ color: "#c9353f" }}>{manwon(result.portfolioRisk.loss5Pct)}</strong>
-          </div>
-          <div className="risk-row">
-            <span>100일에 한 번 오는 최악의 날</span>
-            <strong style={{ color: "#c9353f" }}>{manwon(result.portfolioRisk.loss1Pct)}</strong>
-          </div>
-          <div className="risk-row">
-            <span>실질 분산 효과</span>
-            <strong>{result.portfolioRisk.effectiveBets.toFixed(1)}종목 수준</strong>
-          </div>
-          {result.portfolioRisk.warnings.map((w, i) => (
-            <div key={i} className="risk-warn">⚠️ {w}</div>
-          ))}
-          <div className="risk-note">
-            과거 5년 실데이터로 검증한 추정치입니다(90% 구간 적중률 약 88%). 확정 예측이 아니라 "이 정도 범위는 각오해야 한다"는 기준으로만 쓰세요.
-          </div>
         </div>
       )}
 
@@ -915,6 +928,9 @@ export default function Home() {
         </>
       )}
 
+      </div>{/* ===== /탭: 오늘 2구간 ===== */}
+
+      <div style={{ display: tab === "정보" ? undefined : "none" }}>
       {/* 실시간 뉴스·속보 — 판단 근거를 바로 확인할 수 있도록 종목 카드보다 먼저 노출 */}
       {result && result.news.length > 0 && (
         <>
@@ -956,6 +972,18 @@ export default function Home() {
         </div>
       )}
 
+      <div className="disclaimer">
+        본 서비스는 투자 판단을 돕는 참고 정보이며, 투자 권유나 수익 보장이 아닙니다.
+        <br />
+        모든 투자의 최종 결정과 책임은 투자자 본인에게 있습니다. 단기 매매는 원금 손실 위험이 큽니다.
+        <br />
+        <strong>무료 공개 API 기반 시세는 최대 15~20분 지연될 수 있습니다.</strong> 실제 주문 직전에는 반드시 증권사 앱(MTS)에서 최신 호가를 확인하세요. 진입/무효화 조건은 고정 가격이 아니라 &quot;조건 충족 여부&quot;로 판단하도록 설계되어 지연의 영향을 줄였지만, 완전히 없앨 수는 없습니다.
+        <br />
+        목표가·손절가는 왕복 거래비용(증권거래세+수수료, 약 0.25%)을 반영하지 않은 값입니다. 실제 순수익은 표시된 수치보다 낮습니다.
+      </div>
+      </div>{/* ===== /탭: 정보 2구간 ===== */}
+
+      <div style={{ display: tab === "종목" ? undefined : "none" }}>
       {/* 종목 카드 */}
       {TICKERS.map(({ ticker, name }) => {
         const currency = STOCKS[ticker].currency;
@@ -1245,15 +1273,20 @@ export default function Home() {
         );
       })}
 
-      <div className="disclaimer">
-        본 서비스는 투자 판단을 돕는 참고 정보이며, 투자 권유나 수익 보장이 아닙니다.
-        <br />
-        모든 투자의 최종 결정과 책임은 투자자 본인에게 있습니다. 단기 매매는 원금 손실 위험이 큽니다.
-        <br />
-        <strong>무료 공개 API 기반 시세는 최대 15~20분 지연될 수 있습니다.</strong> 실제 주문 직전에는 반드시 증권사 앱(MTS)에서 최신 호가를 확인하세요. 진입/무효화 조건은 고정 가격이 아니라 &quot;조건 충족 여부&quot;로 판단하도록 설계되어 지연의 영향을 줄였지만, 완전히 없앨 수는 없습니다.
-        <br />
-        목표가·손절가는 왕복 거래비용(증권거래세+수수료, 약 0.25%)을 반영하지 않은 값입니다. 실제 순수익은 표시된 수치보다 낮습니다.
-      </div>
+      </div>{/* ===== /탭: 종목 2구간 ===== */}
+
+      {/* 하단 고정 탭바 — 한 손 조작 기준으로 화면을 3개 영역으로 나눈다 */}
+      <nav className="tabbar">
+        <button className={tab === "오늘" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("오늘")}>
+          <span className="tabbar-icon">🎯</span>오늘 할 일
+        </button>
+        <button className={tab === "종목" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("종목")}>
+          <span className="tabbar-icon">📈</span>종목
+        </button>
+        <button className={tab === "정보" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("정보")}>
+          <span className="tabbar-icon">📰</span>뉴스·시장
+        </button>
+      </nav>
     </main>
   );
 }

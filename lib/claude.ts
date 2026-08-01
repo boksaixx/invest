@@ -2,7 +2,7 @@
 // 엔진 신호(일봉+장중 기술적) + 뉴스(Gemini) + 매크로 + 포트폴리오를 종합해
 // 전문 트레이더 관점의 최종 판단을 JSON으로 반환.
 import Anthropic from "@anthropic-ai/sdk";
-import type { AiAdvice, CollectedSnapshot, EngineSignal, GeniusPlan, InvestorMode, MacroSnapshot, MarketPhaseInfo, NewsItem, Portfolio, StockTicker } from "./types";
+import type { AiAdvice, CollectedSnapshot, EngineSignal, MacroSnapshot, MarketPhaseInfo, NewsItem, Portfolio, StockTicker, TodayPlan } from "./types";
 import { STOCKS } from "./types";
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-4-8";
@@ -14,7 +14,7 @@ const SYSTEM = `당신은 20년 경력의 한국+미국 반도체 주식 단기(
 중요(통화 구분): 국내 5종목의 가격·목표가·손절가·진입가는 전부 "원"(KRW) 단위이고, 엔비디아는 "달러"($, USD) 단위입니다. 데이터의 "통화" 필드를 반드시 확인해 절대 단위를 혼동하지 마세요 — 예를 들어 엔비디아 목표가를 "원"으로 말하거나 삼성전자 손절가를 "$"로 말하면 안 됩니다. headline/rationale에서 가격을 언급할 때도 그 종목에 맞는 통화 기호를 정확히 붙이세요.
 
 요즘 시장은 변동성이 매우 큰 국면입니다 — 미국 반도체지수(SOX) 급등락, 국제 유가 급변동, 트럼프 등 주요 정치인의 발언(관세·수출규제) 한마디에 급등락, 국내 반도체 대장주(삼성전자·SK하이닉스)의 상한가, 반도체 레버리지 ETF가 하루 60% 가까이 움직이는 등 평소보다 훨씬 거친 장세가 이어지고 있습니다. 이런 환경에서는 어제까지 유효했던 목표가·손절가·진입 논리가 오늘 완전히 무효화될 수 있으므로, 아래 원칙을 특히 엄격히 적용하세요:
-투자모드(데이터의 "투자모드" 필드): "일반"이면 기존 보수 원칙(1회 손실 1% 제한) 그대로 조언한다. "천재"(공격 모드)이면 고객이 하루 1~2회의 공격적 트레이드를 원하는 상태다 — 데이터의 "오늘의_공격셋업"(σ비례 눌림목 지정가 매수, 5개년 실데이터 검증 규칙)을 조언의 중심에 놓고, 셋업의 진입가·익절가·손절가를 구체적으로 인용하며 "지정가 미체결이면 그날은 트레이드 없음(추격 금지)"을 반드시 강조한다. 공격 모드라도 손절 원칙은 더 엄격해지는 것이지 느슨해지는 게 아니며, "매일 수익 보장"은 존재하지 않음을 전제로 말한다. "시장_신용잔고" 데이터가 있으면(빚투 급증 = 급락 시 반대매매 연쇄 위험) 리스크 판단에 반영해 언급한다.
+오늘의_작전(데이터 필드): 엔진이 장세를 스스로 판별(폭락장/급등과열/변동성확대/보통)해 그날 유효한 플레이북을 5개년 실데이터 검증 규칙으로 제시한 것이다. 조언은 반드시 이 작전과 일관되게: (1) 레짐과 판별 근거를 headline/insightReport에서 언급하고, (2) 작전의 트레이드(진입·익절·손절 또는 매도지정가)를 구체적 숫자로 인용하며, (3) 폭락장에서는 "갭하락 시가 패닉 매도는 실측상 무익(-0.13%p)"과 "폭락 반등 노림수는 소액(총자산 10% 이내)" 원칙을, 급등과열에서는 "추격 금지 + 다음날 +3% 지정가 분할 익절(실측 도달률 64%)"을, 눌림목에서는 "지정가 미체결이면 그날은 트레이드 없음(추격 금지)"을 강조한다. "매일 수익 보장"은 존재하지 않음을 전제로 말한다. "시장_신용잔고" 데이터가 있으면(빚투 급증 = 급락 시 반대매매 연쇄 위험) 리스크 판단에 반영해 언급한다.
 
 - 종목마다 주어지는 "변동성_추정"을 항상 먼저 확인한다. 이는 5개년 실데이터로 검증한 모델이 계산한 값으로 레짐(평온/보통/높음/극단), 평소 대비 배율, 내일 90% 등락범위, 꼬리 방향(상방=급등 쪽이 더 두꺼움)을 담고 있다. 레짐이 "높음"이나 "극단"이면 포지션을 더 작게, 손절을 더 엄격히 가져가라고 명시적으로 조언하고, rationale에서 예상 등락범위를 구체적 숫자로 인용한다. 특히 손절가가 이 등락범위 안쪽에 있으면 "방향을 맞혀도 장중 흔들림에 손절당할 수 있다"는 점을 반드시 짚어준다.
 - 상한가/하한가(가격제한폭 도달) 신호가 있으면 절대 그날 추가로 쫓아 사지 말라고 강하게 경고하고, 익일 갭 리스크(다음날 시가가 크게 벌어질 위험)를 언급한다.
@@ -199,8 +199,7 @@ export async function generateAdvice(params: {
   events?: { date: string; title: string; note: string }[]; // 과거 주요 이벤트 타임라인
   relativeStrengthSummary?: string | null; // 국내/미국 그룹별 상대강도 랭킹 요약 (합쳐진 문자열)
   sectorConcentrationWarning?: string | null; // 섹터/테마 집중도 경고 (있으면)
-  investorMode?: InvestorMode; // 일반(보수) | 천재(공격) — SYSTEM 프롬프트의 모드 설명에 따라 조언 톤이 달라짐
-  geniusPlan?: GeniusPlan | null; // 천재 모드용 오늘의 셋업 (모드와 무관하게 참고 데이터로 전달)
+  todayPlan?: TodayPlan | null; // 오늘의 작전 — 엔진이 판별한 레짐과 플레이북 (조언의 중심 축)
   creditNote?: string | null; // 시장 신용잔고(빚투) 요약 — KOFIA 연동 실패 시 null
 }): Promise<{ advice: AiAdvice | null; error: string | null }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -298,8 +297,7 @@ export function buildAdvicePayload(params: {
   sectorConcentrationWarning?: string | null;
   krPhase?: MarketPhaseInfo | null;
   usPhase?: MarketPhaseInfo | null;
-  investorMode?: InvestorMode;
-  geniusPlan?: GeniusPlan | null;
+  todayPlan?: TodayPlan | null;
   creditNote?: string | null;
 }): Record<string, unknown> {
   const { signals, macro, news, portfolio } = params;
@@ -311,11 +309,24 @@ export function buildAdvicePayload(params: {
     현재시각_KST: new Date(Date.now() + 9 * 3600_000).toISOString().replace("Z", "+09:00"),
     장상태_국내: params.krPhase ?? null,
     장상태_미국: params.usPhase ?? null,
-    투자모드: params.investorMode ?? "일반",
-    // 천재(공격) 모드 셋업 — 한 줄 압축(토큰 절약). "일반" 모드에서는 이 데이터를 쓸 일이
-    // 없으므로 아예 보내지 않는다(모드별 조건부 전송 — 안 쓰는 데이터에 토큰을 쓰지 않는다).
-    오늘의_공격셋업: params.investorMode === "천재" && params.geniusPlan?.setups?.length
-      ? params.geniusPlan.setups.map((g) => `${g.name}: ${g.entryPrice.toLocaleString()}${g.currency === "USD" ? "$" : "원"} 지정가(현재가-${(((g.currentPrice - g.entryPrice) / g.currentPrice) * 100).toFixed(1)}%) → 익절 ${g.targetPrice.toLocaleString()} / 손절 ${g.stopPrice.toLocaleString()}, 예상변동폭 ${g.expectedRangePct.toFixed(1)}%`)
+    // 오늘의 작전 — 조언의 중심 축이므로 항상 전송하되 한 줄씩 압축(토큰 절약)
+    오늘의_작전: params.todayPlan
+      ? prune({
+          레짐: `${params.todayPlan.regime} (${params.todayPlan.regimeNote})`,
+          트레이드: params.todayPlan.trades.length
+            ? params.todayPlan.trades.map((t) => {
+                const u = t.currency === "USD" ? "$" : "원";
+                if (t.kind === "급등익절") return `${t.name} 급등익절: 내일 ${t.sellLimitPrice?.toLocaleString()}${u} 지정가로 ${t.suggestedQty ?? "?"}주 매도`;
+                if (t.kind === "폭락반등매수") return `${t.name} 폭락반등: 마감 동시호가 소액매수(${t.suggestedQty ?? "?"}주, 총자산 10%이내) → 익일 종가 청산`;
+                return `${t.name} 눌림목: ${t.entryPrice?.toLocaleString()}${u} 지정가 → 익절 ${t.targetPrice?.toLocaleString()} / 손절 ${t.stopPrice?.toLocaleString()}`;
+              })
+            : null,
+          // 보유자 지침의 상세 근거(패닉 매도 무익 -0.13%p 등)는 SYSTEM 프롬프트에 이미 있고
+          // 그쪽은 캐시되어 1/10 비용이다. 여기선 첫 문장만 짧게 보내 중복 과금을 피한다.
+          보유자지침: params.todayPlan.holderGuide.length
+            ? params.todayPlan.holderGuide.map((g) => g.split(" — ")[0]).slice(0, 2)
+            : null,
+        })
       : null,
     시장_신용잔고: params.creditNote ?? null,
     거래량_기준일: volumeBasis,

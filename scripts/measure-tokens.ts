@@ -109,28 +109,33 @@ async function main() {
     events: { date: string; title: string; note: string }[];
   };
 
-  // 최악 케이스로 측정한다 — 천재 모드 셋업 2개와 신용잔고 노트까지 모두 실린 상태.
-  // (이 필드들이 null이면 prune이 지워버려 실제보다 작게 측정되므로 의미가 없다)
-  const worstCaseGenius = {
-    available: true,
-    setups: snap.signals.slice(0, 2).map((s) => ({
+  // 최악 케이스로 측정한다 — 폭락장 레짐 + 트레이드 2개 + 보유자 지침 + 신용잔고까지 실린 상태.
+  const worstCasePlan = {
+    regime: "폭락장" as const,
+    regimeNote: "간밤 미 반도체지수(SOX) -5.2% 폭락, 삼성전자 -8.8% 폭락 중",
+    trades: snap.signals.slice(0, 2).map((s) => ({
+      kind: "폭락반등매수" as const,
       ticker: s.ticker,
       name: s.name,
       currency: "KRW" as const,
       currentPrice: s.price,
-      entryPrice: Math.round(s.price * 0.95),
-      targetPrice: Math.round(s.price * 1.03),
-      stopPrice: Math.round(s.price * 0.88),
+      entryPrice: s.price,
+      targetPrice: null,
+      stopPrice: null,
+      sellLimitPrice: null,
       sigmaDailyPct: 8,
-      expectedRangePct: 12.8,
-      bigMoveLikely: true,
-      suggestedQty: 58,
-      suggestedBudget: 6_180_000,
-      rationale: "변동성 극단 — 눌림목 지정가",
-      cautions: ["변동성 극단 국면 — 손절가는 예외 없이"],
+      suggestedQty: 8,
+      suggestedBudget: 2_000_000,
+      headline: "마감 동시호가(15:20~15:30) 소액 분할 매수 → 내일 종가 부근 청산",
+      rationale: "당일 -8.8% 폭락 — 5년 실측상 -8%↓ 폭락 마감 후 익일 평균 +1.4%, 승률 64~65%",
+      cautions: ["13.6% 확률로 연속 폭락 전례 — 총자산 10% 이내 소액만"],
     })),
-    marketNote: "오늘 최대 예상 변동폭 12.8% — 5% 이상 기회가 실재하는 날입니다. 단, 지정가 미체결이면 그날 트레이드는 없습니다(추격 금지).",
-    skippedNote: "제외: 삼성전자(전일 -6.3% 급락 — 칼날 잡기 금지), SK하이닉스(전일 -5.7% 급락 — 칼날 잡기 금지)",
+    holderGuide: [
+      "갭하락 시가에 패닉 매도하지 마세요 — 실측상 시가 매도 후 재매수는 그냥 보유 대비 평균 -0.13%p로 이득이 없었습니다.",
+      "기존 손절선은 예외 없이 지키되, 손절선 위라면 장중 투매에 휩쓸리지 말 것.",
+    ],
+    marketNote: "폭락장 플레이북 — 반등 통계가 있는 자리만 소액으로 노리고, 나머지는 원칙 방어.",
+    skippedNote: null,
   };
 
   const next = buildAdvicePayload({
@@ -142,26 +147,9 @@ async function main() {
     events: events.events,
     relativeStrengthSummary: null,
     sectorConcentrationWarning: null,
-    investorMode: "천재",
-    geniusPlan: worstCaseGenius,
+    todayPlan: worstCasePlan,
     creditNote: "신용융자 잔고 24.8조원 — 최근 20일 새 18% 급증. 빚투가 몰린 상태라 급락 시 반대매매 연쇄로 하락이 증폭될 수 있음",
   });
-
-  // 일반 모드(천재 셋업 미전송) 페이로드도 함께 측정
-  const normalMode = buildAdvicePayload({
-    signals: snap.signals,
-    macro: snap.macro,
-    news: snap.news,
-    portfolio: { cash: 20_000_000, cashUSD: 0, holdings: [] },
-    history: snap,
-    events: events.events,
-    relativeStrengthSummary: null,
-    sectorConcentrationWarning: null,
-    investorMode: "일반",
-    geniusPlan: worstCaseGenius,
-    creditNote: "신용융자 잔고 24.8조원 — 최근 20일 새 18% 급증. 빚투가 몰린 상태라 급락 시 반대매매 연쇄로 하락이 증폭될 수 있음",
-  });
-  const normalStr = JSON.stringify(normalMode);
 
   const legacyStr = JSON.stringify(legacyPayload(snap), null, 1);
   const nextStr = JSON.stringify(next);
@@ -190,9 +178,7 @@ async function main() {
   console.log(`${pad("항목", 22)}${pad("문자수", 12)}토큰(추정)`);
   console.log("-".repeat(48));
   console.log(`${pad("최적화 전 페이로드", 20)}${pad(legacyStr.length.toLocaleString(), 12)}${legacyTok.toLocaleString()}`);
-  const normalTok = await count(normalStr);
-  console.log(`${pad("최적화 후(일반 모드)", 20)}${pad(normalStr.length.toLocaleString(), 12)}${normalTok.toLocaleString()}`);
-  console.log(`${pad("최적화 후(천재 모드)", 20)}${pad(nextStr.length.toLocaleString(), 12)}${nextTok.toLocaleString()}`);
+  console.log(`${pad("최적화 후(작전 포함)", 20)}${pad(nextStr.length.toLocaleString(), 12)}${nextTok.toLocaleString()}`);
   const saved = legacyTok - nextTok;
   console.log(
     `\n절감: ${saved.toLocaleString()} 토큰 (${((saved / legacyTok) * 100).toFixed(1)}%)`,

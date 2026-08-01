@@ -1,4 +1,5 @@
-// 투자 모드 검증 하니스 — 천재(공격) 모드의 σ비례 눌림목 규칙을 5개년 실데이터로 검증한다.
+// 오늘의 작전 검증 하니스 — 레짐별 플레이북 규칙들을 5개년 실데이터로 검증한다.
+// (σ비례 눌림목 + 폭락 반등 매수 — lib/genius.ts 의 두 핵심 규칙)
 //
 // 실행: npx tsx scripts/validate-modes.ts
 //
@@ -104,6 +105,35 @@ function run(hist: Hist, days: string[], withCosts: boolean) {
   };
 }
 
+// ---- 폭락 반등 규칙 검증: 당일 -8%↓ 마감 → 종가(동시호가) 매수 → 익일 종가 청산 ----
+// 익절/손절 변형을 쓰지 않는 이유: +3% 익절 상한은 급변동장 반등(+5~10%)을 잘라먹고,
+// -6% 스탑은 장중 진폭(평균 시가→저가 -4%)에 최악 순서 가정으로 먼저 걸린다 — 둘 다 실측 열위.
+function runCrashRebound(hist: Hist, days: (d: string) => boolean) {
+  const rets: number[] = [];
+  for (const { sym } of KR) {
+    const c = hist.symbols[sym].candles;
+    for (let i = 1; i < c.length - 1; i++) {
+      if (!days(c[i].date)) continue;
+      const crash = (c[i].close / c[i - 1].close - 1) * 100;
+      if (crash > -8) continue;
+      const ret = (c[i + 1].close / c[i].close - 1) * 100 - ROUND_TRIP_COST_PCT;
+      rets.push(ret);
+    }
+  }
+  let cum = 1;
+  let wins = 0;
+  for (const r of rets) {
+    cum *= 1 + r / 100;
+    if (r > 0) wins++;
+  }
+  return {
+    n: rets.length,
+    avg: rets.reduce((a, b) => a + b, 0) / Math.max(1, rets.length),
+    win: (wins / Math.max(1, rets.length)) * 100,
+    cum: (cum - 1) * 100,
+  };
+}
+
 function main() {
   const hist = JSON.parse(readFileSync(join(process.cwd(), "data", "market-history.json"), "utf8")) as Hist;
   const allDays = hist.symbols["005930.KS"].candles.map((c) => c.date).sort();
@@ -114,7 +144,7 @@ function main() {
     ["2024년(평온)", allDays.filter((d) => d >= "2024-01-01" && d <= "2024-12-31")],
   ];
 
-  console.log("=== 천재(공격) 모드 검증 — σ비례 눌림목 규칙 (lib/genius.ts 상수 그대로 사용) ===");
+  console.log("=== 눌림목 규칙 검증 — σ비례 (lib/genius.ts 상수 그대로 사용) ===");
   console.log(`규칙: 폭락 직후 제외 후 변동성 1위 종목, 시가-${GENIUS_DIP_SIGMA}σ 지정가 → +${GENIUS_TARGET_SIGMA}σ 익절 / -${GENIUS_STOP_SIGMA}σ 손절(우선) / 종가 청산`);
   console.log(`거래비용 왕복 ${ROUND_TRIP_COST_PCT}% 차감 | 최악 순서 가정(익절·손절 동시 접촉 시 손절 처리)\n`);
 
@@ -124,6 +154,17 @@ function main() {
       `${name.padEnd(20)} 누적 ${r.cum >= 0 ? "+" : ""}${r.cum.toFixed(1)}% | 승률 ${r.winRate.toFixed(0)}% | 체결 ${r.trades}회/${r.days}일 | 익절 도달 ${r.targetHits}회 | MDD ${r.mdd.toFixed(1)}%`,
     );
   }
+
+  console.log("\n=== 폭락 반등 규칙 (당일 -8%↓ 마감 동시호가 매수 → 익일 종가 청산, 비용 차감) ===\n");
+  for (const [name, fn] of [
+    ["5년 전체", () => true],
+    ["최근 6개월(급변동)", (d: string) => d >= "2026-01-31"],
+    ["그 이전(21~25년)", (d: string) => d < "2026-01-31"],
+  ] as [string, (d: string) => boolean][]) {
+    const r = runCrashRebound(hist, fn);
+    console.log(`${name.padEnd(18)} n=${String(r.n).padStart(3)} 평균 ${r.avg >= 0 ? "+" : ""}${r.avg.toFixed(2)}% | 승률 ${r.win.toFixed(0)}% | 누적 ${r.cum >= 0 ? "+" : ""}${r.cum.toFixed(1)}%`);
+  }
+  console.log("주의: 13.6% 확률로 익일 또 -8%↓(연속 폭락) — 총자산 10% 이내 소액 전제. 개별 악재(소송·회계 등)에는 부적용.");
 
   console.log("\n=== 정직한 결론 ===");
   console.log("1. '매일 최소 5%'는 불가능하다: 익절(+1σ, 급변동장 기준 +5~9%) 도달일은 체결일의 일부이며,");
