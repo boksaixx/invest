@@ -125,12 +125,18 @@ export interface Portfolio {
 }
 
 export type StockTicker =
+  // 반도체 5종목
   | "005930"
   | "000660"
   | "042700"
   | "009150"
   | "000990"
-  | "NVDA";
+  // 비반도체 5종목 — 반도체 블록과 다른 동인을 가진 업종만 골랐다 (아래 SECTOR_NOTE 참고)
+  | "012450"
+  | "005380"
+  | "105560"
+  | "068270"
+  | "030200";
 
 export type Action =
   | "신규매수"
@@ -406,14 +412,27 @@ export interface CollectedSnapshot {
   masterScore: MasterScore | null;
 }
 
-export const STOCKS: Record<StockTicker, { name: string; yahoo: string; market: "KR" | "US"; currency: "KRW" | "USD" }> = {
-  "005930": { name: "삼성전자", yahoo: "005930.KS", market: "KR", currency: "KRW" },
-  "000660": { name: "SK하이닉스", yahoo: "000660.KS", market: "KR", currency: "KRW" },
-  "042700": { name: "한미반도체", yahoo: "042700.KS", market: "KR", currency: "KRW" },
-  "009150": { name: "삼성전기", yahoo: "009150.KS", market: "KR", currency: "KRW" },
-  "000990": { name: "DB하이텍", yahoo: "000990.KS", market: "KR", currency: "KRW" },
-  NVDA: { name: "엔비디아", yahoo: "NVDA", market: "US", currency: "USD" },
+// sector: "반도체" 종목에만 반도체 전용 통계(국면별 분포·도달확률 보정표·SOX 전이)를 적용한다.
+// 그 통계들은 전부 국내 반도체 5종목으로 만든 것이라 다른 업종에 그대로 쓰면 근거 없는 숫자가 된다.
+export const STOCKS: Record<
+  StockTicker,
+  { name: string; yahoo: string; market: "KR" | "US"; currency: "KRW" | "USD"; sector: string; driver: string }
+> = {
+  "005930": { name: "삼성전자", yahoo: "005930.KS", market: "KR", currency: "KRW", sector: "반도체", driver: "메모리 업황·SOX" },
+  "000660": { name: "SK하이닉스", yahoo: "000660.KS", market: "KR", currency: "KRW", sector: "반도체", driver: "HBM·메모리 업황" },
+  "042700": { name: "한미반도체", yahoo: "042700.KS", market: "KR", currency: "KRW", sector: "반도체", driver: "HBM 장비 수주" },
+  "009150": { name: "삼성전기", yahoo: "009150.KS", market: "KR", currency: "KRW", sector: "반도체", driver: "MLCC·전장 부품" },
+  "000990": { name: "DB하이텍", yahoo: "000990.KS", market: "KR", currency: "KRW", sector: "반도체", driver: "파운드리 가동률" },
+  // ↓ 비반도체 — 반도체가 무너지는 날에 같이 무너지지 않을 동인을 기준으로 선정
+  "012450": { name: "한화에어로스페이스", yahoo: "012450.KS", market: "KR", currency: "KRW", sector: "방산", driver: "지정학 긴장·수출 수주" },
+  "005380": { name: "현대차", yahoo: "005380.KS", market: "KR", currency: "KRW", sector: "자동차", driver: "글로벌 판매·소비 경기" },
+  "105560": { name: "KB금융", yahoo: "105560.KS", market: "KR", currency: "KRW", sector: "금융", driver: "금리·예대마진" },
+  "068270": { name: "셀트리온", yahoo: "068270.KS", market: "KR", currency: "KRW", sector: "바이오", driver: "임상·허가·약가" },
+  "030200": { name: "KT", yahoo: "030200.KS", market: "KR", currency: "KRW", sector: "통신", driver: "요금규제·배당(경기 방어)" },
 };
+
+/** 반도체 전용 통계를 적용해도 되는 종목인지 */
+export const isSemiconductor = (t: StockTicker) => STOCKS[t].sector === "반도체";
 
 export const TICKER_LIST: StockTicker[] = [
   "005930",
@@ -421,7 +440,11 @@ export const TICKER_LIST: StockTicker[] = [
   "042700",
   "009150",
   "000990",
-  "NVDA",
+  "012450",
+  "005380",
+  "105560",
+  "068270",
+  "030200",
 ];
 
 // 국내(KRX)/미국(나스닥 등) 종목 구분 — DART 공시·KRX 수급처럼 한국 시장 전용 데이터 소스를

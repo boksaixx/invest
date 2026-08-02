@@ -17,7 +17,7 @@
 //    갭(-2.4%)에 낙폭이 이미 반영돼 있어 시가 투매는 손실 확정일 뿐이다.
 import type { Candle, HoldEdge, Holding, MarketRegime, Quote, StockTicker, TodayPlan, TodayTrade, VolForecast } from "./types";
 import { computeScenarioOutlook, type PlaybookStats, type ScenarioTable } from "./scenario";
-import { STOCKS } from "./types";
+import { isSemiconductor, STOCKS } from "./types";
 
 // σ비례 눌림목 파라미터 — 그리드 최적화가 아니라 선험적 설계값(0.6/1.0/0.8)을 네 구간 검증으로 채택.
 // 바꾸려면 반드시 scripts/validate-modes.ts 를 다시 돌려 네 구간 모두 견디는지 확인할 것.
@@ -113,8 +113,11 @@ export function computeTodayPlan(
   const todayMoves = stocks
     .filter((s) => s.quote)
     .map((s) => ({ ticker: s.ticker, name: STOCKS[s.ticker].name, chg: s.quote!.changePct }));
-  const crashers = todayMoves.filter((m) => m.chg <= CRASH_REBOUND_THRESHOLD_PCT);
-  const surgers = todayMoves.filter((m) => m.chg >= 12);
+  // 폭락반등·급등익절 플레이북의 실적 통계(n=127 등)는 국내 "반도체 5종목"으로만 실측한 값이다.
+  // 방산·금융·바이오·통신은 폭락의 원인(임상 실패, 규제, 수주 취소)이 전혀 달라 같은 반등을
+  // 기대할 근거가 없다. 검증된 종목에만 적용한다.
+  const crashers = todayMoves.filter((m) => m.chg <= CRASH_REBOUND_THRESHOLD_PCT && isSemiconductor(m.ticker));
+  const surgers = todayMoves.filter((m) => m.chg >= 12 && isSemiconductor(m.ticker));
   const soxCrash = macro.soxChangePct != null && macro.soxChangePct <= -3.5;
   const kospiCrash = macro.kospiChangePct != null && macro.kospiChangePct <= -3;
   const volRegimes = stocks.map((s) => s.volForecast).filter((v): v is VolForecast => Boolean(v?.available));

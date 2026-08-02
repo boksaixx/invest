@@ -12,7 +12,7 @@ import { computeIntradayInsight } from "@/lib/intraday";
 import { getMarketPhaseForMarket } from "@/lib/marketPhase";
 import { generateAdvice } from "@/lib/claude";
 import type { EngineSignal, NewsItem, Portfolio } from "@/lib/types";
-import { STOCKS, TICKER_LIST } from "@/lib/types";
+import { isSemiconductor, STOCKS, TICKER_LIST } from "@/lib/types";
 import { fetchLatestSnapshot } from "@/lib/snapshot";
 import { fetchBacktestSnapshot } from "@/lib/backtest";
 import eventsData from "@/data/events.json";
@@ -71,17 +71,20 @@ export async function POST(req: Request) {
 
     // 상대강도 랭킹 — 국내/미국은 통화·거래시간대가 달라 직접 비교가 무의미하므로 그룹별로 따로 계산
     const withQuote = stockData.filter((sd): sd is typeof sd & { quote: NonNullable<typeof sd.quote> } => sd.quote != null);
+    // 상대강도는 "같이 움직이는 것들끼리" 비교해야 의미가 있다. 전 종목이 국내장이므로
+    // 시장이 아니라 업종으로 나눈다 — 반도체끼리(상관 0.7~0.9), 비반도체는 업종이 제각각이라
+    // 순위 자체보다 "오늘 어느 업종이 버티는가"를 보는 용도다.
     const rsKR = computeRelativeStrength(
-      withQuote.filter((sd) => STOCKS[sd.ticker].market === "KR").map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
-      "국내 반도체",
+      withQuote.filter((sd) => isSemiconductor(sd.ticker)).map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
+      "반도체",
     );
     const rsUS = computeRelativeStrength(
-      withQuote.filter((sd) => STOCKS[sd.ticker].market === "US").map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
-      "해외 반도체",
+      withQuote.filter((sd) => !isSemiconductor(sd.ticker)).map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
+      "비반도체",
     );
     const relativeStrengthSummary = [rsKR.summary, rsUS.summary].filter(Boolean).join("\n") || null;
     const noteFor = (ticker: (typeof TICKER_LIST)[number]) =>
-      STOCKS[ticker].market === "KR" ? rsKR.noteFor(ticker) : rsUS.noteFor(ticker);
+      isSemiconductor(ticker) ? rsKR.noteFor(ticker) : rsUS.noteFor(ticker);
 
     // 섹터 집중도 (국내 반도체 + 해외 반도체(엔비디아) — 결국 같은 반도체 섹터라 분산투자 착시 방지).
     // 통화가 섞여 있으므로 원/달러 환율로 원화 환산해 비교한다.
@@ -111,7 +114,6 @@ export async function POST(req: Request) {
     // 평가금 0인 종목도 넘겨야 신규매수 한도가 계산된다.
     const corrCap = computeCorrelationCap(
       stockData
-        .filter((sd) => STOCKS[sd.ticker].market === "KR")
         .map((sd) => ({
           ticker: sd.ticker,
           name: STOCKS[sd.ticker].name,

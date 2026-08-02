@@ -27,7 +27,7 @@ import type {
   StockTicker,
   VolForecast,
 } from "./types";
-import { STOCKS } from "./types";
+import { isSemiconductor, STOCKS } from "./types";
 import { computeIndicators } from "./indicators";
 import { CORRELATED_PAIR_MAX_WEIGHT, forecastVolatility } from "./volatility";
 import { roundToTick } from "./tick";
@@ -810,7 +810,9 @@ export function runEngine(params: {
     soxOvernightPct: macro.sox?.changePct ?? null,
     // 국내 종목만 "전일 미국장 → 오늘 국내장" 오버나이트 전이가 성립한다.
     // 미국 종목은 SOX와 같은 시간대에 움직이므로 이 보정을 적용하지 않는다.
-    applySox: STOCKS[ticker].market === "KR",
+    // SOX 오버나이트 전이(상관 0.33~0.43)는 국내 "반도체" 종목에서 실측한 관계다.
+    // 방산·금융·바이오·통신에 그대로 적용하면 근거 없는 변동성 보정이 된다.
+    applySox: isSemiconductor(ticker),
   });
   const volatilityRegime = volForecast.available
     ? volForecast.regime === "높음" || volForecast.regime === "극단"
@@ -1009,9 +1011,12 @@ export function runEngine(params: {
   // 예상 경로(차트용) — 조회 시점부터 마감까지 + D+1/D+2의 확률 구간.
   // 방향성은 과거 같은 국면의 5일 중앙값을 하루치로 환산한 값만(±0.5% 제한) 반영한다.
   // 순수 파생 데이터라 Claude 프롬프트에는 넣지 않는다(토큰 0).
-  const scenarioDrift = params.scenarioTable
-    ? driftFromScenario(computeScenarioOutlook(candles, params.scenarioTable).d5?.median)
-    : 0;
+  // data/scenarios.json은 국내 반도체 5종목만으로 만든 표다. 다른 업종에 적용하면
+  // "과거 같은 국면"이라는 전제가 성립하지 않으므로 방향성을 0(제자리)으로 둔다.
+  const scenarioDrift =
+    params.scenarioTable && isSemiconductor(ticker)
+      ? driftFromScenario(computeScenarioOutlook(candles, params.scenarioTable).d5?.median)
+      : 0;
   const forecastPath = buildForecastPath(
     price,
     volForecast.available ? volForecast : null,
@@ -1147,30 +1152,38 @@ export function computeSectorConcentration(
   if (totalAssetKrw <= 0) return { pct: 0, warning: null };
   const toKrw = (value: number, currency: "KRW" | "USD") => (currency === "USD" && usdKrwRate ? value * usdKrwRate : value);
 
-  let krValue = 0;
-  let usValue = 0;
+  let semiValue = 0;
+  let otherValue = 0;
+  const sectorValue: Record<string, number> = {};
   for (const h of holdings) {
     const q = quotes[h.ticker];
     const stock = STOCKS[h.ticker];
-    const value = h.qty * (q?.price ?? h.avgPrice);
     if (!stock) continue;
-    if (stock.market === "KR") krValue += value;
-    else usValue += toKrw(value, stock.currency);
+    const value = toKrw(h.qty * (q?.price ?? h.avgPrice), stock.currency);
+    if (isSemiconductor(h.ticker)) semiValue += value;
+    else otherValue += value;
+    sectorValue[stock.sector] = (sectorValue[stock.sector] ?? 0) + value;
   }
-  const combinedValue = krValue + usValue;
+  const combinedValue = semiValue + otherValue;
   const pct = (combinedValue / totalAssetKrw) * 100;
-  const krPct = (krValue / totalAssetKrw) * 100;
-  const usPct = (usValue / totalAssetKrw) * 100;
+  const semiPct = (semiValue / totalAssetKrw) * 100;
 
   const parts: string[] = [];
-  if (krPct >= 70) parts.push(`국내 반도체 섹터에 ${krPct.toFixed(0)}%`);
-  if (usPct >= 70) parts.push(`해외 반도체(엔비디아)에 ${usPct.toFixed(0)}%`);
-  if (parts.length === 0 && pct >= 85) parts.push(`국내외 반도체 섹터 전체에 ${pct.toFixed(0)}%`);
+  // 반도체 5종목은 서로 상관 0.7~0.9라 사실상 한 종목이다 — 합산 비중으로 경고한다
+  if (semiPct >= 60) parts.push(`반도체 업종에 ${semiPct.toFixed(0)}%`);
+  // 비반도체라도 한 업종에 몰리면 같은 문제 (예: 방산 한 종목에 70%)
+  for (const [sector, v] of Object.entries(sectorValue)) {
+    if (sector === "반도체") continue;
+    const p = (v / totalAssetKrw) * 100;
+    if (p >= 50) parts.push(`${sector} 업종에 ${p.toFixed(0)}%`);
+  }
 
   if (parts.length > 0) {
     return {
       pct,
-      warning: `보유 자산 중 ${parts.join(", ")}가 집중되어 있습니다 — 국내외로 나눠 담았어도 결국 같은 반도체 섹터라 업황이 동시에 흔들리면 분산 효과가 거의 없습니다. 전체 포지션 크기를 재고하세요.`,
+      warning:
+        `보유 자산 중 ${parts.join(", ")}가 집중되어 있습니다 — 같은 업종 종목은 업황이 흔들리면 함께 움직이므로 ` +
+        `종목 수를 늘렸다고 분산됐다고 보면 안 됩니다. 전체 포지션 크기를 재고하세요.`,
     };
   }
   return { pct, warning: null };
