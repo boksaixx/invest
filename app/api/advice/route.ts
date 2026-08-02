@@ -6,6 +6,7 @@ import { fetchDartDisclosures, fetchRelatedDisclosures } from "@/lib/dart";
 import { fetchInvestorFlows } from "@/lib/investorFlow";
 import { computeMasterScore, computeRelativeStrength, computeSectorConcentration, runEngine } from "@/lib/engine";
 import { computeCorrelationCap, computePortfolioRisk } from "@/lib/volatility";
+import { computeDailyRisk } from "@/lib/dailyRisk";
 import { computeTodayPlan } from "@/lib/genius";
 import { fetchCreditBalanceTrend } from "@/lib/creditBalance";
 import { computeIntradayInsight } from "@/lib/intraday";
@@ -147,6 +148,11 @@ export async function POST(req: Request) {
       totalAssetKR,
     );
 
+    // 하루 손실 한도 — 종목별 1% 규칙만으로는 "여러 종목이 같은 날 무너지는" 상황을 못 막는다.
+    // 반도체 5종목 상관이 0.89라 사실상 한 종목이며, 실측상 -3%에서 멈추면 최대낙폭이
+    // -52.0% → -42.8%로 줄었다(scripts/validate-daily-stop.ts).
+    const dailyRisk = computeDailyRisk(portfolio, quotesMap, totalAssetKrw);
+
     const signals: EngineSignal[] = [];
     for (const sd of stockData) {
       if (!sd.quote || sd.candles.length < 60) continue;
@@ -166,6 +172,8 @@ export async function POST(req: Request) {
           backtest: backtest?.perTicker[sd.ticker] ?? null,
           portfolioTotalAsset: market === "KR" ? totalAssetKR : totalAssetUS,
           changePct: sd.quote.changePct,
+          prevClose: sd.quote.prevClose,
+          dailyStopTriggered: dailyRisk.stopTriggered,
           creditTrend,
           scenarioTable: scenarioData as unknown as import("@/lib/scenario").ScenarioTable,
           correlationHeadroom: market === "KR" ? corrCap.headroom[sd.ticker] ?? null : null,
@@ -237,6 +245,7 @@ export async function POST(req: Request) {
       sectorConcentrationWarning: concentration.warning,
       todayPlan,
       creditNote: creditTrend?.note ?? null,
+      dailyRisk,
     });
 
     return NextResponse.json({
@@ -252,6 +261,7 @@ export async function POST(req: Request) {
       relativeStrengthSummary,
       sectorConcentrationWarning: concentration.warning,
       portfolioRisk: portfolioRisk.available ? portfolioRisk : null,
+      dailyRisk: dailyRisk.available ? dailyRisk : null,
       relatedFilings,
       correlationCap: corrCap.available && corrCap.warnings.length > 0 ? { warnings: corrCap.warnings, pairs: corrCap.pairs.filter((x) => x.overCap) } : null,
       todayPlan,

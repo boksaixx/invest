@@ -175,6 +175,12 @@ export interface EngineSignal {
   watchOrderNote: string | null;
   relativeStrengthNote: string | null; // 반도체 5종목 중 상대강도 순위 코멘트
   estimatedRoundTripCostWon: number | null; // 왕복 거래비용(증권거래세+수수료) 추정액 (원)
+  // 본전 가격 — 여기를 넘겨야 비로소 손해가 아니다(매도세 0.15% + 왕복 수수료 반영).
+  // 보유 중이면 평단 기준, 매수 검토 중이면 제시 진입가 기준.
+  breakEvenPrice: number | null;
+  // 오늘 체결 가능한 가격대 — 상한가/하한가와 정적VI(전일 종가 ±10%) 발동가.
+  // 국내 종목에만 계산되며, 전일 종가를 모르면 null.
+  priceLimits: import("./priceLimits").PriceLimits | null;
   backtest: BacktestStats | null; // 5개년 일봉 기준 과거 신호 통계 (참고용, 확정적 예측 아님)
   buyStrength: number; // 0~10, 미보유 시 "지금 얼마나 강하게 사야 하는지" (참고용으로 항상 계산)
   sellStrength: number | null; // 0~10, 보유 중일 때만 계산 — "지금 얼마나 강하게 팔아야 하는지"

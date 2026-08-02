@@ -8,6 +8,8 @@ import ForecastChart from "./ForecastChart";
 // 뉴스 집계 — Claude에게 보내는 것과 "똑같은" 계산을 화면에도 쓴다.
 // 사람이 보는 요약과 AI가 받는 요약이 다르면, 왜 그런 판단이 나왔는지 검증할 방법이 없어진다.
 import { computeNewsSignal } from "@/lib/newsSignal";
+// 매매일지 — 이 앱의 추천이 실제로 맞았는지 기록하고 채점한다(브라우저에만 저장).
+import { loadJournal, recordAndScore, saveJournal, summarize, type JournalEntry } from "@/lib/journal";
 // 문서 탭이 인용하는 검증 수치는 반드시 실측 파일에서 읽는다.
 // 코드에 숫자를 박아두면 데이터가 갱신될 때 앱이 조용히 낡은 값을 말하게 된다(과거에 실제로 겪음).
 import analogStats from "@/data/analog-stats.json";
@@ -82,6 +84,16 @@ interface AdviceResponse {
     naiveUnderestimatePct: number;
     topWeight: { name: string; weightPct: number } | null;
     warnings: string[];
+  } | null;
+  dailyRisk?: {
+    todayPnlWon: number;
+    todayPnlPct: number;
+    stopTriggered: boolean;
+    warnTriggered: boolean;
+    remainingWon: number;
+    worst: { name: string; pnlWon: number; changePct: number } | null;
+    headline: string;
+    detail: string;
   } | null;
   generatedAt: string;
   error?: string;
@@ -319,6 +331,7 @@ export default function Home() {
   // 기본 비밀번호로 열려 있으면(APP_PASSWORD 미설정) 배포 주소를 아는 사람은 누구나
   // 내 보유 종목·수량을 볼 수 있다. 조용히 두면 영영 모르므로 화면에 알린다.
   const [defaultPassword, setDefaultPassword] = useState(false);
+  const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [hostname, setHostname] = useState<string | null>(null);
 
   // 글자 크기: CSS 변수(--font-scale)를 바꾸면 전체 폰트 크기가 한 번에 조정되고, 다음에 켜도 유지되도록 저장한다.
@@ -352,6 +365,7 @@ export default function Home() {
     setPortfolio(loadPortfolio());
     const cached = loadCachedResult();
     if (cached) setResult(cached);
+    setJournal(loadJournal());
     void refreshMarket();
     void fetch("/api/snapshot")
       .then((r) => r.json())
@@ -414,6 +428,27 @@ export default function Home() {
       } else {
         setResult(json);
         persistResult(json);
+        // 매매일지 — 이번 추천을 기록하고, 이전 추천들을 지금 가격으로 채점한다.
+        // AI가 엔진과 다른 판단을 냈으면 화면에 보이는 쪽(AI)을 기록해야 성적표가 정직하다.
+        {
+          const prices: Record<string, number | null> = {};
+          for (const sg of json.signals) prices[sg.ticker] = sg.price;
+          const fresh = json.signals.map((sg) => {
+            const a = json.advice?.stocks.find((x) => x.ticker === sg.ticker || x.ticker.includes(sg.ticker));
+            return {
+              ticker: sg.ticker,
+              name: sg.name,
+              action: (a?.action ?? sg.action) as string,
+              price: sg.price,
+              entryPrice: a?.entryPrice ?? sg.suggestedEntryPrice ?? null,
+              targetPrice: a?.targetPrice ?? sg.targetPrice ?? null,
+              stopPrice: a?.stopPrice ?? sg.stopPrice ?? null,
+            };
+          });
+          const next = recordAndScore(loadJournal(), fresh, prices);
+          saveJournal(next);
+          setJournal(next);
+        }
         setNewsNotice(!json.newsLive && json.newsError ? "지금은 실시간 속보 대신 최근 자동수집된 뉴스를 보여드리고 있어요 (일시적인 수집 지연)." : null);
         if (!json.advice && json.adviceError) {
           setError(`AI 종합 판단 실패: ${json.adviceError}`);
@@ -589,6 +624,17 @@ export default function Home() {
       {/* 글자 크기 조절 — 가- / 가+ 로 전체 화면 글자 크기를 바꿀 수 있다 (다음에 켜도 유지됨) */}
       {/* ===== 탭: 오늘 ===== */}
       <div style={{ display: tab === "오늘" ? undefined : "none" }}>
+
+      {/* 하루 손실 한도 — "멈추라"는 신호는 "무엇을 사라"보다 먼저 와야 한다.
+          종목별 1% 규칙만으로는 여러 종목이 같은 날 무너지는 상황을 못 막는다(반도체 상관 0.89). */}
+      {result?.dailyRisk && (result.dailyRisk.stopTriggered || result.dailyRisk.warnTriggered) && (
+        <div className={result.dailyRisk.stopTriggered ? "dstop dstop-hit" : "dstop dstop-warn"}>
+          <div className="dstop-h">
+            {result.dailyRisk.stopTriggered ? "🛑" : "⚠️"} {result.dailyRisk.headline}
+          </div>
+          <div className="dstop-b">{result.dailyRisk.detail}</div>
+        </div>
+      )}
 
       {/* ⭐ 오늘 나의 행동 — 이 앱에서 가장 먼저, 가장 크게 보여야 하는 것.
           "사라는 건지 팔라는 건지 홀딩인지 판단이 안 선다"는 피드백을 반영해,
@@ -1181,6 +1227,46 @@ export default function Home() {
         </>
       )}
 
+      {/* 매매일지 — 이 앱 추천이 실제로 맞았는지. 피드백이 없으면 앱을 믿을 근거도 없다. */}
+      {(() => {
+        const js = summarize(journal);
+        const recent = [...journal].reverse().slice(0, 12);
+        if (journal.length === 0) return null;
+        return (
+          <>
+            <div className="section-title">추천 성적표<span className="meta">이 기기에만 저장</span></div>
+            <div className="card">
+              <div className="jn-head">{js.headline}</div>
+              {js.available && (
+                <div className="jn-stats">
+                  <div><b>{js.hitRatePct}%</b><span>방향 적중</span></div>
+                  <div className={js.avgSignedPct >= 0 ? "pos" : "neg"}><b>{js.avgSignedPct >= 0 ? "+" : ""}{js.avgSignedPct}%</b><span>평균</span></div>
+                  <div className="pos"><b>+{js.avgWinPct}%</b><span>맞았을 때</span></div>
+                  <div className="neg"><b>{js.avgLossPct}%</b><span>틀렸을 때</span></div>
+                  <div><b>{js.pending}</b><span>진행중</span></div>
+                </div>
+              )}
+              {js.caution && <div className="jn-caution">{js.caution}</div>}
+              <details className="jn-more">
+                <summary>최근 추천 {recent.length}건 보기</summary>
+                {recent.map((e) => (
+                  <div className="jn-row" key={e.id}>
+                    <span className="jn-date">{e.recommendedAt.slice(5, 10)}</span>
+                    <span className="jn-name">{e.name}</span>
+                    <span className="jn-act">{e.action}</span>
+                    <span className={`jn-res ${!e.outcome || e.outcome.verdict === "진행중" ? "" : e.outcome.signedPct > 0 ? "pos" : "neg"}`}>
+                      {!e.outcome || e.outcome.verdict === "진행중"
+                        ? "진행중"
+                        : `${e.outcome.verdict} ${e.outcome.signedPct >= 0 ? "+" : ""}${e.outcome.signedPct}%`}
+                    </span>
+                  </div>
+                ))}
+              </details>
+            </div>
+          </>
+        );
+      })()}
+
       {result?.advice && result.advice.newsHighlights.length > 0 && (
         <div className="card">
           <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 14 }}>AI가 뽑은 핵심 포인트</div>
@@ -1406,6 +1492,25 @@ export default function Home() {
                   <div className="kv-row">
                     <span className="k">예상 거래비용 (세금+수수료)</span>
                     <span className="v" style={{ color: "var(--text-weak)" }}>약 {fmt(sig.estimatedRoundTripCostWon, currency)}</span>
+                  </div>
+                )}
+                {/* 본전가 — "평단에 팔면 본전"이 아니다. 매도세 0.15%를 넘겨야 손해가 아니다 */}
+                {sig.breakEvenPrice != null && (
+                  <div className="kv-row">
+                    <span className="k">본전 가격 (여기 넘겨야 이익)</span>
+                    <span className="v">{fmt(sig.breakEvenPrice, currency)}</span>
+                  </div>
+                )}
+                {/* 오늘 거래가 멈추는 지점 — 국내 단타에서 지정가를 걸 때 반드시 알아야 한다 */}
+                {sig.priceLimits && (
+                  <div className="vi-box">
+                    <div className="vi-bar">
+                      <span className="vi-t vi-down">하한 {fmt(sig.priceLimits.lowerLimit, currency)}</span>
+                      <span className="vi-t">VI {fmt(sig.priceLimits.viLower, currency)}</span>
+                      <span className="vi-t">VI {fmt(sig.priceLimits.viUpper, currency)}</span>
+                      <span className="vi-t vi-up">상한 {fmt(sig.priceLimits.upperLimit, currency)}</span>
+                    </div>
+                    <div className="vi-note">{sig.priceLimits.note}</div>
                   </div>
                 )}
                 <div className="kv-row">
@@ -1776,8 +1881,56 @@ export default function Home() {
           </div>
         </details>
 
+        {/* 분석이 맞아도 실행이 틀리면 돈을 잃는다. 이 절은 "분석" 아닌 "실행"에 관한 규칙이다. */}
         <details className="doc-sec">
-          <summary className="doc-h">④ 변수는 서로 어떻게 얽혀 있나 (상관관계와 반영 경로)</summary>
+          <summary className="doc-h">④ 계좌를 지키는 규칙 (실행)</summary>
+          <div className="doc-pipe-lead">
+            분석이 정확해도 실행이 틀리면 돈을 잃습니다. 여기 있는 것들은 &quot;무엇을 살까&quot;가 아니라
+            <b> &quot;어떻게 살아남을까&quot;</b>에 관한 규칙입니다.
+          </div>
+          <div className="doc-step"><span className="doc-num">1</span><div>
+            <strong>하루 손실 한도 −3%</strong> — 오늘 계좌가 총자산의 3%를 잃으면 그날은 신규 매수를 멈춥니다.
+            매도·손절 판단은 그대로 둡니다(멈춰야 하는 건 사는 것이지 빠져나오는 게 아닙니다).
+            <div className="doc-chk">왜 필요한가: 종목별 &quot;1회 리스크 1%&quot; 규칙만으로는 여러 종목이 같은 날 무너지는 상황을 못 막습니다 — 반도체 5종목 상관이 0.89라 사실상 한 종목입니다</div>
+            <div className="doc-chk">검증(1,229거래일): 누적수익 +632% → +622%(거의 그대로), 최대낙폭 −52.0% → <b>−42.8%</b>, 샤프 1.16 → 1.25</div>
+            <div className="doc-chk">견고성: 기간을 4등분해도 3개 구간에서 낙폭이 줄었고, <b>가장 크게 무너진 두 구간에서 개선폭이 가장 컸습니다</b>(+10.5%p, +13.9%p)</div>
+            <div className="doc-chk">−4%·−5%·−7%는 오히려 나빴습니다 — 한도를 느슨하게 잡으면 아무것도 막지 못합니다</div>
+          </div></div>
+          <div className="doc-step"><span className="doc-num">2</span><div>
+            <strong>오늘 거래가 멈추는 지점</strong> — 종목마다 상한가·하한가(전일 종가 ±30%)와
+            정적VI 발동가(±10%)를 표시합니다. VI에 닿으면 약 2분간 단일가매매로 바뀌어 호가창이 멈춥니다.
+            <div className="doc-chk">지정가를 VI 너머에 걸어두면 즉시 체결을 기대할 수 없습니다. 상·하한가 밖은 아예 체결되지 않습니다</div>
+            <div className="doc-chk">한계: 동적VI(직전 체결가 대비 급변 시 발동)는 기준이 실시간 체결가라 15~20분 지연되는 무료 시세로는 계산할 수 없어 뺐습니다. 배당락·거래정지 해제일에는 거래소가 별도 기준가를 정하므로 그런 날은 증권사 화면을 우선하세요</div>
+          </div></div>
+          <div className="doc-step"><span className="doc-num">3</span><div>
+            <strong>본전 가격</strong> — &quot;평단에 팔면 본전&quot;이 아닙니다. 국내 주식은 <b>팔 때만</b> 세금을 냅니다.
+            <table className="doc-tbl" style={{ marginTop: 6 }}><tbody>
+              <tr><th>매도 시 세금</th><td>0.15% (2025년 이후 코스피·코스닥 공통)</td></tr>
+              <tr><th>위탁수수료</th><td>0.015% × 2 (매수·매도 각각, 증권사별 편차 있음)</td></tr>
+              <tr><th>왕복 합계</th><td><b>약 0.18%</b> — 여기를 넘겨야 비로소 손해가 아닙니다</td></tr>
+            </tbody></table>
+            <div className="doc-chk">목표가가 본전가보다 낮으면 이기고도 손해입니다 — 그런 매매는 제안하지 않습니다</div>
+          </div></div>
+          <div className="doc-step"><span className="doc-num">4</span><div>
+            <strong>추천 성적표</strong> — 이 앱의 추천이 실제로 맞았는지 기록하고 채점합니다.
+            방향을 주장한 추천(매수·매도)만 세고, 5거래일이 지나면 판정을 확정합니다.
+            <div className="doc-chk">기록은 이 기기 안에만 저장됩니다(매매 내역은 서버로 보내지 않습니다)</div>
+            <div className="doc-chk">이건 &quot;내 수익률&quot;이 아니라 &quot;앱 추천의 성적표&quot;입니다 — 실제로 그대로 매매했는지는 앱이 모르고, 장중 고저가를 몰라 손절선을 스쳤다 되돌아온 경우가 빠져 <b>실제보다 좋게 나옵니다</b></div>
+          </div></div>
+          <div className="doc-sec doc-warn" style={{ margin: "12px 0 0", padding: 12 }}>
+            <div style={{ fontWeight: 800, marginBottom: 4, fontSize: "calc(13px * var(--font-scale))" }}>솔직히 — 하루 손실 한도가 못 하는 것</div>
+            <div style={{ fontSize: "calc(12.5px * var(--font-scale))", lineHeight: 1.55 }}>
+              이 규칙은 <b>이미 발생한 오늘의 손실은 막지 못합니다</b>(손실이 난 뒤에 발동하므로).
+              막는 것은 그 뒤에 이어지는 추격 매매·물타기입니다. 실제로 5년 실측에서
+              −3% 이하로 마감한 86일의 <b>다음날 승률은 50%, 최악은 −11.9%</b>였습니다 —
+              &quot;많이 빠졌으니 반등한다&quot;는 근거가 없다는 뜻입니다.
+              그리고 강세장에서는 수익을 깎습니다(2025~2026 구간 +427% → +343%). 위험 관리의 값입니다.
+            </div>
+          </div>
+        </details>
+
+        <details className="doc-sec">
+          <summary className="doc-h">⑤ 변수는 서로 어떻게 얽혀 있나 (상관관계와 반영 경로)</summary>
           <div className="doc-flow">
             {[
               {
@@ -1824,7 +1977,7 @@ export default function Home() {
         </details>
 
         <details className="doc-sec doc-warn">
-          <summary className="doc-h">⑤ 우리가 시도했다가 버린 것 (실패 기록)</summary>
+          <summary className="doc-h">⑥ 우리가 시도했다가 버린 것 (실패 기록)</summary>
           <div className="doc-fail">
             <div className="doc-fail-t">방향 예측 — 세 번 만들고 세 번 실패했습니다</div>
             <div style={{ marginBottom: 10 }}>
@@ -1882,7 +2035,7 @@ export default function Home() {
         </details>
 
         <details className="doc-sec">
-          <summary className="doc-h">⑥ 검증된 숫자</summary>
+          <summary className="doc-h">⑦ 검증된 숫자</summary>
           <table className="doc-tbl"><tbody>
             <tr><th>폭락(-7%↓) 다음날</th><td>평균 +0.75% · 승률 58% (표본 127회, 거래비용 차감)</td></tr>
             <tr><th>급등(+12%↑) 다음날</th><td>고가 평균 +5.4% · +3% 지정가 도달 64% · 갭하락 출발 42% (50회)</td></tr>
@@ -1895,7 +2048,7 @@ export default function Home() {
         </details>
 
         <div className="doc-sec doc-warn">
-          <div className="doc-h">⑦ 믿으면 안 되는 것 (한계)</div>
+          <div className="doc-h">⑧ 믿으면 안 되는 것 (한계)</div>
           <ul className="doc-ul">
             <li><strong>&quot;매일 5% 수익&quot;은 불가능합니다.</strong> 기회가 있는 날은 96%였지만, 순진하게 추격하는 전략은 6개월 -54%였습니다.</li>
             <li><strong>과거 통계는 미래 보장이 아닙니다.</strong> 특히 표본이 적은 국면(예: 폭락바닥권 23회)은 우연의 영향이 큽니다.</li>
@@ -1909,7 +2062,7 @@ export default function Home() {
         </div>
 
         <details className="doc-sec">
-          <summary className="doc-h">⑧ 직접 확인하기</summary>
+          <summary className="doc-h">⑨ 직접 확인하기</summary>
           <div className="doc-code">npx tsx scripts/validate-volatility.ts</div>
           <div className="doc-cap">변동성 모델 적중률 — 실제 배포 코드를 그대로 호출해 검증</div>
           <div className="doc-code">npx tsx scripts/validate-modes.ts</div>
@@ -1930,6 +2083,10 @@ export default function Home() {
           <div className="doc-cap">상관 비중 한도의 위험/수익 교환비 — 캡 수준별 최악의 날·최대낙폭</div>
           <div className="doc-code">npx tsx scripts/validate-watch-orders.ts</div>
           <div className="doc-cap">예약(감시)주문 효과 — 못 보는 기간 1/3/5거래일별 꼬리 손실 비교</div>
+          <div className="doc-code">npx tsx scripts/validate-daily-stop.ts</div>
+          <div className="doc-cap">하루 손실 한도의 효과 — 낙폭·샤프 개선과 기간별 견고성</div>
+          <div className="doc-code">npx tsx scripts/validate-trading-rules.ts</div>
+          <div className="doc-cap">손실 한도·상하한가/VI·성적표 채점 로직 회귀 테스트</div>
           <div className="doc-code">npx tsx scripts/validate-safety.ts</div>
           <div className="doc-cap">화면의 가격이 &quot;주문 가능한 값&quot;인지 — 시세가 깨져도 음수·NaN 손절가가 나오지 않는지</div>
           <div className="doc-code">npx tsx scripts/validate-news-parse.ts</div>

@@ -1850,3 +1850,106 @@ details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
   line-height: 1.55;
   color: var(--text-weak);
 }
+
+/* 하루 손실 한도 — "멈추라"는 신호는 눈에 확 띄어야 한다 */
+.dstop {
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.dstop-hit { background: #ffeef0; border: 2px solid #e5646e; }
+.dstop-warn { background: #fff8e6; border: 1px solid #f0c14b; }
+.dstop-h {
+  font-size: calc(16px * var(--font-scale));
+  font-weight: 800;
+  line-height: 1.35;
+}
+.dstop-hit .dstop-h { color: #c9353f; }
+.dstop-warn .dstop-h { color: #8a6410; }
+.dstop-b {
+  margin-top: 6px;
+  font-size: calc(13px * var(--font-scale));
+  line-height: 1.6;
+  color: var(--text);
+}
+
+/* 오늘 거래가 멈추는 지점 (상하한가 · 정적VI) */
+.vi-box {
+  margin: 10px 0 4px;
+  background: var(--bg-sub);
+  border-radius: 10px;
+  padding: 10px;
+}
+.vi-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.vi-t {
+  font-size: calc(11.5px * var(--font-scale));
+  font-weight: 700;
+  color: var(--text-sub);
+  white-space: nowrap;
+}
+.vi-t.vi-up { color: var(--red); }
+.vi-t.vi-down { color: var(--blue); }
+.vi-note {
+  margin-top: 6px;
+  font-size: calc(12px * var(--font-scale));
+  line-height: 1.55;
+  color: var(--text-sub);
+}
+
+/* 추천 성적표 (매매일지) */
+.jn-head { font-size: calc(15px * var(--font-scale)); font-weight: 800; line-height: 1.4; }
+.jn-stats { display: flex; gap: 6px; margin-top: 10px; }
+.jn-stats > div {
+  flex: 1 1 0;
+  min-width: 0;
+  background: var(--bg-sub);
+  border-radius: 8px;
+  padding: 8px 2px;
+  text-align: center;
+}
+.jn-stats b { display: block; font-size: calc(15px * var(--font-scale)); font-weight: 800; }
+.jn-stats span { display: block; font-size: calc(10.5px * var(--font-scale)); color: var(--text-sub); margin-top: 1px; }
+.jn-stats .pos b { color: var(--red); }
+.jn-stats .neg b { color: var(--blue); }
+.jn-caution {
+  margin-top: 10px;
+  font-size: calc(11.5px * var(--font-scale));
+  line-height: 1.55;
+  color: var(--text-sub);
+  background: #fff8e6;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.jn-more > summary {
+  cursor: pointer;
+  list-style: none;
+  margin-top: 10px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  font-size: calc(13px * var(--font-scale));
+  font-weight: 700;
+  color: var(--text-sub);
+}
+.jn-more > summary::-webkit-details-marker { display: none; }
+.jn-more > summary::after { content: " ▾"; margin-left: 4px; }
+.jn-more[open] > summary::after { content: " ▴"; }
+.jn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px solid #f2f4f6;
+  font-size: calc(12.5px * var(--font-scale));
+}
+.jn-date { color: var(--text-weak); flex: 0 0 auto; }
+.jn-name { font-weight: 700; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jn-act { color: var(--text-sub); flex: 0 0 auto; }
+.jn-res { font-weight: 800; flex: 0 0 auto; color: var(--text-weak); }
+.jn-res.pos { color: var(--red); }
+.jn-res.neg { color: var(--blue); }

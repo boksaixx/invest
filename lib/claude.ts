@@ -58,6 +58,9 @@ const SYSTEM = `당신은 20년 경력의 한국 주식 단기(데이트레이�
 - 매크로: 환율(원/달러), 코스피, 나스닥, 미 반도체지수(SOX, 폭등/폭락 시 다음날 국내 반도체주 갭으로 이어지는 경우가 많아 특히 중요), S&P500·나스닥100 선물(오버나이트 방향성), VIX(변동성지수), CNN 공포탐욕지수, 국제유가(WTI, 급변동 시 방향과 무관하게 매크로 리스크 확대 신호). "미10년물국채금리_점수미반영"은 크게 움직인 날에만 들어오며, 이름 그대로 룰 엔진 점수에 반영되지 않은 값이다(기여도를 아직 실측하지 못해 검증 전까지 점수에서 제외) — 금리 급등은 기술주 밸류에이션에 불리하다는 맥락으로만 인용하고, 점수와 충돌하는 결론의 유일한 근거로 삼지 마라. 이 요소들을 종합해 룰 엔진이 별도로 산출한 매크로_영향도점수(양수=우호적/음수=비우호적, 개별 종목 점수에 이미 가산/감산되어 있음)도 함께 제공된다 — 헤드라인/rationale에서 매크로 여건을 언급할 때 이 점수를 구체적 근거로 인용할 수 있다.
 - 포트폴리오 업종 집중도 경고 (반도체 합산 60%+ 또는 특정 비반도체 업종 50%+일 때 표시됨) 및 상관 종목 합산 비중 한도 경고
 - 지금이 장의 어느 시간대인지 — 국내장(장전/장초반/장중/점심시간대/마감임박 등)과 미국장은 개장시간이 다르므로(미국은 한국시간 기준 저녁~새벽) 각 종목은 자신이 속한 시장의 장상태 기준으로 판단한다. 시세 데이터 수집 시각도 함께 제공됨.
+- 계좌_하루손실이 "한도도달"이면 **어떤 종목에도 신규매수·추가매수를 제안하지 마라**. 그날은 관망과 보유분 손절선 관리만 남는다. 5년 실측에서 -3% 이하로 마감한 86일의 다음날 승률은 50%, 최악은 -11.9%로 "빠졌으니 반등한다"는 근거가 없었다. 이 상태에서 매수를 권하면 규칙 위반이다.
+- 종목마다 "오늘_체결가능범위"가 온다. 상한가/하한가 밖의 가격은 오늘 체결 자체가 불가능하므로 entryPrice·targetPrice·stopPrice로 절대 쓰지 마라. 정적VI(전일 종가 ±10%) 밖에 지정가를 걸면 거래가 약 2분 멈춘 뒤에야 체결되므로, 그 사실을 rationale에 밝혀라.
+- 종목마다 "본전가"가 온다. 매수를 권할 때 목표가가 본전가보다 낮으면 그 매매는 이기고도 손해다 — 그런 제안은 하지 마라.
 - 실시간 뉴스는 세 가지로 온다. (a) "뉴스_전체집계" = 수집된 전체 건수와 호재/악재 압력, 속보·고영향 건수. (b) "뉴스_축별" = 축별로 몇 건이 어느 방향인지(악재/호재 건수와 압력값, 음수면 악재 우위). (c) "최신뉴스" = 영향도 상위 원문 일부(전체가 아니라 선별본이며, 각 축에서 최소 1건씩 확보한 뒤 속보·고영향 순으로 채운 것이다). 개별 기사만 보지 말고 반드시 (a)(b)로 "지금 악재가 어느 축에 몰려 있나"를 먼저 읽고, 그 축이 이 종목에 어떤 경로로 작용하는지를 rationale에 쓴다. "표본이 적어 오판 위험" 표시가 있으면 뉴스 근거를 약하게 다루고 기술적·수급 근거를 앞세운다.
 - 각 축이 무엇을 때리는지(이 매핑은 고정이므로 데이터에 반복해 싣지 않는다):
   · 업황(D램·낸드·HBM·현물가·가동률·파운드리) → 메모리 사이클. 반도체 5종목 전반.
@@ -235,6 +238,7 @@ export async function generateAdvice(params: {
   sectorConcentrationWarning?: string | null; // 섹터/테마 집중도 경고 (있으면)
   todayPlan?: TodayPlan | null; // 오늘의 작전 — 엔진이 판별한 레짐과 플레이북 (조언의 중심 축)
   creditNote?: string | null; // 시장 신용잔고(빚투) 요약 — KOFIA 연동 실패 시 null
+  dailyRisk?: import("./dailyRisk").DailyRisk | null; // 계좌 하루 손실 — 한도 도달 시 신규매수 제안 금지
 }): Promise<{ advice: AiAdvice | null; error: string | null }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { advice: null, error: "ANTHROPIC_API_KEY 미설정 (Vercel 환경변수 확인 필요)" };
@@ -350,6 +354,7 @@ export function buildAdvicePayload(params: {
   usPhase?: MarketPhaseInfo | null;
   todayPlan?: TodayPlan | null;
   creditNote?: string | null;
+  dailyRisk?: import("./dailyRisk").DailyRisk | null;
 }): Record<string, unknown> {
   const { signals, macro, news, portfolio } = params;
   const volumeBasis = signals.some((s) => s.intraday?.available && s.intraday.isToday)
@@ -366,6 +371,10 @@ export function buildAdvicePayload(params: {
 
   return prune({
     무효화조건_공통: invalidationIsShared ? invalidations[0] : null,
+    // 계좌 하루 손실 — 한도에 닿았으면 SYSTEM 규칙에 따라 신규 매수 제안이 금지된다
+    계좌_하루손실: params.dailyRisk?.available
+      ? `${params.dailyRisk.todayPnlPct >= 0 ? "+" : ""}${params.dailyRisk.todayPnlPct}% (${params.dailyRisk.stopTriggered ? "한도도달 — 신규매수 금지" : params.dailyRisk.warnTriggered ? "주의" : "여유"})`
+      : null,
     현재시각_KST: new Date(Date.now() + 9 * 3600_000).toISOString().replace("Z", "+09:00"),
     장상태_국내: params.krPhase ?? null,
     장상태_미국: params.usPhase ?? null,
@@ -461,6 +470,12 @@ export function buildAdvicePayload(params: {
         제안수량: s.suggestedQty,
         수익률: s.pnlPct,
         예상왕복거래비용_원: s.estimatedRoundTripCostWon,
+        // 본전가·체결가능범위는 "값이 있을 때만" 실린다(prune이 null을 걷어낸다).
+        // 둘 다 판단을 바꿀 수 있는 정보라 압축 대상이 아니다.
+        본전가: s.breakEvenPrice,
+        오늘_체결가능범위: s.priceLimits
+          ? `${s.priceLimits.lowerLimit}~${s.priceLimits.upperLimit} (VI ${s.priceLimits.viLower}/${s.priceLimits.viUpper})`
+          : null,
         상대강도: s.relativeStrengthNote,
         진입트리거_엔진초안: s.entryTriggers,
         // 무효화 조건은 종목마다 가격 레벨이 달라 최상위로 못 옮기지만, 뒷부분 정형 문구

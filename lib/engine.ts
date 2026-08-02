@@ -34,11 +34,24 @@ import { roundToTick } from "./tick";
 import { computeUpRate } from "./upRate";
 import { buildForecastPath, driftFromScenario, kstMinutesNow } from "./forecastPath";
 import { computeScenarioOutlook, type ScenarioTable } from "./scenario";
+import { computePriceLimits } from "./priceLimits";
 
 const MAX_POSITION_WEIGHT = 0.5; // 한 종목 최대 비중 (총자산 대비)
 const ENTRY_FRACTION = 0.25; // 1회 매수 시 현금 대비 최대 비율
 const RISK_PER_TRADE = 0.01; // 1회 매매 허용 손실 = 총자산의 1%
-const ROUND_TRIP_COST_PCT = 0.0025; // 왕복 거래비용 추정치 (매도 시 증권거래세 약 0.18% + 매수·매도 수수료 각 약 0.015~0.03%)
+// 왕복 거래비용 — 국내 주식은 "매도할 때만" 세금을 낸다. 매수에는 수수료만 붙는다.
+//
+//   매도 시 세금   0.15%  (2025년 이후 코스피·코스닥 공통. 코스피는 증권거래세 0% + 농어촌특별세 0.15%,
+//                        코스닥은 증권거래세 0.15%. 2024년까지는 0.18%였다가 인하됐다)
+//   위탁수수료     0.015% × 2 (매수·매도 각각. 온라인 기준 증권사별 0.0036~0.05%로 편차가 있다)
+//   ─────────────────────────────
+//   왕복 합계      약 0.18%
+//
+// 이 값은 "최소한 이만큼 올라야 본전"이라는 뜻이다. 세율은 정책에 따라 바뀌므로
+// 실제 체결 내역의 수수료·세금과 다르면 이 상수를 고쳐야 한다.
+export const SELL_TAX_PCT = 0.0015;
+export const BROKER_FEE_PCT = 0.00015;
+const ROUND_TRIP_COST_PCT = SELL_TAX_PCT + BROKER_FEE_PCT * 2; // 0.18%
 
 export function newsSentimentScore(news: NewsItem[], stockName: string): { score: number; notes: string[] } {
   let score = 0;
@@ -740,6 +753,11 @@ export function runEngine(params: {
   // 국면별 조건부 통계 테이블(data/scenarios.json). 예상 경로 차트의 아주 약한 방향성(drift)에만
   // 쓴다. 없으면 방향성 0(제자리)으로 폭만 그린다.
   scenarioTable?: ScenarioTable | null;
+  // 전일 종가 — 상한가/하한가·정적VI 발동가 계산에 쓴다. 없으면 그 표시만 생략된다.
+  prevClose?: number | null;
+  // 계좌 하루 손실 한도에 이미 닿았는지. true면 신규 진입을 제안하지 않는다
+  // (실측 근거는 lib/dailyRisk.ts 주석 참조).
+  dailyStopTriggered?: boolean;
 }): EngineSignal {
   const { ticker, price, candles, macro, news, portfolio, intraday, marketPhase } = params;
   const name = STOCKS[ticker].name;
@@ -972,6 +990,15 @@ export function runEngine(params: {
   } else if (suggestedBudget) {
     estimatedRoundTripCostWon = Math.round(suggestedBudget * ROUND_TRIP_COST_PCT);
   }
+
+  // 본전 가격 — 초보자가 가장 자주 놓치는 숫자다.
+  // "평단에 팔면 본전"이 아니다. 매도 시 세금 0.15% + 왕복 수수료를 넘겨야 비로소 손해가 아니다.
+  // 보유 중이면 평단 기준, 매수를 권하는 중이면 제시한 진입가 기준으로 계산한다.
+  const breakEvenBase = holding && holding.qty > 0 ? holding.avgPrice : (suggestedEntryPrice?.price ?? null);
+  const breakEvenPrice =
+    breakEvenBase && breakEvenBase > 0
+      ? roundToTick(breakEvenBase * (1 + ROUND_TRIP_COST_PCT), currency, "up") // 올려서 잡아야 진짜 본전을 넘는다
+      : null;
   if (targetPrice && (action === "신규매수" || action === "추가매수")) {
     const profitPct = ((targetPrice - price) / price) * 100;
     if (profitPct < ROUND_TRIP_COST_PCT * 100 * 3) {
@@ -1031,6 +1058,31 @@ export function runEngine(params: {
   // (비반도체는 히스토리가 쌓인 뒤 같은 방식으로 재검증해야 한다)
   const up = isSemiconductor(ticker) ? computeUpRate(candles) : null;
 
+  // 하루 손실 한도에 닿았으면 신규·추가 매수를 제안하지 않는다.
+  //
+  // 종목별로는 원칙을 지켜도 같은 날 여러 종목이 함께 무너지면 계좌가 크게 빠진다.
+  // 실측(scripts/validate-daily-stop.ts): -3%에서 멈추면 최대낙폭 -52.0% → -42.8%,
+  // 샤프 1.16 → 1.25. 기간을 4등분해도 3개 구간에서 낙폭이 줄었고,
+  // 가장 크게 무너진 두 구간에서 개선폭이 가장 컸다.
+  // 매도·손절 판단은 그대로 둔다 — 멈춰야 하는 것은 "새로 사는 것"이지 "빠져나오는 것"이 아니다.
+  if (params.dailyStopTriggered && (action === "신규매수" || action === "추가매수")) {
+    action = "관망";
+    suggestedBudget = null;
+    suggestedQty = null;
+    scaledEntry = [];
+    entryTriggers = [];
+    warnings.unshift(
+      "오늘 계좌 손실이 하루 한도(-3%)에 닿아 신규 매수를 멈췄습니다. " +
+        "크게 빠진 날 다음 흐름은 예측되지 않았습니다(5년 실측 -3% 이하 86일의 다음날 승률 50%). " +
+        "지금은 보유분 손절선 관리에만 집중하세요.",
+    );
+  }
+
+  // 오늘 체결이 가능한 가격 범위 — 상한가·하한가와 정적VI(전일 종가 ±10%) 발동가.
+  // 국내 시장은 특정 가격에 닿으면 거래 방식이 바뀌는데(2분 단일가), 초보자는 이걸 모르고
+  // "왜 체결이 안 되지"를 겪는다. 전일 종가를 모르면 조용히 생략된다.
+  const priceLimits = currency === "KRW" ? computePriceLimits(params.prevClose ?? null, price) : null;
+
   // 파생 가격 최종 검문 — 실제 주문에 쓰이는 값이라 "이상하면 숨긴다"가 원칙이다.
   //
   // 왜 필요한가: 외부 시세 API가 잘못된 현재가(파싱 실패, 0, 캔들 이력과 자릿수가 다른 값)를
@@ -1077,6 +1129,8 @@ export function runEngine(params: {
     watchOrderNote,
     relativeStrengthNote: params.relativeStrengthNote ?? null,
     estimatedRoundTripCostWon,
+    breakEvenPrice,
+    priceLimits: priceLimits?.available ? priceLimits : null,
     backtest: params.backtest ?? null,
     buyStrength,
     sellStrength,
