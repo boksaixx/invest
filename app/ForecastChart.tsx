@@ -17,6 +17,7 @@
 //  - 눈금 글자는 SVG 밖 DOM으로 그린다. SVG는 가로폭에 맞춰 비율대로 늘어나는데, 글자까지
 //    같이 늘어나면 화면 크기마다 글자 크기가 달라져 읽기 나빠진다.
 import type { ForecastPathData } from "@/lib/types";
+import { TOUCH_SAMPLE_SIZE } from "@/lib/touchProb";
 
 type Props = {
   path: ForecastPathData;
@@ -24,6 +25,11 @@ type Props = {
   /** 손절가·목표가를 같은 축에 겹쳐 그리면 "손절선이 하루 변동폭 안"인지 한눈에 보인다 */
   stopPrice?: number | null;
   targetPrice?: number | null;
+  /**
+   * 엔진의 현재 판단. 매도·손절을 권하는 종목에 "이 값에 사면"을 크게 띄우면
+   * 사용자가 정반대로 행동할 수 있으므로, 그런 경우 매수 지정가를 숨긴다.
+   */
+  action?: string | null;
 };
 
 const W = 320;
@@ -61,7 +67,11 @@ function shortLabel(label: string): string {
   return AXIS_SHORT[label] ?? label.replace(" 기준", "");
 }
 
-export default function ForecastChart({ path, currency, stopPrice, targetPrice }: Props) {
+export default function ForecastChart({ path, currency, stopPrice, targetPrice, action }: Props) {
+  // 엔진이 정리(매도·손절)를 권하는 중이면 매수 지정가를 제시하지 않는다.
+  // "지금 팔아라"와 "이 값에 사라"를 나란히 보여주는 것은 사용자를 혼란에 빠뜨리는 것을 넘어
+  // 실제 손실로 이어질 수 있다.
+  const sellingMode = action === "손절" || action === "전량매도" || action === "부분매도";
   if (!path.available || path.points.length === 0) return null;
 
   // 왼쪽 끝은 "지금" — 불확실성 0에서 출발하므로 모든 구간이 현재가 한 점으로 모인다
@@ -210,22 +220,29 @@ export default function ForecastChart({ path, currency, stopPrice, targetPrice }
       </div>
       {/* 지정가 후보 — 이 카드에서 사용자가 실제로 주문에 옮겨 적는 숫자 */}
       {path.orderLevels && (
-        <div className="fc-orders">
-          <div className="fc-order buy">
-            <div className="fc-order-k">이 값에 사면</div>
-            <div className="fc-order-v">{fmtPrice(path.orderLevels.buyPrice, currency)}</div>
-            <div className="fc-order-p">
-              {path.orderLevels.horizonLabel} 닿을 확률 <b>{path.orderLevels.buyProbPct}%</b>
+        <>
+          <div className={`fc-orders${sellingMode ? " one" : ""}`}>
+            {!sellingMode && (
+              <div className="fc-order buy">
+                <div className="fc-order-k">이 값에 사면</div>
+                <div className="fc-order-v">{fmtPrice(path.orderLevels.buyPrice, currency)}</div>
+                <div className="fc-order-p">
+                  {path.orderLevels.horizonLabel} 닿을 확률 <b>{path.orderLevels.buyProbPct}%</b>
+                </div>
+              </div>
+            )}
+            <div className="fc-order sell">
+              <div className="fc-order-k">{sellingMode ? "정리 지정가 후보" : "이 값에 팔면"}</div>
+              <div className="fc-order-v">{fmtPrice(path.orderLevels.sellPrice, currency)}</div>
+              <div className="fc-order-p">
+                {path.orderLevels.horizonLabel} 닿을 확률 <b>{path.orderLevels.sellProbPct}%</b>
+              </div>
             </div>
           </div>
-          <div className="fc-order sell">
-            <div className="fc-order-k">이 값에 팔면</div>
-            <div className="fc-order-v">{fmtPrice(path.orderLevels.sellPrice, currency)}</div>
-            <div className="fc-order-p">
-              {path.orderLevels.horizonLabel} 닿을 확률 <b>{path.orderLevels.sellProbPct}%</b>
-            </div>
-          </div>
-        </div>
+          {sellingMode && (
+            <p className="fc-warn">지금은 엔진이 <b>정리(매도)</b>를 권하는 종목이라 매수 지정가는 표시하지 않습니다.</p>
+          )}
+        </>
       )}
 
       {/* 시간대별 예상 상·하단과 지정가 체결 확률 — "몇 시쯤 체결을 기대할 수 있나" */}
@@ -238,7 +255,7 @@ export default function ForecastChart({ path, currency, stopPrice, targetPrice }
                 <th>시점</th>
                 <th>하단</th>
                 <th>상단</th>
-                {path.orderLevels && <th>매수 체결</th>}
+                {path.orderLevels && !sellingMode && <th>매수 체결</th>}
                 {path.orderLevels && <th>매도 체결</th>}
               </tr>
             </thead>
@@ -248,7 +265,7 @@ export default function ForecastChart({ path, currency, stopPrice, targetPrice }
                   <td>{q.label}</td>
                   <td>{fmtPrice(q.p25, currency)}</td>
                   <td>{fmtPrice(q.p75, currency)}</td>
-                  {path.orderLevels && <td>{q.buyFillProbPct}%</td>}
+                  {path.orderLevels && !sellingMode && <td>{q.buyFillProbPct}%</td>}
                   {path.orderLevels && <td>{q.sellFillProbPct}%</td>}
                 </tr>
               ))}
@@ -257,7 +274,7 @@ export default function ForecastChart({ path, currency, stopPrice, targetPrice }
         </div>
         <p className="fc-note">
           하단·상단은 그 시점에 도달 가능한 범위(절반 확률 구간)이고, 체결 확률은 위 지정가에 <b>그 시각까지 한 번이라도 닿을</b> 누적 확률입니다.
-          5년 실측표(2,495일) 기준이며 방향 예측이 아닙니다.
+          5년 실측표({TOUCH_SAMPLE_SIZE.toLocaleString()}일) 기준이며 방향 예측이 아닙니다.
         </p>
       </details>
 

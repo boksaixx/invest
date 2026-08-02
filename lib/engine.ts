@@ -30,6 +30,7 @@ import type {
 import { STOCKS } from "./types";
 import { computeIndicators } from "./indicators";
 import { CORRELATED_PAIR_MAX_WEIGHT, forecastVolatility } from "./volatility";
+import { roundToTick } from "./tick";
 import { buildForecastPath, driftFromScenario, kstMinutesNow } from "./forecastPath";
 import { computeScenarioOutlook, type ScenarioTable } from "./scenario";
 
@@ -440,21 +441,23 @@ function computeSuggestedEntryPrice(
   price: number,
   intraday: IntradayInsight | null,
   ind: Indicators,
+  currency: "KRW" | "USD" = "KRW",
 ): { price: number; basis: string } | null {
+  const tick = (v: number) => roundToTick(v, currency, "nearest");
   if (action === "신규매수") {
-    return { price: Math.round(price), basis: "현재가 기준 즉시 진입 (분할매수 1차 라인 참고)" };
+    return { price: tick(price), basis: "현재가 기준 즉시 진입 (분할매수 1차 라인 참고)" };
   }
   if (action === "추가매수") {
-    return { price: Math.round(price), basis: "현재가 기준 추가 매수(피라미딩) — 수익 중 + 신호 강세 조건 충족 시에만 제안됨" };
+    return { price: tick(price), basis: "현재가 기준 추가 매수(피라미딩) — 수익 중 + 신호 강세 조건 충족 시에만 제안됨" };
   }
   if (action === "관망") {
     if (intraday?.available) {
       return {
-        price: Math.round(intraday.vwap),
-        basis: `VWAP(${Math.round(intraday.vwap).toLocaleString()}원) 상향 돌파 + 거래량 증가 확인 시 진입`,
+        price: tick(intraday.vwap),
+        basis: `VWAP(${tick(intraday.vwap).toLocaleString()}원) 상향 돌파 + 거래량 증가 확인 시 진입`,
       };
     }
-    return { price: Math.round(ind.ma20), basis: `20일선(${Math.round(ind.ma20).toLocaleString()}원) 회복 확인 시 진입 검토 (장중 데이터 미확보)` };
+    return { price: tick(ind.ma20), basis: `20일선(${tick(ind.ma20).toLocaleString()}원) 회복 확인 시 진입 검토 (장중 데이터 미확보)` };
   }
   return null;
 }
@@ -559,21 +562,23 @@ function buildInvalidation(id: IntradayInsight | null, macro: MacroSnapshot): st
   return `${parts.join(" 또는 ")} 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.`;
 }
 
-function buildScaledEntry(price: number, qty: number | null): ScaledOrder[] {
+function buildScaledEntry(price: number, qty: number | null, currency: "KRW" | "USD"): ScaledOrder[] {
+  const tick = (v: number) => roundToTick(v, currency, "nearest");
   if (!qty || qty < 2) {
-    return qty ? [{ price: Math.round(price), qty, note: "1회 매수 (수량이 적어 분할 실익 없음)" }] : [];
+    return qty ? [{ price: tick(price), qty, note: "1회 매수 (수량이 적어 분할 실익 없음)" }] : [];
   }
   const q1 = Math.ceil(qty * 0.6);
   const q2 = qty - q1;
   return [
-    { price: Math.round(price), qty: q1, note: "1차 진입 (60%) — 진입 트리거 충족 즉시" },
-    { price: Math.round(price * 0.985), qty: q2, note: "2차 진입 (40%) — 추가 눌림 시 (물타기 아닌 사전 계획된 분할매수)" },
+    { price: tick(price), qty: q1, note: "1차 진입 (60%) — 진입 트리거 충족 즉시" },
+    { price: tick(price * 0.985), qty: q2, note: "2차 진입 (40%) — 추가 눌림 시 (물타기 아닌 사전 계획된 분할매수)" },
   ];
 }
 
-function buildScaledExit(entryPrice: number, targetPrice: number | null, qty: number | null): ScaledOrder[] {
+function buildScaledExit(entryPrice: number, targetPrice: number | null, qty: number | null, currency: "KRW" | "USD"): ScaledOrder[] {
   if (!targetPrice || !qty) return [];
-  const t1 = Math.round(entryPrice + (targetPrice - entryPrice) * 0.5);
+  // 익절가는 내림 — 올리면 도달이 어려워져 제시한 계획보다 불리해진다
+  const t1 = roundToTick(entryPrice + (targetPrice - entryPrice) * 0.5, currency, "down");
   const q1 = Math.ceil(qty * 0.5);
   return [
     { price: t1, qty: q1, note: "1차 익절 (50%) — 손익비 1:1 도달 시 우선 실현" },
@@ -838,9 +843,9 @@ export function runEngine(params: {
     pnlPct = ((price - holding.avgPrice) / holding.avgPrice) * 100;
     const entryStopDist = Math.max(holding.avgPrice * 0.03, atrStopDist);
     // 기본 손절선: 평단 - 리스크폭. 수익 중이면 트레일링 스탑으로 끌어올림
-    stopPrice = Math.round(holding.avgPrice - entryStopDist);
+    stopPrice = roundToTick(holding.avgPrice - entryStopDist, currency, "up");
     if (price > holding.avgPrice + entryStopDist) {
-      stopPrice = Math.max(stopPrice, Math.round(price - ind.atr14 * 2));
+      stopPrice = Math.max(stopPrice, roundToTick(price - ind.atr14 * 2, currency, "up"));
       reasons.push("수익 구간 — 트레일링 스탑(고점 추적 손절선) 적용");
     }
     if (atUpperLimit) {
@@ -856,7 +861,7 @@ export function runEngine(params: {
     if (volatilityRegime) {
       warnings.push(volatilityWarning(volForecast, ind, price, "보유"));
     }
-    targetPrice = Math.round(holding.avgPrice + entryStopDist * 2); // 손익비 1:2
+    targetPrice = roundToTick(holding.avgPrice + entryStopDist * 2, currency, "down"); // 손익비 1:2
 
     if (price <= stopPrice) {
       action = "손절";
@@ -893,11 +898,11 @@ export function runEngine(params: {
     } else {
       action = "보유";
     }
-    scaledExit = buildScaledExit(holding.avgPrice, targetPrice, holding.qty);
+    scaledExit = buildScaledExit(holding.avgPrice, targetPrice, holding.qty, currency);
   } else {
     // 미보유 — 단타용 진입 트리거를 항상 제시 (지금 조건 미충족이어도 "무엇을 봐야 하는지" 알려줌)
-    stopPrice = Math.round(price - atrStopDist);
-    targetPrice = Math.round(price + atrStopDist * 2);
+    stopPrice = roundToTick(price - atrStopDist, currency, "up");
+    targetPrice = roundToTick(price + atrStopDist * 2, currency, "down");
     entryTriggers = buildEntryTriggers(intraday, ind);
 
     if (atUpperLimit) {
@@ -938,8 +943,8 @@ export function runEngine(params: {
         if (volatilityRegime) {
           warnings.push(volatilityWarning(volForecast, ind, price, "신규"));
         }
-        scaledEntry = buildScaledEntry(price, suggestedQty);
-        scaledExit = buildScaledExit(price, targetPrice, suggestedQty);
+        scaledEntry = buildScaledEntry(price, suggestedQty, currency);
+        scaledExit = buildScaledExit(price, targetPrice, suggestedQty, currency);
       }
     } else if (score >= 58) {
       action = "관망";
@@ -952,7 +957,7 @@ export function runEngine(params: {
   // 보유 중이라도 action이 "추가매수"(피라미딩)면 매수 진입가 개념이 여전히 유효하다.
   // 그 외 보유 중(매도 판단/단순 보유)에는 매수 진입가 개념이 없으므로 null.
   const suggestedEntryPrice =
-    action === "신규매수" || action === "추가매수" ? computeSuggestedEntryPrice(action, price, intraday, ind) : null;
+    action === "신규매수" || action === "추가매수" ? computeSuggestedEntryPrice(action, price, intraday, ind, currency) : null;
 
   const invalidation = buildInvalidation(intraday, macro);
   const watchOrderNote = buildWatchOrderNote(action, price, stopPrice, targetPrice, currency);

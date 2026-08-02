@@ -22,6 +22,7 @@
 //  - 갑작스러운 뉴스·공시는 어떤 통계 모델도 미리 알 수 없다.
 import type { ForecastPathData, VolForecast } from "./types";
 import { touchProbability } from "./touchProb";
+import { roundToTick } from "./tick";
 
 // 국내장 09:00~15:30 (390분) 동안의 분산 배분 — 개장 직후와 마감 무렵이 크고 점심때가 작은 U자.
 // 각 원소는 30분 구간이 하루 전체 분산에서 차지하는 비율이며 합이 1이다.
@@ -72,6 +73,9 @@ export function buildForecastPath(
   driftPerDayPct = 0,
   tradingDayNow = true,
 ): ForecastPath {
+  // 화면의 가격은 그대로 주문창에 옮겨 적는 값이므로 반드시 실제 호가에 맞춘다
+  const cur: "KRW" | "USD" = isKrMarket ? "KRW" : "USD";
+  const tick = (v: number, mode: "nearest" | "up" | "down" = "nearest") => roundToTick(v, cur, mode);
   const empty: ForecastPath = {
     available: false,
     currentPrice,
@@ -97,8 +101,8 @@ export function buildForecastPath(
       ? Math.max(0.05, varianceFraction(Math.max(SESSION_START_MIN, nowKstMinutes), SESSION_END_MIN))
       : 1;
   const orderMovePct = sigma * Math.sqrt(horizonVar) * ORDER_K;
-  const buyLevel = Math.round(currentPrice * (1 - orderMovePct / 100));
-  const sellLevel = Math.round(currentPrice * (1 + orderMovePct / 100));
+  const buyLevel = tick(currentPrice * (1 - orderMovePct / 100));
+  const sellLevel = tick(currentPrice * (1 + orderMovePct / 100));
 
   // 구간 폭을 "누적 분산 비율"에서 계산 — 폭은 √(분산비율)에 비례한다
   const pointAt = (label: string, varFraction: number, minutesAhead: number, isDayBoundary: boolean): PathPoint => {
@@ -106,14 +110,14 @@ export function buildForecastPath(
     const drift = driftPerDayPct * varFraction; // 방향성은 시간에 비례(분산이 아니라)
     // 변동성이 극단으로 튀는 날에도 음수 가격이 나오지 않도록 바닥을 둔다(현재가의 1%).
     // 국내장은 ±30% 가격제한폭이 있어 현실에서 걸릴 일은 없지만, 차트가 깨지는 것보다는 낫다.
-    const px = (zScaled: number) => Math.max(Math.round(currentPrice * 0.01), Math.round(currentPrice * (1 + (drift + zScaled * sigma * scale) / 100)));
+    const px = (zScaled: number) => Math.max(tick(currentPrice * 0.01), tick(currentPrice * (1 + (drift + zScaled * sigma * scale) / 100)));
     // 지정가 도달 확률은 "고정된 지정가까지 몇 σ 남았나"로 계산한다. 시간이 갈수록 scale이
     // 커져 같은 가격이 가까워지므로 확률이 올라간다 — "몇 시쯤 체결을 기대할 수 있나"를 읽는 값.
     const kTo = (target: number) => (scale > 0 ? Math.abs((target / currentPrice - 1) * 100) / (sigma * scale) : Infinity);
     return {
       label,
       minutesAhead,
-      median: Math.round(currentPrice * (1 + drift / 100)),
+      median: tick(currentPrice * (1 + drift / 100)),
       p25: px(zq.q25),
       p75: px(zq.q75),
       p05: px(zq.q05),

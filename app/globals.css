@@ -1634,3 +1634,11 @@ details.doc-sec > summary.doc-h {
 details.doc-sec > summary.doc-h::-webkit-details-marker { display: none; }
 details.doc-sec > summary.doc-h::after { content: "▾"; color: var(--text-weak); font-weight: 700; }
 details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
+.fc-orders.one { grid-template-columns: 1fr; }
+.fc-warn {
+  margin-top: 6px;
+  font-size: calc(11.5px * var(--font-scale));
+  line-height: 1.5;
+  color: #9c1f28;
+  font-weight: 600;
+}

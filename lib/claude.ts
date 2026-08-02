@@ -312,7 +312,12 @@ export function buildAdvicePayload(params: {
     ? "오늘(장중 진행 중)"
     : "가장 최근 거래일(마감)";
 
+  // 종목마다 같은 문장이 반복되는 필드는 최상위로 올려 한 번만 싣는다
+  const invalidations = signals.map((s) => trimInvalidation(s.invalidation));
+  const invalidationIsShared = invalidations.length > 1 && invalidations.every((v) => v !== null && v === invalidations[0]);
+
   return prune({
+    무효화조건_공통: invalidationIsShared ? invalidations[0] : null,
     현재시각_KST: new Date(Date.now() + 9 * 3600_000).toISOString().replace("Z", "+09:00"),
     장상태_국내: params.krPhase ?? null,
     장상태_미국: params.usPhase ?? null,
@@ -402,7 +407,8 @@ export function buildAdvicePayload(params: {
         // 무효화 조건은 종목마다 가격 레벨이 달라 최상위로 못 옮기지만, 뒷부분 정형 문구
         // ("...목표가·손절가 도달 여부와 무관하게 즉시 재검토")는 6종목 내내 똑같이 반복된다.
         // 그 규칙은 SYSTEM(캐시되어 1/10 비용)에 이미 있으므로 트리거 부분만 보낸다.
-        무효화조건_엔진초안: s.invalidation ? s.invalidation.split(/\s*(?:발생\s*시|시),\s*목표가/)[0] : null,
+        // 전 종목 동일하면 아래 최상위 "무효화조건_공통"으로 한 번만 보낸다(중복 제거)
+        무효화조건_엔진초안: invalidationIsShared ? null : trimInvalidation(s.invalidation),
         // 분할 라인은 객체 배열 대신 "가격x수량" 한 줄로 압축
         분할매수라인: s.scaledEntry.length ? s.scaledEntry.map((o) => `${o.price}x${o.qty ?? "?"}`).join(", ") : null,
         분할매도라인: s.scaledExit.length ? s.scaledExit.map((o) => `${o.price}x${o.qty ?? "?"}`).join(", ") : null,
@@ -471,6 +477,11 @@ export function buildAdvicePayload(params: {
     ),
     직전_자동수집_요약: params.history?.aiSummary ?? null,
   });
+}
+
+/** 무효화 조건에서 "목표가/손절가와 무관하게…" 같은 상투구를 떼어 토큰을 아낀다 */
+function trimInvalidation(v: string | null): string | null {
+  return v ? v.split(/\s*(?:발생\s*시|시),\s*목표가/)[0] : null;
 }
 
 const CONSISTENCY_DIVERGENCE_PCT = 20; // AI 목표가/손절가가 룰 엔진 계산값과 이 이상 차이나면 경고

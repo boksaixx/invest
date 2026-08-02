@@ -5,6 +5,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AiAdvice, EngineSignal, MasterScore, NewsItem, Portfolio, Quote } from "@/lib/types";
 import { STOCKS, TICKER_LIST } from "@/lib/types";
 import ForecastChart from "./ForecastChart";
+// 문서 탭이 인용하는 검증 수치는 반드시 실측 파일에서 읽는다.
+// 코드에 숫자를 박아두면 데이터가 갱신될 때 앱이 조용히 낡은 값을 말하게 된다(과거에 실제로 겪음).
+import analogStats from "@/data/analog-stats.json";
+import touchStats from "@/data/touch-stats.json";
 
 const TICKERS = TICKER_LIST.map((ticker) => ({ ticker, name: STOCKS[ticker].name }));
 
@@ -1085,7 +1089,9 @@ export default function Home() {
                 {held && h && <span className="cc-item">보유 {h.qty}주{sig?.pnlPct != null && ` (${sig.pnlPct >= 0 ? "+" : ""}${sig.pnlPct}%)`}</span>}
                 {sig?.forecastPath?.orderLevels && (
                   <span className="cc-item">
-                    지정가 매수 {fmt(sig.forecastPath.orderLevels.buyPrice, currency)} / 매도 {fmt(sig.forecastPath.orderLevels.sellPrice, currency)}
+                    {action === "손절" || action === "전량매도" || action === "부분매도"
+                      ? `정리 지정가 ${fmt(sig.forecastPath.orderLevels.sellPrice, currency)}`
+                      : `지정가 매수 ${fmt(sig.forecastPath.orderLevels.buyPrice, currency)} / 매도 ${fmt(sig.forecastPath.orderLevels.sellPrice, currency)}`}
                   </span>
                 )}
               </div>
@@ -1192,7 +1198,7 @@ export default function Home() {
 
             {/* 위 변동성 한 줄을 그림으로 풀어준 것 — 조회 시점부터 마감, 그리고 내일·모레까지 */}
             {sig?.forecastPath && (
-              <ForecastChart path={sig.forecastPath} currency={currency} stopPrice={sig.stopPrice} targetPrice={sig.targetPrice} />
+              <ForecastChart path={sig.forecastPath} currency={currency} stopPrice={sig.stopPrice} targetPrice={sig.targetPrice} action={action} />
             )}
 
             {sig && (
@@ -1512,9 +1518,12 @@ export default function Home() {
           <div className="doc-fail">
             <div className="doc-fail-t">방향 예측 (오를까 내릴까)</div>
             <div>
-              지금 상태를 10개 변수로 벡터화해 과거 5,845개 패턴 중 가장 닮은 120건을 찾고, 그 다음날 결과로 방향을 예측하는 모델을 만들어 검증했습니다.
-              결과는 <b>적중률 47~50%</b>로 기준선(54.2%)에 못 미쳤고, 확신도가 높을수록 오히려 더 틀렸으며(확신 60~65% 구간 적중률 40%),
-              그대로 따라갔다면 <b>매일 평균 -0.16%</b>씩 잃었습니다. 이웃 수·인접일 제외·평가기간을 바꿔 5가지로 재검증해도 결론은 같았습니다.
+              지금 상태를 10개 변수로 벡터화해 과거 {analogStats.poolSize.toLocaleString()}개 패턴 중 가장 닮은 120건을 찾고, 그 다음날 결과로 방향을 예측하는 모델을 만들어 검증했습니다.
+              결과는 <b>적중률 {analogStats.accuracyPct}%</b>로 기준선({analogStats.baselineMajorityPct}%)에 못 미쳤고,
+              확신도가 높을수록 오히려 더 틀렸으며(확신 {analogStats.byConfidence[2]?.minConf}~{analogStats.byConfidence[2]?.maxConf}% 구간 적중률 {analogStats.byConfidence[2]?.accuracyPct}%),
+              그대로 따라갔다면 <b>건당 평균 {analogStats.byConfidence[1]?.avgSignedRetPct}%</b>씩 잃었습니다.
+              80% 구간의 실제 적중률도 {analogStats.band80CoveragePct}%에 그쳤습니다(목표 80%).
+              이웃 수·인접일 제외·평가기간을 바꿔 5가지로 재검증해도 결론은 같았습니다.
               <div className="doc-chk">그래서 이 앱은 &quot;오를 것&quot; &quot;내릴 것&quot;을 말하지 않습니다. 대신 <b>도달 확률</b>(지정가에 닿을 가능성)을 제시합니다 — 이건 방향이 아니라 변동폭의 문제라 실제로 맞습니다.</div>
             </div>
           </div>
@@ -1568,7 +1577,7 @@ export default function Home() {
           <div className="doc-code">npx tsx scripts/validate-analog.ts</div>
           <div className="doc-cap">방향 예측 모델의 실패를 재현 — 적중률·확신도별 성적·변수별 기여도</div>
           <div className="doc-code">npx tsx scripts/validate-touch.ts</div>
-          <div className="doc-cap">지정가 도달 확률 실측표 생성 (2,495일)</div>
+          <div className="doc-cap">지정가 도달 확률 실측표 생성 ({touchStats.calibration[0].n.toLocaleString()}일)</div>
           <div className="doc-code">npx tsx scripts/validate-correlation-cap.ts</div>
           <div className="doc-cap">상관 비중 한도의 위험/수익 교환비 — 캡 수준별 최악의 날·최대낙폭</div>
           <div className="doc-code">npx tsx scripts/validate-watch-orders.ts</div>
