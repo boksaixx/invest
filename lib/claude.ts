@@ -646,6 +646,13 @@ function applyConsistencyCheck(advice: Omit<AiAdvice, "generatedAt">, signals: E
         );
       }
     }
+    // 엔진이 진입을 막은 종목에 AI가 매수를 권하면, 그 자체를 경고로 남긴다.
+    // 막은 이유(과열·변동성·상관한도·하루손실한도)는 측정된 근거라 조용히 덮이면 안 된다.
+    if (sig.entryBlocked && (stock.action === "신규매수" || stock.action === "추가매수")) {
+      warnings.push(
+        `⚠️ 룰 엔진은 이 종목의 신규 진입을 막았는데(과열·변동성·상관한도·하루손실한도 중 하나) AI는 매수를 권합니다 — 아래 근거를 직접 확인하세요`,
+      );
+    }
     if (stock.actionScore != null) {
       // 보유 중이라도 action이 "추가매수"(피라미딩)면 매도강도가 아니라 매수강도(buyStrength)가 기준이다.
       const isHoldingSellJudgment = sig.pnlPct != null && stock.action !== "추가매수";

@@ -175,6 +175,9 @@ export interface EngineSignal {
   watchOrderNote: string | null;
   relativeStrengthNote: string | null; // 반도체 5종목 중 상대강도 순위 코멘트
   estimatedRoundTripCostWon: number | null; // 왕복 거래비용(증권거래세+수수료) 추정액 (원)
+  // 점수는 진입 문턱을 넘었는데 과열·변동성·상관한도·하루손실한도가 막은 상태.
+  // 이 값이 true인데 "사라"는 문장이 나가면 화면에서 서로 부딪힌다 — UI가 이걸 보고 갈라 쓴다.
+  entryBlocked: boolean;
   // 본전 가격 — 여기를 넘겨야 비로소 손해가 아니다(매도세 0.15% + 왕복 수수료 반영).
   // 보유 중이면 평단 기준, 매수 검토 중이면 제시 진입가 기준.
   breakEvenPrice: number | null;

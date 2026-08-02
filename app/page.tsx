@@ -1468,6 +1468,10 @@ export default function Home() {
             {info && (() => {
               const kind: "buy" | "sell" = info.label.includes("매도") ? "sell" : "buy";
               const band = scoreBand(info.score, kind);
+              // 엔진이 진입을 막은 상태면 구간 뜻풀이도 그에 맞춰야 한다.
+              // "조건이 맞으면 검토할 만해요"는 틀린 말은 아니지만, 바로 위 요약이
+              // "지금은 진입하지 않습니다"라고 말하는 상황에서는 허용적으로 읽힌다.
+              const meaning = sig?.entryBlocked && kind === "buy" ? "지금은 사지 마세요 — 아래 이유를 확인하세요" : band.text;
               return (
                 <div className="score-panel">
                   <div className="score-top">
@@ -1488,8 +1492,16 @@ export default function Home() {
                       <span>0 없음</span><span>5 보통</span><span>10 매우 강함</span>
                     </div>
                   </div>
-                  <div className="score-mean">{band.text}</div>
+                  <div className="score-mean">{meaning}</div>
                   <div className="score-action">{info.oneLiner}</div>
+                  {/* AI와 엔진이 반대를 말할 때 두 문장을 나란히 두면 사용자는 어느 쪽을 따를지 모른다.
+                      엔진이 진입을 막았는데 AI가 사라고 하면, 그 사실 자체를 먼저 알린다. */}
+                  {sig?.entryBlocked && (action === "신규매수" || action === "추가매수") && (
+                    <div className="score-conflict">
+                      ⚠️ AI는 매수를 권하지만 계산 엔진은 <b>지금 진입을 막고 있습니다</b>.
+                      아래 경고를 먼저 읽고, 확신이 없으면 사지 마세요.
+                    </div>
+                  )}
                   {sig?.verdict && <div className="score-sub">{sig.verdict}</div>}
                 </div>
               );
@@ -2204,6 +2216,8 @@ export default function Home() {
           <div className="doc-cap">하루 손실 한도의 효과 — 낙폭·샤프 개선과 기간별 견고성</div>
           <div className="doc-code">npx tsx scripts/validate-trading-rules.ts</div>
           <div className="doc-cap">손실 한도·상하한가/VI·성적표 채점 로직 회귀 테스트</div>
+          <div className="doc-code">npx tsx scripts/validate-consistency.ts</div>
+          <div className="doc-cap">화면 문장끼리 모순이 없는지 — 60개 시나리오에서 강도·판정·경고 교차 검사</div>
           <div className="doc-code">npx tsx scripts/validate-safety.ts</div>
           <div className="doc-cap">화면의 가격이 &quot;주문 가능한 값&quot;인지 — 시세가 깨져도 음수·NaN 손절가가 나오지 않는지</div>
           <div className="doc-code">npx tsx scripts/validate-news-parse.ts</div>

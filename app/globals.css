@@ -2237,3 +2237,15 @@ details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
   color: var(--text-weak);
   line-height: 1.55;
 }
+
+/* AI와 엔진이 반대를 말할 때 — 두 문장을 나란히 두면 어느 쪽을 따를지 알 수 없다 */
+.score-conflict {
+  margin-top: 10px;
+  background: #fff8e6;
+  border-radius: 9px;
+  padding: 10px 11px;
+  font-size: calc(12.5px * var(--font-scale));
+  line-height: 1.55;
+  color: #7a5a12;
+  font-weight: 600;
+}

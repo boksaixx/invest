@@ -639,7 +639,15 @@ function computeSellStrength(params: {
   return 0; // 보유 유지 (신호 양호)
 }
 
-function buyStrengthSummary(buyStrength: number, price: number): string {
+/**
+ * 매수 강도를 한 줄로 옮긴다.
+ *
+ * entryBlocked = 점수는 진입 문턱을 넘었는데 과열·변동성·상관한도·하루손실한도가 막은 상태.
+ * 이때 "진입 신호 충족"이라고 쓰면 바로 아래 판정문("추격 매수 절대 금지")과 정면으로 부딪힌다.
+ * 실제로 그렇게 나갔던 문장이라 여기서 명시적으로 갈라준다.
+ */
+function buyStrengthSummary(buyStrength: number, price: number, entryBlocked: boolean, rawScore: number): string {
+  if (entryBlocked) return `점수는 ${Math.round(rawScore)}점으로 높지만 지금은 진입하지 않습니다 — 아래 경고 확인`;
   if (buyStrength >= 7) return `지금 매수 강도 ${buyStrength}/10 — 엔진 기준 진입 신호 충족`;
   if (buyStrength >= 4) return `매수 대기 강도 ${buyStrength}/10 — ${won0(price)}원 부근, 트리거 확인 필요`;
   return `관망 강도(매수 아님) ${buyStrength}/10 — 아직 근거 부족`;
@@ -664,9 +672,14 @@ function verbPhrase(
   buyStrength: number,
   sellStrength: number,
   overheated: boolean,
+  /** 점수는 진입 문턱을 넘었는데 과열·변동성·상관한도·하루손실한도가 막은 상태 */
+  entryBlocked: boolean,
 ): { text: string; tone: "buy" | "sell" | "danger" | "neutral" } {
   if (!held) {
     if (overheated) return { text: "지금은 추격 매수하지 마세요 (절대 금지)", tone: "danger" };
+    // 막힌 이유가 과열이 아닐 때(변동성·상관한도·하루손실한도)도 "매수를 고려하세요"라고 하면
+    // 바로 아래 경고문("신규 매수를 멈췄습니다")과 정면으로 부딪힌다. 실제로 그렇게 나갔다.
+    if (entryBlocked) return { text: "점수는 좋지만 지금 살 자리는 아니에요", tone: "neutral" };
     if (action === "신규매수" && buyStrength >= 8) return { text: "지금 사도 좋아요", tone: "buy" };
     if (action === "신규매수") return { text: "매수를 고려해볼 만해요", tone: "buy" };
     if (buyStrength >= 4) return { text: "조건이 갖춰지면 매수를 고려하세요", tone: "neutral" };
@@ -688,10 +701,11 @@ function buildVerdict(params: {
   reasons: string[];
   warnings: string[];
   overheated: boolean;
+  entryBlocked: boolean;
 }): string {
-  const { held, action, buyStrength, reasons, warnings, overheated } = params;
+  const { held, action, buyStrength, reasons, warnings, overheated, entryBlocked } = params;
   const sellStrength = params.sellStrength ?? 0;
-  const { text, tone } = verbPhrase(held, action, buyStrength, sellStrength, !held && overheated);
+  const { text, tone } = verbPhrase(held, action, buyStrength, sellStrength, !held && overheated, !held && entryBlocked);
   // 근거 문장 선택: 매수 쪽 판정이면 긍정 근거(reasons)를, 위험/매도 쪽 판정이면 경고(warnings)를 우선 인용한다.
   const groundingPool = tone === "buy" ? [...reasons, ...warnings] : [...warnings, ...reasons];
   const grounding = groundingPool[0];
@@ -1027,14 +1041,51 @@ export function runEngine(params: {
   // 초보자도 한눈에 판단할 수 있도록 0~10점 단일 지표로 환산.
   // 미보유 시: "지금 얼마나 강하게 사야 하는가" (buyStrength)
   // 보유 중: "지금 얼마나 강하게 팔아야 하는가" (sellStrength)
-  const buyStrength = scoreToBuyStrength(score);
+  // 하루 손실 한도에 닿았으면 신규·추가 매수를 제안하지 않는다.
+  //
+  // 종목별로는 원칙을 지켜도 같은 날 여러 종목이 함께 무너지면 계좌가 크게 빠진다.
+  // 실측(scripts/validate-daily-stop.ts): -3%에서 멈추면 최대낙폭 -52.0% → -42.8%,
+  // 샤프 1.16 → 1.25. 기간을 4등분해도 3개 구간에서 낙폭이 줄었고,
+  // 가장 크게 무너진 두 구간에서 개선폭이 가장 컸다.
+  // 매도·손절 판단은 그대로 둔다 — 멈춰야 하는 것은 "새로 사는 것"이지 "빠져나오는 것"이 아니다.
+  if (params.dailyStopTriggered && (action === "신규매수" || action === "추가매수")) {
+    action = "관망";
+    suggestedBudget = null;
+    suggestedQty = null;
+    scaledEntry = [];
+    entryTriggers = [];
+    warnings.unshift(
+      "오늘 계좌 손실이 하루 한도(-3%)에 닿아 신규 매수를 멈췄습니다. " +
+        "크게 빠진 날 다음 흐름은 예측되지 않았습니다(5년 실측 -3% 이하 86일의 다음날 승률 50%). " +
+        "지금은 보유분 손절선 관리에만 집중하세요.",
+    );
+  }
+
+  // ⚠ 여기서부터 action은 확정이다. 아래 강도 계산이 action을 참조하므로
+  //   action을 바꾸는 로직은 반드시 이 줄보다 위에 있어야 한다.
+
+  // 매수 강도는 "최종 판단"과 어긋나면 안 된다.
+  //
+  // 실제로 있었던 사고: 점수 91점이면 강도 10이 나오는데, 같은 종목이 과열 판정으로
+  // action="관망"이 되면 화면에 "매수 강도 10/10 — 진입 신호 충족"과
+  // "지금은 추격 매수하지 마세요 (절대 금지)"가 나란히 떴다. 10종목 중 5종목에서 재현됐다.
+  // 초보자는 큰 숫자를 먼저 믿고 산다.
+  //
+  // 원인은 강도를 종합 점수만으로 계산하고, 그 뒤 과열·변동성·상관한도·하루손실한도가
+  // 진입을 막은 사실을 반영하지 않은 것이다. 엔진이 "사지 말라"고 결론냈으면
+  // 강도도 진입 문턱(7) 아래여야 한다. 5점("보통 — 조건이 맞으면 검토할 만해요")으로 낮춰
+  // "점수는 괜찮지만 지금은 아니다"라는 실제 상태를 그대로 전한다.
+  // 원래 점수는 score(0~100)에 그대로 남아 있고, 막힌 이유는 warnings에 적힌다.
+  const buyStrengthRaw = scoreToBuyStrength(score);
+  const entryBlocked = !holding && action === "관망" && buyStrengthRaw >= 7;
+  const buyStrength = entryBlocked ? 5 : buyStrengthRaw;
   const sellStrength = holding ? computeSellStrength({ price, stopPrice, targetPrice, score, pnlPct: pnlPct ?? 0, rsi14: ind.rsi14 }) : null;
   // 보유 중이라도 action이 "추가매수"(피라미딩)면 매도가 아니라 "추가로 얼마나 강하게 사야 하는지"를 보여줘야 한다.
   const actionSummary =
     holding && action !== "추가매수"
       ? sellStrengthSummary(sellStrength as number, stopPrice, targetPrice)
-      : buyStrengthSummary(buyStrength, price);
-  const verdict = buildVerdict({ held: Boolean(holding), action, buyStrength, sellStrength, reasons, warnings, overheated: overheatedNow });
+      : buyStrengthSummary(buyStrength, price, entryBlocked, score);
+  const verdict = buildVerdict({ held: Boolean(holding), action, buyStrength, sellStrength, reasons, warnings, overheated: overheatedNow, entryBlocked });
 
   // 예상 경로(차트용) — 조회 시점부터 마감까지 + D+1/D+2의 확률 구간.
   // 방향성은 과거 같은 국면의 5일 중앙값을 하루치로 환산한 값만(±0.5% 제한) 반영한다.
@@ -1057,26 +1108,6 @@ export function runEngine(params: {
   // 국면별 실측 상승률 — 반도체 5종목으로 만든 표라 그 종목에만 적용한다.
   // (비반도체는 히스토리가 쌓인 뒤 같은 방식으로 재검증해야 한다)
   const up = isSemiconductor(ticker) ? computeUpRate(candles) : null;
-
-  // 하루 손실 한도에 닿았으면 신규·추가 매수를 제안하지 않는다.
-  //
-  // 종목별로는 원칙을 지켜도 같은 날 여러 종목이 함께 무너지면 계좌가 크게 빠진다.
-  // 실측(scripts/validate-daily-stop.ts): -3%에서 멈추면 최대낙폭 -52.0% → -42.8%,
-  // 샤프 1.16 → 1.25. 기간을 4등분해도 3개 구간에서 낙폭이 줄었고,
-  // 가장 크게 무너진 두 구간에서 개선폭이 가장 컸다.
-  // 매도·손절 판단은 그대로 둔다 — 멈춰야 하는 것은 "새로 사는 것"이지 "빠져나오는 것"이 아니다.
-  if (params.dailyStopTriggered && (action === "신규매수" || action === "추가매수")) {
-    action = "관망";
-    suggestedBudget = null;
-    suggestedQty = null;
-    scaledEntry = [];
-    entryTriggers = [];
-    warnings.unshift(
-      "오늘 계좌 손실이 하루 한도(-3%)에 닿아 신규 매수를 멈췄습니다. " +
-        "크게 빠진 날 다음 흐름은 예측되지 않았습니다(5년 실측 -3% 이하 86일의 다음날 승률 50%). " +
-        "지금은 보유분 손절선 관리에만 집중하세요.",
-    );
-  }
 
   // 오늘 체결이 가능한 가격 범위 — 상한가·하한가와 정적VI(전일 종가 ±10%) 발동가.
   // 국내 시장은 특정 가격에 닿으면 거래 방식이 바뀌는데(2분 단일가), 초보자는 이걸 모르고
@@ -1129,6 +1160,7 @@ export function runEngine(params: {
     watchOrderNote,
     relativeStrengthNote: params.relativeStrengthNote ?? null,
     estimatedRoundTripCostWon,
+    entryBlocked,
     breakEvenPrice,
     priceLimits: priceLimits?.available ? priceLimits : null,
     backtest: params.backtest ?? null,
