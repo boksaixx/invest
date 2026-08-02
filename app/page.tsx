@@ -2216,6 +2216,8 @@ export default function Home() {
           <div className="doc-cap">하루 손실 한도의 효과 — 낙폭·샤프 개선과 기간별 견고성</div>
           <div className="doc-code">npx tsx scripts/validate-trading-rules.ts</div>
           <div className="doc-cap">손실 한도·상하한가/VI·성적표 채점 로직 회귀 테스트</div>
+          <div className="doc-code">npx tsx scripts/validate-payload.ts</div>
+          <div className="doc-cap">토큰을 줄이면서 AI에게 가는 사실이 그대로인지 — 종목·경고 누락 검사</div>
           <div className="doc-code">npx tsx scripts/validate-consistency.ts</div>
           <div className="doc-cap">화면 문장끼리 모순이 없는지 — 60개 시나리오에서 강도·판정·경고 교차 검사</div>
           <div className="doc-code">npx tsx scripts/validate-safety.ts</div>

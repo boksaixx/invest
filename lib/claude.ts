@@ -44,7 +44,7 @@ const SYSTEM = `당신은 20년 경력의 한국 주식 단기(데이트레이�
 - 상한가/하한가(가격제한폭 도달) 신호가 있으면 절대 그날 추가로 쫓아 사지 말라고 강하게 경고하고, 익일 갭 리스크(다음날 시가가 크게 벌어질 위험)를 언급한다.
 - 유가(WTI)나 SOX가 큰 폭으로 급변동한 날은 그 사실을 headline/rationale에서 구체적 수치로 인용하고, 그것이 오늘 판단에 어떻게 반영됐는지 설명한다.
 
-데이터 읽는 법(중요): 추적 10종목 중 "보유 중이거나, 관망이 아닌 판단이 났거나, 점수가 한쪽으로 뚜렷하거나, 경고가 있는" 종목만 "룰엔진_신호"에 상세히 실립니다. 나머지는 "관망_종목_요약"에 한 줄로 압축됩니다 — 이 종목들은 보유도 신호도 없으니 관망으로 처리하고, 굳이 길게 분석하지 마세요(다만 stocks 배열에는 포함해 짧게라도 판단을 남기세요).
+데이터 읽는 법(중요): 추적 10종목 중 "보유 중이거나, 관망이 아닌 판단이 났거나, 점수가 한쪽으로 뚜렷한" 종목만 "룰엔진_신호"에 상세히 실립니다. 나머지는 "관망_종목_요약"에 한 줄로 압축되며, 그 줄 끝의 ⚠ 뒤에 해당 종목의 주요 경고가 함께 붙습니다. 또 전 종목에 공통으로 해당하는 경고·근거는 종목마다 반복하지 않고 "전종목_공통경고"·"전종목_공통근거"에 한 번만 싣습니다 — 개별 종목을 판단할 때 이 공통 항목도 함께 적용해 읽으세요 — 이 종목들은 보유도 신호도 없으니 관망으로 처리하고, 굳이 길게 분석하지 마세요(다만 stocks 배열에는 포함해 짧게라도 판단을 남기세요).
 토큰 절약을 위해 "값이 없거나 지금 의미 없는 필드는 아예 생략"되어 전달됩니다. 필드가 보이지 않으면 그 데이터가 없거나(미확보) 현재 특별히 의미 있는 구간이 아니라는 뜻이니, 없는 값을 지어내지 말고 있는 값만 근거로 쓰세요. 예: 스토캐스틱은 과매수(80+)/과매도(20-)일 때만, 피벗 R1/S1은 현재가가 그 레벨 3% 이내일 때만, 다이버전스·해머캔들 같은 신호는 실제로 발생했을 때만 실립니다.
 
 당신에게는 다음이 함께 주어집니다:
@@ -250,6 +250,8 @@ export async function generateAdvice(params: {
   const usPhase = signals.find((s) => STOCKS[s.ticker].market === "US")?.marketPhase ?? null;
 
   // 페이로드에서 한 줄로 압축된 종목 — 이 종목들의 AI 가격은 근거가 없으므로 나중에 버린다
+  // sanitizeAdvicePrices가 쓰는 "압축 종목" 판정은 페이로드와 같은 기준이어야 한다.
+  // 어긋나면 상세로 보낸 종목의 AI 가격이 근거 없다고 지워지거나 그 반대가 된다.
   const quietTickers = new Set(signals.filter((s) => !needsDetail(s, params.portfolio)).map((s) => s.ticker as string));
   const userContent = JSON.stringify(buildAdvicePayload({ ...params, krPhase, usPhase }));
 
@@ -335,9 +337,31 @@ function prune<T extends Record<string, unknown>>(obj: T): Partial<T> {
  * generateAdvice의 응답 정제도 같은 기준을 써야 하므로(상세를 안 준 종목의 AI 가격은 버린다)
  * 여기 한 곳에서만 정의한다.
  */
+/**
+ * 이 종목을 "상세"로 보낼지 "한 줄"로 보낼지.
+ *
+ * commonWarnings(전 종목에 똑같이 붙는 보일러플레이트)는 세지 않는다.
+ * 예전에는 "장중(분봉) 데이터를 가져오지 못해…" 한 줄이 10종목 전부에 붙어
+ * warnings.length > 0 조건이 항상 참이 됐고, 그 결과 계층화가 통째로 무력화돼
+ * 전 종목이 상세로 나갔다(장 마감 후·분봉 수집 실패 시 매번 발생).
+ * 종목 고유의 경고만 "이 종목은 자세히 봐야 한다"의 근거가 될 수 있다.
+ */
 export function needsDetail(s: EngineSignal, portfolio: Portfolio): boolean {
   const held = portfolio.holdings.some((h) => h.ticker === s.ticker && h.qty > 0);
-  return held || s.action !== "관망" || s.score >= 62 || s.score <= 38 || s.warnings.length > 0;
+  // 경고 유무는 승격 사유에서 뺐다 — 압축 줄이 그 종목의 경고를 함께 나르기 때문이다.
+  // 예전 규칙(warnings.length > 0)은 변동성·추세 경고가 흔한 장에서 전 종목을 상세로 만들어
+  // 계층화를 사실상 껐다(실측: 10종목 전부 상세).
+  // 승격 기준은 "행동이 필요하거나 점수가 한쪽으로 뚜렷한 종목"으로 남긴다.
+  return held || s.action !== "관망" || s.score >= 62 || s.score <= 38;
+}
+
+/** 전 종목에 똑같이 붙는 문장 — 종목마다 반복하지 않고 최상위에 한 번만 싣는다 */
+function findCommon(signals: EngineSignal[], pick: (s: EngineSignal) => string[]): Set<string> {
+  if (signals.length < 3) return new Set();
+  const count = new Map<string, number>();
+  for (const s of signals) for (const v of new Set(pick(s))) count.set(v, (count.get(v) ?? 0) + 1);
+  // 전 종목에 있는 것만 공통으로 본다. 일부에만 있으면 그 종목의 고유 정보다.
+  return new Set([...count.entries()].filter(([, n]) => n === signals.length).map(([v]) => v));
 }
 
 export function buildAdvicePayload(params: {
@@ -360,6 +384,11 @@ export function buildAdvicePayload(params: {
     : "가장 최근 거래일(마감)";
 
   const newsSignal = computeNewsSignal(news);
+  // 전 종목에 똑같이 붙는 경고·근거는 종목마다 반복하지 않고 최상위에 한 번만 싣는다.
+  // 실측: "장중 데이터 없음" 한 줄이 10종목에 반복돼 250토큰, 전체 반복 합계 439토큰(8.8%).
+  const commonWarnings = findCommon(signals, (s) => s.warnings);
+  const commonReasons = findCommon(signals, (s) => s.reasons);
+
   const focusSignals = signals.filter((s) => needsDetail(s, params.portfolio));
   const quietSignals = signals.filter((s) => !needsDetail(s, params.portfolio));
 
@@ -369,6 +398,9 @@ export function buildAdvicePayload(params: {
 
   return prune({
     무효화조건_공통: invalidationIsShared ? invalidations[0] : null,
+    // 아래 두 줄은 추적 종목 전부에 해당한다 — 개별 종목 항목에서는 빠져 있으니 함께 읽어야 한다
+    전종목_공통경고: commonWarnings.size ? [...commonWarnings] : null,
+    전종목_공통근거: commonReasons.size ? [...commonReasons] : null,
     // 계좌 하루 손실 — 한도에 닿았으면 SYSTEM 규칙에 따라 신규 매수 제안이 금지된다
     계좌_하루손실: params.dailyRisk?.available
       ? `${params.dailyRisk.todayPnlPct >= 0 ? "+" : ""}${params.dailyRisk.todayPnlPct}% (${params.dailyRisk.stopTriggered ? "한도도달 — 신규매수 금지" : params.dailyRisk.warnTriggered ? "주의" : "여유"})`
@@ -429,12 +461,22 @@ export function buildAdvicePayload(params: {
     // 그런데 "보유도 아니고 신호도 없고 점수도 중립"인 종목은 Claude가 길게 읽어봐야 결론이
     // 똑같이 관망이다. 그래서 판단이 필요한 종목만 상세히 싣고 나머지는 한 줄로 압축한다.
     // (압축된 종목도 이름·가격·점수·변동성은 남아 있어 Claude가 "왜 뺐는지" 알 수 있다)
+    // 압축 줄에도 그 종목 고유 경고는 싣는다.
+    // 예전에는 경고를 아예 빼서, "경고가 하나라도 있으면 상세로" 규칙이 필요했고
+    // 그 결과 변동성·추세 경고가 흔한 장에서는 전 종목이 상세로 나갔다.
+    // 경고를 압축 줄에 담으면 정보는 그대로 가면서 나머지 20여 필드를 아낄 수 있다.
     관망_종목_요약: quietSignals.length
-      ? quietSignals.map(
-          (s) =>
+      ? quietSignals.map((s) => {
+          const own = s.warnings.filter((w) => !commonWarnings.has(w));
+          // 경고는 최대 2개까지 나른다. 하나만 실었더니 "OBV 다이버전스", "20일선 아래" 같은
+          // 두 번째 경고가 통째로 사라졌다(정보 손실 검증에서 잡힘).
+          // 설명부(" — " 뒤)는 떼고 식별 문구만 남겨 길이를 억제한다.
+          const warn = own.length ? ` ⚠ ${own.slice(0, 2).map((w) => w.split(" — ")[0].slice(0, 40)).join(" / ")}` : "";
+          return (
             `${s.name}(${STOCKS[s.ticker].sector}) ${Math.round(s.price).toLocaleString()} ${s.score >= 50 ? "+" : ""}${s.score - 50}p ` +
-            `일간±${s.volForecast ? s.volForecast.sigmaDailyPct.toFixed(1) : "?"}% — 보유없음·신호없음`,
-        )
+            `일간±${s.volForecast ? s.volForecast.sigmaDailyPct.toFixed(1) : "?"}% — 보유없음·신호없음${warn}`
+          );
+        })
       : null,
     룰엔진_신호: focusSignals.map((s) => {
       const ind = s.indicators;
@@ -459,8 +501,11 @@ export function buildAdvicePayload(params: {
           : null,
         // 엔진_판정문은 근거 1순위 문장을 그대로 품고 있는 경우가 많다 — 같은 문장을 두 번
         // 보내지 않도록 판정문에 이미 담긴 근거는 제외한다(6종목이면 매 호출 수백 자 절약).
-        근거: s.reasons.filter((r) => !s.verdict.includes(r)).slice(0, 3),
-        경고: s.warnings.slice(0, 3),
+        // 판정문에 이미 인용된 문장과 전 종목 공통 문장은 빼고 "이 종목만의 근거·경고"만 남긴다.
+        // 경고는 예전에 dedup이 빠져 있어 판정문과 같은 문장이 두 번 나갔다(판정문은
+        // 매도·위험 톤일 때 warnings[0]을 그대로 인용한다).
+        근거: s.reasons.filter((r) => !s.verdict.includes(r) && !commonReasons.has(r)).slice(0, 3),
+        경고: s.warnings.filter((w) => !s.verdict.includes(w) && !commonWarnings.has(w)).slice(0, 3),
         엔진_매수진입가_초안: s.suggestedEntryPrice,
         엔진_매수진입가_근거: s.entryPriceBasis,
         목표가: s.targetPrice,
