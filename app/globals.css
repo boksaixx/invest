@@ -696,6 +696,31 @@ body {
   color: var(--text-sub);
   line-height: 1.55;
 }
+/* ⓪ 전체 흐름 — 조각 설명 전에 큰 그림부터 */
+.doc-pipe-sec { background: linear-gradient(180deg, #f4f8ff 0%, var(--card) 55%); }
+.doc-pipe-lead {
+  font-size: calc(12.5px * var(--font-scale));
+  line-height: 1.6;
+  color: var(--text-sub);
+  margin-bottom: 4px;
+}
+.doc-pipe {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.doc-pipe-t {
+  font-size: calc(13.5px * var(--font-scale));
+  font-weight: 800;
+}
+.doc-pipe-d {
+  font-size: calc(12.5px * var(--font-scale));
+  line-height: 1.6;
+  color: var(--text);
+  margin-top: 2px;
+}
+
 .doc-step {
   display: flex;
   gap: 10px;
@@ -1105,6 +1130,99 @@ body {
   color: #3a68a8;
   flex-basis: 100%;
 }
+
+/* 뉴스 종합 — 개별 기사보다 "어느 축에 몇 건이 쏠렸나"를 먼저 보여준다 */
+.nsig-tone {
+  font-size: calc(17px * var(--font-scale));
+  font-weight: 800;
+  line-height: 1.35;
+}
+.nsig-tone.pos { color: var(--red); }
+.nsig-tone.neg { color: var(--blue); }
+.nsig-tone.neu { color: var(--text); }
+.nsig-counts {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.nsig-counts > div {
+  flex: 1 1 0;
+  min-width: 0;
+  background: var(--bg-sub);
+  border-radius: 8px;
+  padding: 8px 2px;
+  text-align: center;
+}
+.nsig-counts b {
+  display: block;
+  font-size: calc(16px * var(--font-scale));
+  font-weight: 800;
+}
+.nsig-counts span {
+  display: block;
+  font-size: calc(11px * var(--font-scale));
+  color: var(--text-sub);
+  margin-top: 1px;
+}
+.nsig-counts .pos b { color: var(--red); }
+.nsig-counts .neg b { color: var(--blue); }
+.nsig-thin {
+  margin-top: 10px;
+  background: #fff8e6;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: calc(12.5px * var(--font-scale));
+  line-height: 1.5;
+  color: #7a5a12;
+}
+.nsig-axes { margin-top: 12px; }
+.nsig-axis {
+  padding: 9px 0;
+  border-top: 1px solid #f2f4f6;
+}
+.nsig-axis-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.nsig-axis-n { font-size: calc(13.5px * var(--font-scale)); font-weight: 800; }
+.nsig-axis-c { font-size: calc(12px * var(--font-scale)); color: var(--text-sub); }
+.nsig-axis-p {
+  font-size: calc(11.5px * var(--font-scale));
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--bg-sub);
+  color: var(--text-sub);
+}
+.nsig-axis-p.pos { background: var(--red-weak); color: var(--red); }
+.nsig-axis-p.neg { background: var(--blue-weak); color: var(--blue); }
+.nsig-axis-note {
+  font-size: calc(12px * var(--font-scale));
+  color: var(--text-sub);
+  margin-top: 3px;
+  line-height: 1.45;
+}
+.nsig-foot {
+  margin-top: 12px;
+  font-size: calc(12px * var(--font-scale));
+  color: var(--text-sub);
+  line-height: 1.5;
+}
+.news-raw-sum {
+  cursor: pointer;
+  list-style: none;
+  font-size: calc(13.5px * var(--font-scale));
+  font-weight: 700;
+  color: var(--text-sub);
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+.news-raw-sum::-webkit-details-marker { display: none; }
+.news-raw-sum::after { content: " ▾"; margin-left: 4px; }
+.news-raw[open] .news-raw-sum::after { content: " ▴"; }
 
 .news-item {
   padding: 12px 0;
@@ -1661,4 +1779,74 @@ details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
   font-size: calc(11.5px * var(--font-scale));
   line-height: 1.55;
   color: var(--text-sub);
+}
+
+/* ⭐ 오늘 나의 행동 — 앱에서 가장 먼저 읽어야 하는 블록.
+   "사라는 건지 팔라는 건지 모르겠다"는 피드백에 대한 답이라, 동사를 맨 앞에 크게 둔다 */
+.doit {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+.doit-title {
+  font-size: calc(17px * var(--font-scale));
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  margin-bottom: 10px;
+}
+.doit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  margin-bottom: 7px;
+}
+.doit-verb {
+  font-size: calc(15px * var(--font-scale));
+  font-weight: 800;
+  white-space: nowrap;
+}
+.doit-name { font-size: calc(14px * var(--font-scale)); font-weight: 700; }
+.doit-detail {
+  flex-basis: 100%;
+  font-size: calc(12.5px * var(--font-scale));
+  color: var(--text-sub);
+  font-weight: 600;
+  line-height: 1.5;
+}
+.doit-sell { background: var(--red-weak); }
+.doit-sell .doit-verb { color: #c9353f; }
+.doit-buy { background: var(--blue-weak); }
+.doit-buy .doit-verb { color: #1b64da; }
+.doit-hold { background: #fff8e1; }
+.doit-hold .doit-verb { color: #b26a00; }
+.doit-wait { background: var(--gray-weak); }
+.doit-wait .doit-verb { color: var(--text-weak); }
+/* 미보유 + 매도신호 = "사지 마세요". 파란 계열이지만 매수(doit-buy)와 헷갈리지 않게 톤을 낮춘다 */
+.doit-avoid { background: var(--gray-weak); }
+.doit-avoid .doit-verb { color: #8a5a5f; }
+.doit-more > summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  font-size: calc(12.5px * var(--font-scale));
+  font-weight: 700;
+  color: var(--blue);
+}
+.doit-more > summary::-webkit-details-marker { display: none; }
+.doit-more > summary::after { content: " ▾"; }
+.doit-more[open] > summary::after { content: " ▴"; }
+.doit-foot {
+  margin-top: 8px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--border);
+  font-size: calc(11.5px * var(--font-scale));
+  line-height: 1.55;
+  color: var(--text-weak);
 }

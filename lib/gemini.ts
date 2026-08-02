@@ -25,13 +25,13 @@ const PROMPT = `한국 주식 단타 트레이더용 실시간 속보 수집. �
 8. 오늘 추적 10종목의 특징주/급등락 이슈(상한가·하한가 포함)
 
 수집 분량(중요 — 종목 뉴스만 잔뜩 가져오고 시장 뉴스가 비는 문제가 반복됐다):
-- 개별 종목(주제 1~2)은 최대 10건까지만(반도체 5건·비반도체 5건 균형). 그 이상은 버리고 아래 시장 뉴스로 자리를 채운다.
+- 개별 종목(주제 1~2)은 최대 20건까지(반도체 10건·비반도체 10건 균형). 나머지는 시장·업황·정책 주제로 채운다. 그 이상은 버리고 아래 시장 뉴스로 자리를 채운다.
 - 주제 3(반도체 업황)에서 최소 3건, 주제 4~5(매크로·지수·파생)에서 최소 4건, 주제 7(지정학·정책)에서 최소 2건, 주제 9~11(중국 반도체·큰손 동향·실적 전망)에서 합쳐 최소 3건을 반드시 채운다. 해당 주제에 최신 뉴스가 정말 없으면 그 사실을 impact "낮음"으로라도 1건 남긴다.
 - 코스피/코스닥/나스닥/S&P500/SOX 지수 자체의 등락과 그 원인(수급·금리·환율)은 종목 뉴스가 아니라 주제 4로 반드시 포함한다.
 
 규칙: 최신 발행 우선. 해외발 뉴스는 국내 번역기사보다 외신 원문 발행 시각이 더 빠르므로, 같은 사안이면 원문 기준 시각으로 최신성을 판단(단 summary는 한국어로 작성). 3시간 이내+impact "높음"만 isBreaking=true, 배열 맨 앞. **12시간 초과 뉴스는 원칙적으로 제외**하고, 24시간을 넘는 뉴스는 그 사안이 아직 진행 중이며 오늘 주가에 직접 영향을 주는 경우에만 넣되 publishedAt에 실제 경과 시간을 정확히 적는다. 오래된 기사를 최신인 것처럼 적지 말 것. publishedAt은 실제 시각 또는 상대시각(예: "1시간 전", "어제 18시")으로 쓰고, 확인 불가면 "시점 불명"으로 명시한다. 배열은 최신순 정렬.
 
-summary는 숫자를 포함한 한국어 1문장(60자 이내)으로 압축. 아래 JSON 배열만 출력(다른 텍스트 금지, 최대 20건, 최신순):
+summary는 숫자를 포함한 한국어 1문장(60자 이내)으로 압축. 아래 JSON 배열만 출력(다른 텍스트 금지, 최대 60건, 최신순). 건수가 많을수록 좋다 — 몇 건 안 되는 뉴스로 시장을 판단하면 오판 위험이 크다. 다만 같은 사안의 중복 기사는 하나로 합친다:
 [{"title":"","summary":"","sentiment":"긍정"|"부정"|"중립","impact":"높음"|"중간"|"낮음","relatedTo":"삼성전자"|"SK하이닉스"|"한미반도체"|"삼성전기"|"DB하이텍"|"한화에어로스페이스"|"현대차"|"KB금융"|"셀트리온"|"KT"|"반도체업황"|"매크로"|"지수"|"레버리지ETF"|"파생시장"|"지정학"|"중국반도체"|"큰손동향"|"실적전망","source":"","publishedAt":"","isBreaking":true|false}]`;
 
 // 구글이 특정 모델의 신규 지원을 중단하거나(예: "gemini-2.5-flash is no longer available
@@ -150,8 +150,11 @@ export async function collectNews(): Promise<{ news: NewsItem[]; error: string |
       const result = await callGeminiGenerate(apiKey, model, {
         contents: [{ parts: [{ text: PROMPT }] }],
         tools: [{ google_search: {} }],
-        // maxOutputTokens: 뉴스 15건 + 검색 스니펫 근거 정도로 충분한 상한을 걸어 출력 토큰 폭주를 방지
-        generationConfig: { temperature: 0.2, maxOutputTokens: 3000 },
+        // maxOutputTokens: 수집 상한을 60건으로 올렸으므로 여기도 같이 올려야 한다.
+        // 1건당 JSON 약 245자 → 60건이면 약 14,700자(한국어 JSON 기준 대략 7~9천 토큰).
+        // 3000으로 두면 응답이 중간에 잘려 JSON 파싱이 통째로 실패하고 뉴스가 0건이 된다(실제로 확인).
+        // 12000은 60건을 여유 있게 담으면서도 출력 토큰 폭주는 막는 값이다.
+        generationConfig: { temperature: 0.2, maxOutputTokens: 12000 },
       });
       if (result.ok) {
         workingModelCache = { name: model, expiresAt: Date.now() + 30 * 60_000 };
@@ -190,33 +193,59 @@ export async function testGeminiConnection(apiKey: string): Promise<{ ok: boolea
   return { ok: false, detail: lastDetail };
 }
 
-function parseNewsJson(text: string): NewsItem[] {
+/**
+ * 잘린 JSON 배열을 살려낸다.
+ *
+ * 60건을 요청하면 모델이 상한에 걸려 마지막 객체를 쓰다 만 채 끝내는 일이 생긴다.
+ * 그때 JSON.parse는 통째로 실패하고 뉴스가 0건이 된다 — 55건을 멀쩡히 받아놓고 전부 버리는 셈이다.
+ * 그래서 마지막으로 완결된 객체(`}`)까지만 남기고 배열을 닫아 다시 시도한다.
+ */
+function salvageTruncatedArray(body: string): Partial<NewsItem>[] | null {
+  const lastObjEnd = body.lastIndexOf("}");
+  if (lastObjEnd === -1) return null;
+  try {
+    return JSON.parse(`${body.slice(0, lastObjEnd + 1)}]`) as Partial<NewsItem>[];
+  } catch {
+    return null;
+  }
+}
+
+/** export는 회귀 테스트(scripts/validate-news-parse.ts)에서 직접 호출하기 위한 것 */
+export function parseNewsJson(text: string): NewsItem[] {
   // 응답에서 JSON 배열 부분만 관대하게 추출
   const start = text.indexOf("[");
+  if (start === -1) return [];
   const end = text.lastIndexOf("]");
-  if (start === -1 || end === -1 || end <= start) return [];
+  const body = end > start ? text.slice(start, end + 1) : text.slice(start);
+
+  let arr: Partial<NewsItem>[] | null = null;
   try {
-    const arr = JSON.parse(text.slice(start, end + 1)) as Partial<NewsItem>[];
-    return arr
-      .filter((n) => n.title && n.summary)
-      .map((n) => ({
-        title: String(n.title),
-        summary: String(n.summary),
-        sentiment: (["긍정", "부정", "중립"] as const).includes(n.sentiment as never)
-          ? (n.sentiment as NewsItem["sentiment"])
-          : "중립",
-        impact: (["높음", "중간", "낮음"] as const).includes(n.impact as never)
-          ? (n.impact as NewsItem["impact"])
-          : "중간",
-        relatedTo: String(n.relatedTo ?? "반도체업황"),
-        source: n.source ? String(n.source) : undefined,
-        publishedAt: n.publishedAt ? String(n.publishedAt) : undefined,
-        isBreaking: n.isBreaking === true,
-      }))
-      // 속보(isBreaking)를 최상단으로, 그 안에서는 원래 순서(최신순) 유지
-      .sort((a, b) => Number(b.isBreaking) - Number(a.isBreaking))
-      .slice(0, 15);
+    arr = JSON.parse(body) as Partial<NewsItem>[];
   } catch {
-    return [];
+    arr = salvageTruncatedArray(body);
   }
+  if (!Array.isArray(arr)) return [];
+
+  return arr
+    .filter((n) => n.title && n.summary)
+    .map((n) => ({
+      title: String(n.title),
+      summary: String(n.summary),
+      sentiment: (["긍정", "부정", "중립"] as const).includes(n.sentiment as never)
+        ? (n.sentiment as NewsItem["sentiment"])
+        : "중립",
+      impact: (["높음", "중간", "낮음"] as const).includes(n.impact as never)
+        ? (n.impact as NewsItem["impact"])
+        : "중간",
+      relatedTo: String(n.relatedTo ?? "반도체업황"),
+      source: n.source ? String(n.source) : undefined,
+      publishedAt: n.publishedAt ? String(n.publishedAt) : undefined,
+      isBreaking: n.isBreaking === true,
+    }))
+    // 속보(isBreaking)를 최상단으로, 그 안에서는 원래 순서(최신순) 유지
+    .sort((a, b) => Number(b.isBreaking) - Number(a.isBreaking))
+    // 수집 상한(프롬프트 60건)보다 넉넉하게 잡는다. 예전에는 여기서 15건으로 잘라
+    // 프롬프트를 아무리 올려도 실제로는 15건만 남았다 — 수집 확대가 무력화되던 지점.
+    // Claude로 가는 양은 selectNewsForPrompt(12건)가 따로 통제하므로 여기서 자를 이유가 없다.
+    .slice(0, 80);
 }

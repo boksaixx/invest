@@ -5,6 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AiAdvice, EngineSignal, MasterScore, NewsItem, Portfolio, Quote } from "@/lib/types";
 import { STOCKS, TICKER_LIST } from "@/lib/types";
 import ForecastChart from "./ForecastChart";
+// 뉴스 집계 — Claude에게 보내는 것과 "똑같은" 계산을 화면에도 쓴다.
+// 사람이 보는 요약과 AI가 받는 요약이 다르면, 왜 그런 판단이 나왔는지 검증할 방법이 없어진다.
+import { computeNewsSignal } from "@/lib/newsSignal";
 // 문서 탭이 인용하는 검증 수치는 반드시 실측 파일에서 읽는다.
 // 코드에 숫자를 박아두면 데이터가 갱신될 때 앱이 조용히 낡은 값을 말하게 된다(과거에 실제로 겪음).
 import analogStats from "@/data/analog-stats.json";
@@ -474,6 +477,10 @@ export default function Home() {
 
   const fearGreed = (market?.macro as { fearGreed?: { value: number; ratingKo: string } } | undefined)?.fearGreed;
 
+  // 뉴스 집계 — 개별 기사를 하나씩 읽고 인상으로 판단하면 오판한다.
+  // 몇 건이 어느 축(업황/지정학/중국/실적/큰손/매크로/지수)에 몰려 있는지를 먼저 본다.
+  const newsSignal = useMemo(() => computeNewsSignal(result?.news ?? []), [result]);
+
   // 추적종목 전체 중 "지금 뭘 해야 하나"를 강도순으로 정렬한 요약 — 화면 맨 위에서 바로 판단할 수 있게
   const summaryRows = useMemo(() => {
     if (!result) return [];
@@ -541,6 +548,76 @@ export default function Home() {
       {/* 글자 크기 조절 — 가- / 가+ 로 전체 화면 글자 크기를 바꿀 수 있다 (다음에 켜도 유지됨) */}
       {/* ===== 탭: 오늘 ===== */}
       <div style={{ display: tab === "오늘" ? undefined : "none" }}>
+
+      {/* ⭐ 오늘 나의 행동 — 이 앱에서 가장 먼저, 가장 크게 보여야 하는 것.
+          "사라는 건지 팔라는 건지 홀딩인지 판단이 안 선다"는 피드백을 반영해,
+          아래 모든 카드보다 위에 종목별로 딱 한 줄씩 결론만 보여준다. */}
+      {result?.signals && result.signals.length > 0 && (
+        <div className="doit">
+          <div className="doit-title">오늘 나의 행동</div>
+          {(() => {
+            const rows = result.signals.map((sg) => {
+              const ai = result.advice?.stocks.find((x) => x.ticker === sg.ticker || x.ticker.includes(sg.ticker));
+              const act = (ai?.action ?? sg.action) as string;
+              const hold = portfolio.holdings.find((x) => x.ticker === sg.ticker && x.qty > 0);
+              const cur = STOCKS[sg.ticker].currency;
+              const px = (v: number | null | undefined) => (v == null ? "" : fmt(v, cur));
+              // 우선순위: 팔 것 → 살 것 → 들고 있을 것 → 안 건드릴 것
+              //
+              // 매도 문구는 반드시 "실제로 보유 중일 때"만 낸다. 보유하지 않은 종목에
+              // "지금 파세요 · 보유 0주"를 띄우면 초보 사용자는 공매도로 오해하거나
+              // 자기가 뭘 갖고 있는지 헷갈린다(QA에서 실제로 발생). 미보유 + 매도신호는
+              // "지금은 사지 마세요"가 올바른 번역이다.
+              const lv = sg.forecastPath?.orderLevels;
+              const isSell = act === "손절" || act === "전량매도" || act === "부분매도";
+              if (isSell && hold) {
+                if (act === "부분매도")
+                  return { rank: 1, kind: "sell", name: sg.name, verb: "절반 파세요", detail: `보유 ${hold.qty}주 중 ${Math.max(1, Math.floor(hold.qty / 2))}주 · ${px(ai?.targetPrice ?? sg.targetPrice)} 부근` };
+                return { rank: 0, kind: "sell", name: sg.name, verb: "지금 파세요", detail: `보유 ${hold.qty}주 전량 · ${px(ai?.stopPrice ?? sg.stopPrice)} 아래면 즉시` };
+              }
+              if (isSell)
+                return { rank: 4, kind: "avoid", name: sg.name, verb: "사지 마세요", detail: "떨어지는 흐름이라 지금 새로 들어갈 자리가 아닙니다 (보유분 없음)" };
+              if (act === "신규매수" || act === "추가매수") {
+                const qty = sg.suggestedQty && sg.suggestedQty > 0 ? `${sg.suggestedQty}주` : "수량은 종목 탭 참고";
+                return { rank: 2, kind: "buy", name: sg.name, verb: hold ? "더 사세요" : "사세요", detail: `${px(ai?.entryPrice ?? sg.suggestedEntryPrice)} · ${qty} · 손절 ${px(ai?.stopPrice ?? sg.stopPrice)}` };
+              }
+              if (hold)
+                return { rank: 3, kind: "hold", name: sg.name, verb: "그대로 두세요", detail: `보유 ${hold.qty}주 · ${px(ai?.stopPrice ?? sg.stopPrice)} 깨지면 그때 파세요` };
+              return { rank: 5, kind: "wait", name: sg.name, verb: "기다리세요", detail: lv ? `${px(lv.buyPrice)}까지 내려오면 그때 검토 (오늘 닿을 확률 ${lv.buyProbPct}%)` : "지금은 살 이유가 없습니다" };
+            }).sort((a, b) => a.rank - b.rank);
+            const act = rows.filter((r) => r.rank <= 3);
+            const wait = rows.filter((r) => r.rank >= 4);
+            return (
+              <>
+                {act.map((r) => (
+                  <div className={`doit-row doit-${r.kind}`} key={r.name}>
+                    <span className="doit-verb">{r.verb}</span>
+                    <span className="doit-name">{r.name}</span>
+                    <span className="doit-detail">{r.detail}</span>
+                  </div>
+                ))}
+                {act.length === 0 && <div className="doit-row doit-wait"><span className="doit-verb">오늘은 쉬세요</span><span className="doit-detail">지금 사거나 팔 이유가 있는 종목이 없습니다</span></div>}
+                {wait.length > 0 && (
+                  <details className="doit-more">
+                    <summary>지금 건드릴 필요 없는 종목 {wait.length}개 보기</summary>
+                    {wait.map((r) => (
+                      <div className={`doit-row doit-${r.kind}`} key={r.name}>
+                        <span className="doit-verb">{r.verb}</span>
+                        <span className="doit-name">{r.name}</span>
+                        <span className="doit-detail">{r.detail}</span>
+                      </div>
+                    ))}
+                  </details>
+                )}
+                <div className="doit-foot">
+                  방향(오를지 내릴지)은 예측하지 않습니다 — 5년 데이터로 세 번 검증했고 세 번 다 동전던지기였습니다.
+                  대신 <b>얼마에·얼마나·어디서 자를지</b>만 말합니다. 주문은 토스 앱에서 직접 넣으세요.
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      )}
 
       {/* 오늘의 작전 — 엔진이 장세(폭락장/급등과열/변동성확대/보통)를 스스로 판별해 그날의 플레이북 제시 */}
       {result?.todayPlan && (
@@ -999,10 +1076,48 @@ export default function Home() {
       {result && result.news.length > 0 && (
         <>
           <div className="section-title">
-            실시간 뉴스·속보
+            뉴스 종합
             <span className="meta">{result.newsLive ? "실시간 수집" : "최근 자동수집분"}</span>
           </div>
+          {/* 기사 하나하나를 읽고 인상으로 판단하면 오판한다. 먼저 "몇 건이 어느 쪽으로 쏠려 있나"를 본다. */}
           <div className="card">
+            <div className={`nsig-tone ${newsSignal.pressure <= -0.6 ? "neg" : newsSignal.pressure >= 0.6 ? "pos" : "neu"}`}>
+              {newsSignal.pressure <= -0.6 ? "악재가 우세합니다" : newsSignal.pressure >= 0.6 ? "호재가 우세합니다" : "호재와 악재가 섞여 있습니다"}
+            </div>
+            <div className="nsig-counts">
+              <div><b>{newsSignal.collected}</b><span>수집</span></div>
+              <div className="pos"><b>{newsSignal.positive}</b><span>호재</span></div>
+              <div className="neg"><b>{newsSignal.negative}</b><span>악재</span></div>
+              <div><b>{newsSignal.breaking}</b><span>속보</span></div>
+              <div><b>{newsSignal.highImpact}</b><span>영향 큼</span></div>
+            </div>
+            {newsSignal.thin && (
+              <div className="nsig-thin">⚠ 뉴스가 {newsSignal.collected}건뿐입니다. 이 정도 표본으로 시장 분위기를 단정하면 오판하기 쉬워, AI도 뉴스 근거의 비중을 낮춰 판단하도록 되어 있습니다.</div>
+            )}
+            {newsSignal.axes.length > 0 && (
+              <div className="nsig-axes">
+                {newsSignal.axes.map((a) => (
+                  <div className="nsig-axis" key={a.axis}>
+                    <div className="nsig-axis-h">
+                      <span className="nsig-axis-n">{a.axis}</span>
+                      <span className="nsig-axis-c">{a.total}건</span>
+                      <span className={`nsig-axis-p ${a.pressure <= -0.3 ? "neg" : a.pressure >= 0.3 ? "pos" : "neu"}`}>
+                        {a.pressure <= -0.3 ? `악재 ${a.negative}건 우위` : a.pressure >= 0.3 ? `호재 ${a.positive}건 우위` : "혼조"}
+                      </span>
+                    </div>
+                    <div className="nsig-axis-note">{a.note}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="nsig-foot">
+              축별로 나눠 보는 이유: 같은 &quot;악재&quot;라도 지정학은 지수 전체를, 중국 증설은 메모리 마진만 때립니다.
+              어느 축에 쏠렸는지가 어느 종목이 흔들릴지를 정합니다.
+            </div>
+          </div>
+
+          <details className="card news-raw">
+            <summary className="news-raw-sum">기사 원문 {result.news.length}건 보기</summary>
             {result.news.map((n, i) => (
               <div className="news-item" key={i}>
                 <div className="news-title">
@@ -1021,7 +1136,7 @@ export default function Home() {
                 </div>
               </div>
             ))}
-          </div>
+          </details>
         </>
       )}
 
@@ -1416,6 +1531,67 @@ export default function Home() {
           전부 공개합니다. 숫자는 모두 5개년 실데이터로 검증한 값이며, 검증 스크립트로 언제든 재현할 수 있습니다.
         </div>
 
+        {/* 조각조각 설명하기 전에, 전체가 어떻게 이어지는지부터 보여준다.
+            수백 번 고친 끝에 남은 최종 구조라 여기서부터 읽는 것이 맞다. */}
+        <div className="doc-sec doc-pipe-sec">
+          <div className="doc-h">⓪ 전체 흐름 한눈에 (최종 정리)</div>
+          <div className="doc-pipe-lead">
+            수집한 수천 개의 값이 <b>화면의 &quot;오늘 나의 행동&quot; 한 줄</b>이 되기까지 6단계를 거칩니다.
+            각 단계는 앞 단계의 결과만 받고, 검증되지 않은 값은 다음 단계로 넘기지 않습니다.
+          </div>
+          {[
+            {
+              n: "1",
+              t: "모은다",
+              d: "시세·분봉·5년 일봉 / SOX·환율·유가·VIX·금리·선물·코스피 / 외국인·기관·연기금·신용잔고 / DART 공시 / 뉴스 최대 60건",
+              k: "종목 10개(반도체 5 + 비반도체 5) × 15분 주기 자동 수집",
+            },
+            {
+              n: "2",
+              t: "정리한다",
+              d: "가격은 지표로(RSI·MACD·볼린저·ADX·VWAP…), 수급은 20일 평균거래량 대비 비율로, 뉴스는 7개 축(업황·지정학·중국·실적·큰손·매크로·지수)별 건수와 압력으로 집계",
+              k: "원문 60건을 축별 집계 + 대표 12건으로 압축 — 정보는 늘리고 토큰은 줄인다",
+            },
+            {
+              n: "3",
+              t: "폭을 잰다",
+              d: "오늘·내일 얼마나 움직일지를 EWMA 변동성 + 실제 분포(꼬리 두꺼움)로 계산. 여기서 나온 σ가 이후 모든 숫자의 뿌리",
+              k: "검증됨 — 90% 구간 실제 적중 88.1%",
+            },
+            {
+              n: "4",
+              t: "장세를 가른다",
+              d: "폭락장 / 급등과열 / 변동성확대 / 보통을 엔진이 스스로 분류하고, 같은 국면이었던 과거 시점만 골라 그때 실제로 무슨 일이 있었는지를 본다",
+              k: "사람이 모드를 고르지 않는다 — 데이터가 정한다",
+            },
+            {
+              n: "5",
+              t: "행동을 만든다",
+              d: "국면에서 통계적 우위가 검증된 행동만 남긴다. 지정가는 σ 비례 + 호가단위로 반올림, 수량은 리스크 1% 규칙, 손절은 σ 배수, 상관 0.7↑ 종목쌍은 합산 50% 제한",
+              k: "우위가 없으면 「오늘은 없음」이 정답",
+            },
+            {
+              n: "6",
+              t: "AI가 검토한다",
+              d: "엔진이 만든 숫자·뉴스 집계·공시를 Claude에 넘겨, 룰이 놓친 정성 요인(트럼프 발언·중국 증설·큰손 포지션)을 반영해 문장으로 정리. 단 AI는 가격을 새로 만들지 못하고, 만들어도 코드가 호가단위로 되돌린다",
+              k: "AI는 해석자이지 계산기가 아니다",
+            },
+          ].map((s) => (
+            <div className="doc-pipe" key={s.n}>
+              <span className="doc-num">{s.n}</span>
+              <div>
+                <div className="doc-pipe-t">{s.t}</div>
+                <div className="doc-pipe-d">{s.d}</div>
+                <div className="doc-chk">{s.k}</div>
+              </div>
+            </div>
+          ))}
+          <div className="doc-pipe-lead" style={{ marginTop: 12 }}>
+            <b>이 구조에서 일부러 빠진 것</b>: &quot;내일 오른다/내린다&quot;는 방향 예측. 세 번 만들어 세 번 실패했고
+            그 기록을 ④에 남겨뒀습니다. 대신 <b>얼마에·얼마나·어디서 자를지</b>에 집중합니다.
+          </div>
+        </div>
+
         <details className="doc-sec">
           <summary className="doc-h">① 무엇을 보고 판단하나 — 입력 변수</summary>
           {[
@@ -1440,7 +1616,7 @@ export default function Home() {
               ["DART 전자공시", "실적·자사주·유상증자 등. 뉴스보다 빠르고 공식적이라 1차 근거로 우선"],
             ]},
             { g: "뉴스·이벤트", items: [
-              ["실시간 속보(Gemini)", "3시간 이내 고영향 뉴스 우선. 트럼프 등 정치인 관세·규제 발언, AI 업황, 전쟁·지정학"],
+              ["실시간 뉴스·속보 (최대 60건)", "12시간 이내 기사만. 종목 뉴스는 20건으로 제한하고 나머지는 지수·업황·지정학·중국·큰손·실적·매크로에 배분 — 뉴스가 몇 건뿐이면 그 몇 건으로 오판하기 때문에 수집량을 3배로 늘렸습니다(③번 항목 참조)"],
               ["반도체 사이클 뉴스", "D램/낸드 현물가 반등 여부(삼성전자·하이닉스 바닥 신호), 빅테크 AI 설비투자(CAPEX) 가이던스 상·하향 — 정형 데이터로 살 수 있는 API가 없어 뉴스로 수집합니다"],
               ["과거 이벤트 타임라인", "2023~2026 반도체·매크로 주요 사건과 그때의 교훈"],
             ]},
@@ -1499,8 +1675,68 @@ export default function Home() {
           </div></div>
         </div>
 
+        {/* 뉴스는 "읽을 거리"가 아니라 "집계 가능한 신호"다 — 이 구분이 이번 개편의 핵심 */}
         <details className="doc-sec">
-          <summary className="doc-h">③ 변수는 서로 어떻게 얽혀 있나 (상관관계와 반영 경로)</summary>
+          <summary className="doc-h">③ 뉴스는 어떻게 숫자가 되나</summary>
+          <div className="doc-pipe-lead">
+            예전에는 뉴스 20건을 모아 10건만 AI에 넘겼습니다. 토큰을 아끼려던 선택이었는데,
+            <b> 몇 건 안 되는 뉴스로 시장 전체를 판단하는 것이 더 큰 위험</b>이었습니다.
+            그래서 <b>수집</b>과 <b>전송</b>을 분리했습니다.
+          </div>
+          <div className="doc-step"><span className="doc-num">1</span><div>
+            <strong>수집 — 최대 60건</strong> (예전 20건). 종목 뉴스는 20건으로 제한하고 나머지 자리를
+            지수·업황·지정학·중국 반도체·큰손 동향·실적 전망·매크로에 배분합니다. 12시간 이내 기사만 받습니다.
+            <div className="doc-chk">수집은 Gemini 몫이라 AI(Claude) 비용과 무관하고, 아래 2단계에서 크기가 고정되도록 압축됩니다</div>
+          </div></div>
+          <div className="doc-step"><span className="doc-num">2</span><div>
+            <strong>집계 — 7개 축으로 나눠 센다.</strong> 기사마다 영향도(높음 3 / 중간 2 / 낮음 1)에
+            부호(호재 +, 악재 −)를 붙여 축별로 더한 뒤 건수로 나눕니다. 이 값이 <b>압력</b>입니다.
+            <table className="doc-tbl" style={{ marginTop: 6 }}><tbody>
+              <tr><th>업황</th><td>D램·낸드·HBM·현물가·가동률 → 국내 반도체 전반</td></tr>
+              <tr><th>지정학</th><td>관세·수출규제·전쟁·중동·미중 → 지수 전체 하방 압력</td></tr>
+              <tr><th>중국</th><td>SMIC·YMTC·CXMT 증설 → 판가 경쟁, 메모리 마진 직격</td></tr>
+              <tr><th>실적</th><td>TSMC·마이크론·ASML 가이던스 → 개별 종목 재평가</td></tr>
+              <tr><th>큰손</th><td>버핏·마이클 버리·13F·공매도·연기금 → 수급 심리</td></tr>
+              <tr><th>매크로</th><td>금리·환율·유가·CPI·연준 → 할인율·밸류에이션</td></tr>
+              <tr><th>지수</th><td>코스피·나스닥·SOX·선물·VIX → 시장 전체 방향</td></tr>
+            </tbody></table>
+            <div className="doc-chk">같은 &quot;악재&quot;라도 축이 다르면 맞는 종목이 다릅니다. 지정학은 10종목 전부를, 중국 증설은 메모리 2종목만 때립니다</div>
+          </div></div>
+          <div className="doc-step"><span className="doc-num">3</span><div>
+            <strong>전송 — 집계 전체 + 원문 12건.</strong> AI에는 (ⓐ) 전체 집계 한 줄, (ⓑ) 축별 건수·압력,
+            (ⓒ) 원문 12건을 함께 보냅니다. 12건은 앞에서 자르지 않고 <b>각 축에서 최소 1건씩 확보한 뒤</b>
+            남는 자리를 속보·고영향 순으로 채웁니다.
+            <div className="doc-chk">앞에서 N건만 자르면 지정학 뉴스가 통째로 빠지는 날이 생깁니다 — 축별 대표 확보가 그걸 막습니다</div>
+            <div className="doc-chk">
+              실측 토큰: 수집이 <b>60건이든 100건이든 930 vs 938토큰</b>으로 사실상 같습니다(집계는 크기가 고정, 원문은 12건 상한).
+              60건을 전부 원문으로 보냈다면 3,716토큰 — <b>4배</b>였습니다.
+            </div>
+            <div className="doc-chk">
+              정직하게 — 예전 방식(수집 20 / 원문 10건 = 667토큰)보다는 <b>263토큰 늘었습니다</b>.
+              축별 집계 138토큰 + 원문 2건 추가분입니다. 수집을 3배로 넓히고 7개 축 누락을 없애는 값으로는
+              싸다고 판단했습니다(10종목 전체 페이로드 5,795토큰의 15%).
+            </div>
+            <div className="doc-chk">
+              축이 &quot;무엇을 때리는지&quot;(고정 문구)는 매번 보내지 않고 1시간 캐시되는 시스템 프롬프트에 넣었습니다 — 재사용 시 비용 1/10.
+            </div>
+          </div></div>
+          <div className="doc-step"><span className="doc-num">4</span><div>
+            <strong>표본이 적으면 그렇다고 말한다.</strong> 수집이 12건 미만이면 집계에
+            &quot;표본이 적어 오판 위험&quot; 표시가 붙고, AI는 뉴스 근거의 비중을 낮추고 기술적·수급 근거를 앞세우도록 지시받습니다.
+            화면에도 같은 경고가 그대로 뜹니다.
+          </div></div>
+          <div className="doc-sec doc-warn" style={{ margin: "12px 0 0", padding: 12 }}>
+            <div style={{ fontWeight: 800, marginBottom: 4, fontSize: "calc(13px * var(--font-scale))" }}>정직한 한계</div>
+            <div style={{ fontSize: "calc(12.5px * var(--font-scale))", lineHeight: 1.55 }}>
+              이 집계는 <b>&quot;지금 무슨 일이 벌어지고 있나&quot;의 요약이지 &quot;그래서 몇 % 오른다&quot;의 예측이 아닙니다.</b>
+              뉴스 유형과 다음날 등락을 연결하려면 과거 뉴스를 전부 라벨링한 데이터가 필요한데 그런 자료가 없습니다.
+              그래서 이 압력 값으로 <b>새 점수를 만들지 않습니다</b>. 사람과 AI가 판단에 참고하도록 그대로 보여줄 뿐입니다.
+            </div>
+          </div>
+        </details>
+
+        <details className="doc-sec">
+          <summary className="doc-h">④ 변수는 서로 어떻게 얽혀 있나 (상관관계와 반영 경로)</summary>
           <div className="doc-flow">
             {[
               {
@@ -1509,9 +1745,9 @@ export default function Home() {
                 into: "① 변동성 추정에서 예상 등락폭을 넓히고 → ② 장세 판별(폭락장/급등과열) 기준이 되며 → ③ 매크로 점수로 개별 종목 점수에 직접 가산·감산",
               },
               {
-                src: "뉴스 (Gemini 실시간)",
-                rel: "고임팩트 악재는 기술적 신호를 무효화. 뉴스 감성 점수가 기술 점수와 어긋나면 보수적으로 채택",
-                into: "① 뉴스 감성 점수로 종목 점수에 반영 → ② 과열 교차검증(기술적 매수 신호라도 악재가 있으면 진입 보류) → ③ Claude가 구조적 리스크로 인용",
+                src: "뉴스 (최대 60건 수집 → 7개 축 집계)",
+                rel: "축마다 때리는 대상이 다름 — 지정학·지수는 10종목 전부, 중국·업황은 메모리 2종목, 실적은 해당 종목만. 고임팩트 악재는 기술적 매수 신호를 무효화",
+                into: "① 뉴스 감성 점수로 종목 점수에 반영 → ② 과열 교차검증(기술적 매수 신호라도 악재가 있으면 진입 보류) → ③ 축별 압력과 원문 12건을 AI에 함께 전달해 구조적 리스크로 인용 (자세히는 ③번 항목)",
               },
               {
                 src: "DART 공시 · 밸류체인 관련사 공시",
@@ -1547,7 +1783,7 @@ export default function Home() {
         </details>
 
         <details className="doc-sec doc-warn">
-          <summary className="doc-h">④ 우리가 시도했다가 버린 것 (실패 기록)</summary>
+          <summary className="doc-h">⑤ 우리가 시도했다가 버린 것 (실패 기록)</summary>
           <div className="doc-fail">
             <div className="doc-fail-t">방향 예측 — 세 번 만들고 세 번 실패했습니다</div>
             <div style={{ marginBottom: 10 }}>
@@ -1605,7 +1841,7 @@ export default function Home() {
         </details>
 
         <details className="doc-sec">
-          <summary className="doc-h">⑤ 검증된 숫자</summary>
+          <summary className="doc-h">⑥ 검증된 숫자</summary>
           <table className="doc-tbl"><tbody>
             <tr><th>폭락(-7%↓) 다음날</th><td>평균 +0.75% · 승률 58% (표본 127회, 거래비용 차감)</td></tr>
             <tr><th>급등(+12%↑) 다음날</th><td>고가 평균 +5.4% · +3% 지정가 도달 64% · 갭하락 출발 42% (50회)</td></tr>
@@ -1618,7 +1854,7 @@ export default function Home() {
         </details>
 
         <div className="doc-sec doc-warn">
-          <div className="doc-h">⑥ 믿으면 안 되는 것 (한계)</div>
+          <div className="doc-h">⑦ 믿으면 안 되는 것 (한계)</div>
           <ul className="doc-ul">
             <li><strong>&quot;매일 5% 수익&quot;은 불가능합니다.</strong> 기회가 있는 날은 96%였지만, 순진하게 추격하는 전략은 6개월 -54%였습니다.</li>
             <li><strong>과거 통계는 미래 보장이 아닙니다.</strong> 특히 표본이 적은 국면(예: 폭락바닥권 23회)은 우연의 영향이 큽니다.</li>
@@ -1632,7 +1868,7 @@ export default function Home() {
         </div>
 
         <details className="doc-sec">
-          <summary className="doc-h">⑦ 직접 확인하기</summary>
+          <summary className="doc-h">⑧ 직접 확인하기</summary>
           <div className="doc-code">npx tsx scripts/validate-volatility.ts</div>
           <div className="doc-cap">변동성 모델 적중률 — 실제 배포 코드를 그대로 호출해 검증</div>
           <div className="doc-code">npx tsx scripts/validate-modes.ts</div>
@@ -1653,6 +1889,8 @@ export default function Home() {
           <div className="doc-cap">상관 비중 한도의 위험/수익 교환비 — 캡 수준별 최악의 날·최대낙폭</div>
           <div className="doc-code">npx tsx scripts/validate-watch-orders.ts</div>
           <div className="doc-cap">예약(감시)주문 효과 — 못 보는 기간 1/3/5거래일별 꼬리 손실 비교</div>
+          <div className="doc-code">npx tsx scripts/validate-news-parse.ts</div>
+          <div className="doc-cap">뉴스 수집 60건이 실제로 60건으로 남는지 + 응답이 잘려도 살아남는지</div>
           <div className="doc-code">npx tsx scripts/build-scenarios.ts</div>
           <div className="doc-cap">국면별 통계 테이블 재생성</div>
         </details>
