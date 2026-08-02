@@ -21,14 +21,38 @@ import scenarioData from "@/data/scenarios.json";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+/**
+ * 클라이언트가 보낸 포트폴리오를 신뢰하지 않고 정규화한다.
+ *
+ * 정상 사용에서는 우리 화면이 만든 값이 오지만, localStorage가 부분 저장되거나(폰 저장공간 부족·
+ * 브라우저 강제 종료) 손상되면 holdings가 문자열이거나 ticker가 추적 목록에 없는 값일 수 있다.
+ * 그대로 두면 STOCKS[ticker].currency에서 터져 500 + 내부 TypeError가 사용자에게 그대로 노출된다.
+ * 값을 버릴지언정 분석 자체는 돌아가야 한다 — 사용자는 그때 화면에서 자산을 다시 입력하면 된다.
+ */
+function normalizePortfolio(raw: unknown): Portfolio {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const num = (v: unknown, dflt: number) => {
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : dflt;
+  };
+  const rawHoldings = Array.isArray(src.holdings) ? src.holdings : [];
+  const holdings = rawHoldings
+    .filter((h): h is Record<string, unknown> => Boolean(h) && typeof h === "object")
+    // 추적 목록에 없는 종목은 조용히 버린다 (STOCKS 조회가 undefined가 되는 것을 막는다)
+    .filter((h) => typeof h.ticker === "string" && (h.ticker as string) in STOCKS)
+    .map((h) => ({
+      ticker: h.ticker as Portfolio["holdings"][number]["ticker"],
+      qty: Math.floor(num(h.qty, 0)),
+      avgPrice: num(h.avgPrice, 0),
+    }))
+    .filter((h) => h.qty > 0 && h.avgPrice > 0);
+  return { cash: num(src.cash, 20_000_000), cashUSD: num(src.cashUSD, 0), holdings };
+}
+
 export async function POST(req: Request) {
   try {
-    const body = (await req.json().catch(() => ({}))) as { portfolio?: Portfolio };
-    const portfolio: Portfolio = {
-      cash: body.portfolio?.cash ?? 20_000_000,
-      cashUSD: body.portfolio?.cashUSD ?? 0,
-      holdings: body.portfolio?.holdings ?? [],
-    };
+    const body = (await req.json().catch(() => null)) as { portfolio?: unknown } | null;
+    const portfolio = normalizePortfolio(body?.portfolio);
 
     const [macro, snapshot, backtest, disclosureResult, relatedFilings, flowResult, creditTrend, ...stockData] = await Promise.all([
       getMacroSnapshot(),
@@ -238,6 +262,12 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
     });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    // 내부 예외 문구(TypeError, 스택 단서)를 그대로 내려보내지 않는다.
+    // 사용자에게는 다음에 뭘 하면 되는지만 알려주고, 원인은 서버 로그로 남긴다.
+    console.error("[/api/advice] 분석 실패:", e);
+    return NextResponse.json(
+      { error: "분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요. 계속 실패하면 '내 자산 입력'에서 보유 종목을 다시 저장해보세요." },
+      { status: 500 },
+    );
   }
 }

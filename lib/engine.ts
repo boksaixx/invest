@@ -1031,6 +1031,28 @@ export function runEngine(params: {
   // (비반도체는 히스토리가 쌓인 뒤 같은 방식으로 재검증해야 한다)
   const up = isSemiconductor(ticker) ? computeUpRate(candles) : null;
 
+  // 파생 가격 최종 검문 — 실제 주문에 쓰이는 값이라 "이상하면 숨긴다"가 원칙이다.
+  //
+  // 왜 필요한가: 외부 시세 API가 잘못된 현재가(파싱 실패, 0, 캔들 이력과 자릿수가 다른 값)를
+  // 돌려주면 ATR 기반 손절·목표가가 음수나 NaN으로 나온다. 그대로 내보내면 화면에
+  // "손절 -35,062원" 같은 값이 뜨고, 초보 사용자는 그 숫자로 실제 주문을 넣는다.
+  // 계산 실패는 "값이 없다"로 표시하는 것이 틀린 값을 보여주는 것보다 항상 낫다.
+  const sanePrice = (v: number | null): number | null => {
+    if (v == null) return null;
+    if (!Number.isFinite(v) || v <= 0) return null;
+    // 현재가에서 배 이상 벌어진 값은 계산 근거(캔들)와 현재가가 어긋났다는 뜻이다
+    if (Number.isFinite(price) && price > 0 && (v > price * 2 || v < price / 2)) return null;
+    return v;
+  };
+  const safeTarget = sanePrice(targetPrice);
+  const safeStop = sanePrice(stopPrice);
+  const safeEntry = sanePrice(suggestedEntryPrice?.price ?? null);
+  if ((targetPrice != null && safeTarget == null) || (stopPrice != null && safeStop == null)) {
+    warnings.unshift(
+      "시세 데이터가 불안정해 목표가·손절가를 계산하지 못했습니다. 이 종목은 증권사 앱에서 현재가를 직접 확인한 뒤 판단하세요.",
+    );
+  }
+
   return {
     ticker,
     name,
@@ -1039,8 +1061,8 @@ export function runEngine(params: {
     confidence,
     reasons,
     warnings,
-    targetPrice,
-    stopPrice,
+    targetPrice: safeTarget,
+    stopPrice: safeStop,
     suggestedBudget,
     suggestedQty,
     pnlPct: pnlPct == null ? null : Math.round(pnlPct * 100) / 100,
@@ -1068,8 +1090,8 @@ export function runEngine(params: {
     upRate: up?.available
       ? { regime: up.regime, upRatePct: up.upRatePct, sampleN: up.sampleN, overallPct: up.overallPct, distinguishable: up.distinguishable, headline: up.headline }
       : null,
-    suggestedEntryPrice: suggestedEntryPrice?.price ?? null,
-    entryPriceBasis: suggestedEntryPrice?.basis ?? null,
+    suggestedEntryPrice: safeEntry,
+    entryPriceBasis: safeEntry == null ? null : (suggestedEntryPrice?.basis ?? null),
   };
 }
 

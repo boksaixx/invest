@@ -78,8 +78,16 @@ export async function fetchQuote(symbol: string, name?: string): Promise<Quote |
   const json = await fetchYahooChart(symbol, "5d", "1d");
   const r = json?.chart.result?.[0];
   if (!r) return null;
-  const price = r.meta.regularMarketPrice;
-  const closes = (r.indicators.quote[0]?.close ?? []).filter((v): v is number => v != null);
+  // 가격 유효성 검사 — 네이버 경로(fetchNaverRealtime)에는 있는데 여기만 빠져 있었다.
+  // 야후가 장 시작 전이나 상장폐지·심볼 변경 시 regularMarketPrice를 null/0/문자열로 돌려주는 일이
+  // 있고, 그 값이 그대로 엔진에 들어가면 손절가가 음수로 계산돼 화면에 뜬다(QA에서 재현).
+  // 값을 못 믿겠으면 "시세 없음"으로 내려보내는 편이 틀린 가격을 보여주는 것보다 안전하다.
+  const price = Number(r.meta.regularMarketPrice);
+  if (!Number.isFinite(price) || price <= 0) {
+    console.warn(`[market] 유효하지 않은 현재가 — ${symbol}: ${r.meta.regularMarketPrice}`);
+    return null;
+  }
+  const closes = (r.indicators.quote[0]?.close ?? []).filter((v): v is number => v != null && Number.isFinite(v));
 
   // 전일 종가 후보 2가지: (1) 야후 메타데이터, (2) 일봉 시계열의 마지막 이전 봉.
   // 정상 상황이면 둘이 거의 같아야 한다. 공휴일 처리 방식 차이 등으로 데이터가 어긋나면
@@ -118,7 +126,12 @@ export async function fetchQuote(symbol: string, name?: string): Promise<Quote |
     change: price - prevClose,
     changePct: prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0,
     currency: r.meta.currency,
-    time: new Date(r.meta.regularMarketTime * 1000).toISOString(),
+    // 야후가 regularMarketTime을 빼먹으면 new Date(NaN) → toISOString()이 예외를 던져
+    // 시세 전체가 날아간다. 시각을 모르면 "지금"으로 두되, 화면의 지연 표시가 과신되지 않도록
+    // 현재 시각을 그대로 쓴다(지연 경고는 다른 신호로도 충분히 나온다).
+    time: new Date(
+      Number.isFinite(r.meta.regularMarketTime) ? r.meta.regularMarketTime * 1000 : Date.now(),
+    ).toISOString(),
   };
 }
 
@@ -276,7 +289,8 @@ export async function getStockQuote(ticker: StockTicker): Promise<Quote | null> 
   // 네이버 실시간 시세(polling.finance.naver.com)는 국내 종목 한정으로 야후보다 지연이 훨씬 짧다
   // (야후는 KRX 데이터 라이선스 특성상 15~20분 이상 지연되는 경우가 흔함) — 국내 종목은
   // 네이버를 우선 시도하고, 실패할 때만(응답 오류·형식 이상 등) 야후로 폴백한다.
-  // 미국 종목(엔비디아 등)은 네이버에 데이터가 없으므로 애초에 시도하지 않고 야후로 바로 간다.
+  // 해외 종목은 네이버에 데이터가 없으므로 애초에 시도하지 않고 야후로 바로 간다
+  // (현재 추적 종목은 전부 국내라 이 경로는 사실상 폴백 전용이다).
   if (STOCKS[ticker].market === "KR") {
     const n = await fetchNaverRealtime(ticker);
     if (n) return n;

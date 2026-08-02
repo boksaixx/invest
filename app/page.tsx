@@ -199,8 +199,12 @@ function manwon(n: number | null | undefined): string {
 }
 
 // 통화 단위(원/달러)를 반영한 가격 표기 — 국내 종목은 "12,345원", 미국 종목은 "$123.45"로 표시한다.
+// 가격 표시의 마지막 방어선.
+// 앞단(시세 파싱·엔진)에서 이미 걸러내지만, 이 앱의 숫자는 사용자가 그대로 증권사에 입력하는
+// 값이라 "이상한 숫자를 예쁘게 렌더링하는" 경로를 아예 남기지 않는다.
+// 음수 주가·Infinity는 존재할 수 없는 값이므로 "-"로 표시한다 (예전에는 "-35,062원", "∞원"으로 그대로 나왔다).
 function fmt(n: number | null | undefined, currency: "KRW" | "USD"): string {
-  if (n == null || isNaN(n)) return "-";
+  if (n == null || !Number.isFinite(n) || n <= 0) return "-";
   if (currency === "USD") return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   return `${Math.round(n).toLocaleString("ko-KR")}원`;
 }
@@ -312,6 +316,9 @@ export default function Home() {
   const [fontScaleIdx, setFontScaleIdx] = useState(1);
   const [fontScaleLoaded, setFontScaleLoaded] = useState(false);
   const [storageBlocked, setStorageBlocked] = useState(false);
+  // 기본 비밀번호로 열려 있으면(APP_PASSWORD 미설정) 배포 주소를 아는 사람은 누구나
+  // 내 보유 종목·수량을 볼 수 있다. 조용히 두면 영영 모르므로 화면에 알린다.
+  const [defaultPassword, setDefaultPassword] = useState(false);
   const [hostname, setHostname] = useState<string | null>(null);
 
   // 글자 크기: CSS 변수(--font-scale)를 바꾸면 전체 폰트 크기가 한 번에 조정되고, 다음에 켜도 유지되도록 저장한다.
@@ -351,6 +358,7 @@ export default function Home() {
       .then((j) => {
         if (j?.snapshot?.collectedAt) setSnapshotTime(j.snapshot.collectedAt);
         if (j?.snapshot?.masterScore) setSnapshotMasterScore(j.snapshot.masterScore as MasterScore);
+        if (j?.defaultPassword) setDefaultPassword(true);
       })
       .catch(() => {});
     const t = setInterval(() => void refreshMarket(), 60_000);
@@ -496,8 +504,24 @@ export default function Home() {
       .sort((a, b) => (b.info!.score ?? 0) - (a.info!.score ?? 0));
   }, [result, portfolio]);
 
+  // 자동수집(GitHub Actions, 15분 간격)이 멈추면 스냅샷이 며칠 전 것일 수 있다.
+  // 시:분만 보여주면 사용자는 당연히 "오늘"로 읽는다 — 며칠 전 매수 매력도를 오늘 것으로
+  // 믿고 주문하는 상황을 막기 위해 경과 시간을 명시하고, 하루가 넘으면 아예 쓰지 않는다.
+  const snapshotAgeH = snapshotTime ? (Date.now() - new Date(snapshotTime).getTime()) / 3_600_000 : null;
+  const snapshotStale = snapshotAgeH != null && snapshotAgeH > 2;
+  const snapshotUnusable = snapshotAgeH != null && snapshotAgeH > 24;
+  const snapshotLabel =
+    snapshotAgeH == null
+      ? null
+      : snapshotAgeH < 1
+        ? `자동수집 ${Math.max(1, Math.round(snapshotAgeH * 60))}분 전`
+        : snapshotAgeH < 24
+          ? `자동수집 ${Math.round(snapshotAgeH)}시간 전`
+          : `⚠ 자동수집 ${Math.floor(snapshotAgeH / 24)}일 전 — 데이터 갱신이 멈췄습니다`;
+
   // "AI 정밀 분석"을 누르기 전에는 자동수집 스냅샷의 마스터 스코어를, 누른 뒤에는 방금 계산된 것을 보여준다.
-  const displayMasterScore = result?.masterScore ?? snapshotMasterScore;
+  // 단 하루 넘게 갱신되지 않은 스냅샷은 오늘의 판단 근거가 될 수 없으므로 아예 보여주지 않는다.
+  const displayMasterScore = result?.masterScore ?? (snapshotUnusable ? null : snapshotMasterScore);
   const masterScoreIsLive = Boolean(result?.masterScore);
 
   return (
@@ -507,7 +531,9 @@ export default function Home() {
           <h1>반도체 트레이딩 AI</h1>
           <div className="sub">
             국내 10종목 단타 어드바이저 (반도체 5 + 비반도체 5)
-            {snapshotTime && ` · 자동수집 ${new Date(snapshotTime).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`}
+            {snapshotLabel && (
+              <span style={snapshotStale ? { color: "#c9353f", fontWeight: 700 } : undefined}> · {snapshotLabel}</span>
+            )}
           </div>
           {hostname && <div className="hostname-tag">접속 주소: {hostname}</div>}
         </div>
@@ -530,6 +556,21 @@ export default function Home() {
 
       {/* 저장소 자가진단 — localStorage 쓰기/읽기가 실패하면 자산정보·분석결과가 계속 초기화되는데,
           원인이 조용히 묻히지 않도록 화면에 명확히 알려준다 */}
+      {defaultPassword && (
+        <div className="storage-warning">
+          <div className="storage-warning-title">🔓 기본 비밀번호로 열려 있습니다</div>
+          <div className="storage-warning-body">
+            이 비밀번호는 공개된 소스코드에 그대로 적혀 있어서 실질적인 보호가 되지 않습니다.
+            주소를 아는 사람은 누구나 <strong>내 보유 종목과 수량</strong>을 볼 수 있고, API 크레딧도 소모시킬 수 있어요.
+          </div>
+          <ul className="storage-warning-list">
+            <li>Vercel 대시보드 → 이 프로젝트 → Settings → Environment Variables로 이동하세요.</li>
+            <li><strong>APP_PASSWORD</strong> 이름으로 나만 아는 비밀번호를 추가하고 저장하세요.</li>
+            <li>저장 후 Deployments 탭에서 최신 배포를 <strong>Redeploy</strong> 하면 적용됩니다.</li>
+          </ul>
+        </div>
+      )}
+
       {storageBlocked && (
         <div className="storage-warning">
           <div className="storage-warning-title">⚠️ 이 브라우저에서 데이터 저장이 차단되어 있어요</div>
@@ -1889,6 +1930,8 @@ export default function Home() {
           <div className="doc-cap">상관 비중 한도의 위험/수익 교환비 — 캡 수준별 최악의 날·최대낙폭</div>
           <div className="doc-code">npx tsx scripts/validate-watch-orders.ts</div>
           <div className="doc-cap">예약(감시)주문 효과 — 못 보는 기간 1/3/5거래일별 꼬리 손실 비교</div>
+          <div className="doc-code">npx tsx scripts/validate-safety.ts</div>
+          <div className="doc-cap">화면의 가격이 &quot;주문 가능한 값&quot;인지 — 시세가 깨져도 음수·NaN 손절가가 나오지 않는지</div>
           <div className="doc-code">npx tsx scripts/validate-news-parse.ts</div>
           <div className="doc-cap">뉴스 수집 60건이 실제로 60건으로 남는지 + 응답이 잘려도 살아남는지</div>
           <div className="doc-code">npx tsx scripts/build-scenarios.ts</div>

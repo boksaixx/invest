@@ -257,7 +257,9 @@ export async function generateAdvice(params: {
   const userMessage = `아래 데이터를 종합해 지금 시점의 최종 매매 조언을 JSON으로 작성하세요. 단타이므로 "지금 뭘 봐야 하는지"를 반드시 구체적 가격과 조건으로 제시하세요.\n\n${userContent}`;
   const baseRequest = {
     model: MODEL,
-    max_tokens: 6800, // 5종목 분량 + insightReport 5개 섹션 출력이 필요해 상향 (실제 과금은 규칙15의 항목 수 제한으로 억제)
+    // 10종목 전부를 상세하게 답해도 실측 약 3,150토큰이라 2배 이상 여유가 있다.
+    // (Gemini 쪽에서 상한이 작아 응답이 잘리는 사고가 있었으므로 여기도 여유를 둔다)
+    max_tokens: 6800,
     output_config: {
       effort: "medium" as const, // 사용자가 화면에서 기다리는 호출이므로 응답 속도 우선
       format: { type: "json_schema" as const, schema: ADVICE_SCHEMA as unknown as Record<string, unknown> },

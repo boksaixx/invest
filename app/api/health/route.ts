@@ -67,11 +67,27 @@ export async function GET() {
         : "⚠️ 조회된 종목 없음(참고용 기능, 다른 기능엔 영향 없음)";
   }
 
-  // 5. GitHub 자동 수집 데이터
+  // 5. GitHub 자동 수집 데이터 — 며칠씩 멈춰 있으면 화면의 판단 근거가 낡은다
   const snapshot = await fetchLatestSnapshot();
-  result["자동수집_데이터"] = snapshot
-    ? `정상 (마지막 수집: ${snapshot.collectedAt})`
-    : "아직 없음 — GitHub 저장소 Settings에서 Actions 활성화 후 'Trading Agent' 워크플로를 실행하세요";
+  if (!snapshot) {
+    result["자동수집_데이터"] =
+      "아직 없음 — GitHub 저장소 Settings에서 Actions 활성화 후 'Trading Agent' 워크플로를 실행하세요";
+  } else {
+    const ageH = (Date.now() - new Date(snapshot.collectedAt).getTime()) / 3_600_000;
+    result["자동수집_데이터"] = !Number.isFinite(ageH)
+      ? `⚠️ 수집 시각을 읽을 수 없음 (${snapshot.collectedAt})`
+      : ageH > 24
+        ? `❌ ${Math.floor(ageH / 24)}일째 갱신 없음 (마지막: ${snapshot.collectedAt}) — GitHub Actions 워크플로가 멈췄는지 확인하세요`
+        : ageH > 2
+          ? `⚠️ ${Math.round(ageH)}시간 전 (마지막: ${snapshot.collectedAt}) — 장중이라면 워크플로 실패 여부를 확인하세요`
+          : `정상 (마지막 수집: ${snapshot.collectedAt})`;
+  }
+
+  // 6. 비밀번호 게이트 — 기본값은 공개 저장소에 그대로 적혀 있으므로 실질적인 보호가 아니다.
+  // 배포 주소만 알면 누구나 내 보유 종목·수량을 볼 수 있고 API 크레딧도 소모시킬 수 있다.
+  result["비밀번호_보호"] = process.env.APP_PASSWORD
+    ? "정상 (APP_PASSWORD 환경변수 사용 중)"
+    : "❌ 기본 비밀번호 사용 중 — 이 값은 공개 저장소 코드에 그대로 적혀 있습니다. Vercel 환경변수에 APP_PASSWORD를 설정하세요";
 
   const allOk = !Object.values(result).some((v) => v.includes("❌") || v.startsWith("오류") || v.startsWith("실패"));
   return NextResponse.json({ 종합판정: allOk ? "✅ 모든 구성요소 정상" : "⚠️ 아래 항목을 확인하세요", ...result });
