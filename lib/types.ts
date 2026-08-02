@@ -189,6 +189,19 @@ export interface EngineSignal {
   // 예상 경로(팬 차트용) — 조회 시점부터 마감까지 + D+1/D+2 확률 구간.
   // 검증: D+1/D+2/D+3의 90% 구간 실제 적중률 88.3~89.4% (scripts/validate-forecast-path.ts)
   forecastPath: ForecastPathData | null;
+  // "오늘 오를 확률" — 국면별 실측 상승률과 "기저율과 구분되는가" 판정.
+  // 방향 예측 모델은 3번 시도해 3번 다 기저율을 못 넘었으므로(lib/upRate.ts 주석 참고)
+  // 확률을 만들어내지 않고 과거 실측 비율만 그대로 보여준다.
+  upRate: UpRateSummary | null;
+}
+
+export interface UpRateSummary {
+  regime: string;
+  upRatePct: number;
+  sampleN: number;
+  overallPct: number;
+  distinguishable: boolean;
+  headline: string;
 }
 
 // 예상 경로 데이터 (lib/forecastPath.ts 가 계산). UI 차트 전용이라 Claude에는 보내지 않는다

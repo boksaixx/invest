@@ -1642,3 +1642,23 @@ details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
   color: #9c1f28;
   font-weight: 600;
 }
+
+/* "오늘 상승 확률" — 방향 예측이 실패했다는 사실을 숨기지 않고 그대로 보여주는 블록 */
+.uprate {
+  margin-top: 11px;
+  padding: 10px 12px;
+  background: var(--bg-weak);
+  border-radius: 12px;
+  border-left: 3px solid var(--text-weak);
+}
+.uprate.sig { border-left-color: var(--blue); background: var(--blue-weak); }
+.uprate-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.uprate-k { font-size: calc(12.5px * var(--font-scale)); font-weight: 700; color: var(--text-sub); }
+.uprate-v { font-size: calc(20px * var(--font-scale)); font-weight: 800; letter-spacing: -0.4px; }
+.uprate-base { font-size: calc(11.5px * var(--font-scale)); color: var(--text-weak); font-weight: 600; }
+.uprate-note {
+  margin-top: 4px;
+  font-size: calc(11.5px * var(--font-scale));
+  line-height: 1.55;
+  color: var(--text-sub);
+}

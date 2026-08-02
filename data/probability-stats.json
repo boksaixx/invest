@@ -1,0 +1,238 @@
+{
+ "generatedAt": "2026-08-02T05:38:40.819Z",
+ "universe": "국내 반도체 5종목 (비반도체는 히스토리 축적 후 별도 검증 필요)",
+ "sample": 3345,
+ "baseRatePct": 46.7,
+ "models": {
+  "기저율(정보 없음)": {
+   "brier": 0.2506,
+   "auc": 0.5,
+   "accuracyPct": 50.7
+  },
+  "국면 조건부 기저율": {
+   "brier": 0.2506,
+   "auc": 0.52,
+   "accuracyPct": 51.1
+  },
+  "로지스틱(다중 시간대)": {
+   "brier": 0.2506,
+   "auc": 0.5,
+   "accuracyPct": 51.1
+  }
+ },
+ "best": "국면 조건부 기저율",
+ "brierGainVsBasePct": 0.01,
+ "calibration": [
+  {
+   "range": "0~45%",
+   "n": 648,
+   "predictedPct": 43.8,
+   "actualPct": 52.5
+  },
+  {
+   "range": "45~50%",
+   "n": 2139,
+   "predictedPct": 47.4,
+   "actualPct": 47.8
+  },
+  {
+   "range": "50~55%",
+   "n": 486,
+   "predictedPct": 51.7,
+   "actualPct": 49
+  },
+  {
+   "range": "55~60%",
+   "n": 70,
+   "predictedPct": 56.9,
+   "actualPct": 64.3
+  }
+ ],
+ "topFactors": [
+  {
+   "feature": "kospiPrev",
+   "coef": -0.0588
+  },
+  {
+   "feature": "volumeZ",
+   "coef": 0.0579
+  },
+  {
+   "feature": "ret6m",
+   "coef": 0.0482
+  },
+  {
+   "feature": "volRatio",
+   "coef": 0.0478
+  },
+  {
+   "feature": "ret2w",
+   "coef": -0.0344
+  },
+  {
+   "feature": "ret3y",
+   "coef": 0.0339
+  },
+  {
+   "feature": "ret1w",
+   "coef": -0.0324
+  },
+  {
+   "feature": "ret3d",
+   "coef": 0.028
+  }
+ ],
+ "overallUpRatePct": 48.5,
+ "regimeUpRates": [
+  {
+   "regime": "저변동/조정/횡보",
+   "n": 257,
+   "upRatePct": 40.5,
+   "z": -2.61,
+   "significant": false
+  },
+  {
+   "regime": "고변동/붕괴/단기급락",
+   "n": 149,
+   "upRatePct": 57,
+   "z": 2.12,
+   "significant": false
+  },
+  {
+   "regime": "보통/붕괴/횡보",
+   "n": 162,
+   "upRatePct": 40.7,
+   "z": -2,
+   "significant": false
+  },
+  {
+   "regime": "고변동/고점권/단기급등",
+   "n": 301,
+   "upRatePct": 53.2,
+   "z": 1.63,
+   "significant": false
+  },
+  {
+   "regime": "보통/조정/단기급등",
+   "n": 223,
+   "upRatePct": 53.8,
+   "z": 1.6,
+   "significant": false
+  },
+  {
+   "regime": "보통/조정/횡보",
+   "n": 411,
+   "upRatePct": 51.3,
+   "z": 1.17,
+   "significant": false
+  },
+  {
+   "regime": "저변동/고점권/단기급등",
+   "n": 145,
+   "upRatePct": 53.1,
+   "z": 1.12,
+   "significant": false
+  },
+  {
+   "regime": "보통/고점권/횡보",
+   "n": 484,
+   "upRatePct": 46.1,
+   "z": -1.05,
+   "significant": false
+  },
+  {
+   "regime": "저변동/조정/단기급락",
+   "n": 140,
+   "upRatePct": 52.9,
+   "z": 1.04,
+   "significant": false
+  },
+  {
+   "regime": "고변동/조정/횡보",
+   "n": 170,
+   "upRatePct": 52.4,
+   "z": 1.02,
+   "significant": false
+  },
+  {
+   "regime": "보통/붕괴/단기급락",
+   "n": 217,
+   "upRatePct": 45.2,
+   "z": -0.98,
+   "significant": false
+  },
+  {
+   "regime": "고변동/붕괴/횡보",
+   "n": 104,
+   "upRatePct": 45.2,
+   "z": -0.67,
+   "significant": false
+  },
+  {
+   "regime": "보통/조정/단기급락",
+   "n": 397,
+   "upRatePct": 50.1,
+   "z": 0.66,
+   "significant": false
+  },
+  {
+   "regime": "보통/고점권/단기급등",
+   "n": 629,
+   "upRatePct": 47.2,
+   "z": -0.63,
+   "significant": false
+  },
+  {
+   "regime": "보통/고점권/단기급락",
+   "n": 86,
+   "upRatePct": 45.3,
+   "z": -0.58,
+   "significant": false
+  },
+  {
+   "regime": "저변동/붕괴/횡보",
+   "n": 136,
+   "upRatePct": 47.1,
+   "z": -0.33,
+   "significant": false
+  },
+  {
+   "regime": "고변동/조정/단기급등",
+   "n": 93,
+   "upRatePct": 47.3,
+   "z": -0.22,
+   "significant": false
+  },
+  {
+   "regime": "고변동/조정/단기급락",
+   "n": 124,
+   "upRatePct": 47.6,
+   "z": -0.2,
+   "significant": false
+  },
+  {
+   "regime": "고변동/고점권/횡보",
+   "n": 97,
+   "upRatePct": 49.5,
+   "z": 0.2,
+   "significant": false
+  },
+  {
+   "regime": "저변동/붕괴/단기급락",
+   "n": 114,
+   "upRatePct": 49.1,
+   "z": 0.14,
+   "significant": false
+  },
+  {
+   "regime": "저변동/고점권/횡보",
+   "n": 167,
+   "upRatePct": 47.9,
+   "z": -0.14,
+   "significant": false
+  }
+ ],
+ "significantRegimes": 0,
+ "usableForDisplay": false,
+ "disclaimer": "워크포워드(미래정보 미사용) 실측입니다. usableForDisplay=false면 확률을 사용자에게 숫자로 제시해서는 안 됩니다."
+}

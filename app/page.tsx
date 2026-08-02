@@ -9,6 +9,7 @@ import ForecastChart from "./ForecastChart";
 // 코드에 숫자를 박아두면 데이터가 갱신될 때 앱이 조용히 낡은 값을 말하게 된다(과거에 실제로 겪음).
 import analogStats from "@/data/analog-stats.json";
 import touchStats from "@/data/touch-stats.json";
+import probStats from "@/data/probability-stats.json";
 
 const TICKERS = TICKER_LIST.map((ticker) => ({ ticker, name: STOCKS[ticker].name }));
 
@@ -1202,6 +1203,31 @@ export default function Home() {
               </div>
             )}
 
+            {/* "오늘 오를 확률" — 사용자가 가장 먼저 묻는 질문에 대한 정직한 답.
+                방향 예측 모델을 3번 만들어 3번 다 기저율을 못 넘었으므로 확률을 지어내지 않고
+                "이 국면의 과거 실측 상승률 + 기저율과 구분되는가"를 그대로 보여준다. */}
+            {sig?.upRate && (
+              <div className={`uprate ${sig.upRate.distinguishable ? "sig" : ""}`}>
+                <div className="uprate-top">
+                  <span className="uprate-k">오늘 상승 확률</span>
+                  <span className="uprate-v">{sig.upRate.upRatePct}%</span>
+                  <span className="uprate-base">전체 평균 {sig.upRate.overallPct}%</span>
+                </div>
+                <div className="uprate-note">
+                  {sig.upRate.distinguishable ? (
+                    <>
+                      <b>{sig.upRate.regime}</b> 국면 · 과거 {sig.upRate.sampleN}일 실측 — 평균과 구분되는 드문 경우입니다.
+                    </>
+                  ) : (
+                    <>
+                      <b>{sig.upRate.regime}</b> 국면 · 과거 {sig.upRate.sampleN}일 실측. 전체 평균과 <b>통계적으로 구분되지 않습니다</b> —
+                      오늘 방향은 사실상 동전던지기입니다. 방향이 아니라 <b>얼마에·얼마나·어디서 자를지</b>로 판단하세요.
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* 위 변동성 한 줄을 그림으로 풀어준 것 — 조회 시점부터 마감, 그리고 내일·모레까지 */}
             {sig?.forecastPath && (
               <ForecastChart path={sig.forecastPath} currency={currency} stopPrice={sig.stopPrice} targetPrice={sig.targetPrice} action={action} />
@@ -1522,7 +1548,27 @@ export default function Home() {
         <details className="doc-sec doc-warn">
           <summary className="doc-h">④ 우리가 시도했다가 버린 것 (실패 기록)</summary>
           <div className="doc-fail">
-            <div className="doc-fail-t">방향 예측 (오를까 내릴까)</div>
+            <div className="doc-fail-t">방향 예측 — 세 번 만들고 세 번 실패했습니다</div>
+            <div style={{ marginBottom: 10 }}>
+              &quot;오늘 오를 확률이 몇 %인가&quot;에 답하려고 서로 다른 방식으로 세 번 모델을 만들었습니다.
+              <table className="doc-tbl" style={{ marginTop: 6 }}><tbody>
+                <tr><th>① 유사패턴 kNN (단일 시간대)</th><td>적중률 {analogStats.accuracyPct}% — 기준선 {analogStats.baselineMajorityPct}%에 미달</td></tr>
+                <tr><th>② 다중 시간대 로지스틱</th><td>3일·1주·2주·1개월·6개월·3년 수익률 + 변동성 국면 + 낙폭 + 이격 + RSI + 거래량 + 간밤 SOX + 전일 코스피 <b>13개 특징, 표본 {probStats.sample.toLocaleString()}개</b> → Brier {probStats.models["로지스틱(다중 시간대)"].brier} (기저율과 <b>완전히 동일</b>), AUC {probStats.models["로지스틱(다중 시간대)"].auc} = 정보량 0</td></tr>
+                <tr><th>③ 국면 조건부 (21개 국면)</th><td>다중검정 보정 후 기저율과 유의미하게 다른 국면 <b>{probStats.significantRegimes}개</b></td></tr>
+              </tbody></table>
+              <div className="doc-chk" style={{ marginTop: 6 }}>
+                모델이 단조로워서가 아닙니다. 시간대를 3일부터 3년까지 늘리고 인과 요인(SOX·코스피·거래량)을 넣어도
+                정보량이 늘지 않았습니다. <b>다음날 방향은 이 종목군에서 예측되지 않습니다.</b>
+              </div>
+              <div className="doc-chk">
+                그래서 앱은 &quot;오를 것 같다&quot;를 말하지 않고, 국면별 <b>과거 실측 상승률</b>과
+                &quot;전체 평균과 구분되는가&quot;를 그대로 보여줍니다. 대신 실제로 검증된 세 가지에 집중합니다 —
+                <b>얼마에</b>(지정가+체결확률), <b>얼마나</b>(리스크 1% 수량), <b>어디서 자를지</b>(손절선).
+              </div>
+            </div>
+          </div>
+          <div className="doc-fail" style={{ display: "none" }}>
+            <div className="doc-fail-t">방향 예측 (구버전 기록)</div>
             <div>
               지금 상태를 10개 변수로 벡터화해 과거 {analogStats.poolSize.toLocaleString()}개 패턴 중 가장 닮은 120건을 찾고, 그 다음날 결과로 방향을 예측하는 모델을 만들어 검증했습니다.
               결과는 <b>적중률 {analogStats.accuracyPct}%</b>로 기준선({analogStats.baselineMajorityPct}%)에 못 미쳤고,
@@ -1580,6 +1626,8 @@ export default function Home() {
           <div className="doc-cap">매매 vs 보유 비교 — 1주/1개월/6개월</div>
           <div className="doc-code">npx tsx scripts/validate-forecast-path.ts</div>
           <div className="doc-cap">예상 경로 차트의 구간 적중률 + √시간 가정 점검</div>
+          <div className="doc-code">npx tsx scripts/validate-probability.ts</div>
+          <div className="doc-cap">상승 확률 모델 3종 비교 — Brier·AUC·신뢰도·국면별 실측 상승률</div>
           <div className="doc-code">npx tsx scripts/validate-analog.ts</div>
           <div className="doc-cap">방향 예측 모델의 실패를 재현 — 적중률·확신도별 성적·변수별 기여도</div>
           <div className="doc-code">npx tsx scripts/validate-touch.ts</div>

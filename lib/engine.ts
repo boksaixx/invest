@@ -31,6 +31,7 @@ import { isSemiconductor, STOCKS } from "./types";
 import { computeIndicators } from "./indicators";
 import { CORRELATED_PAIR_MAX_WEIGHT, forecastVolatility } from "./volatility";
 import { roundToTick } from "./tick";
+import { computeUpRate } from "./upRate";
 import { buildForecastPath, driftFromScenario, kstMinutesNow } from "./forecastPath";
 import { computeScenarioOutlook, type ScenarioTable } from "./scenario";
 
@@ -1026,6 +1027,10 @@ export function runEngine(params: {
     !marketPhase.phase.startsWith("휴장"), // 주말·공휴일엔 장중 구간을 그리지 않는다
   );
 
+  // 국면별 실측 상승률 — 반도체 5종목으로 만든 표라 그 종목에만 적용한다.
+  // (비반도체는 히스토리가 쌓인 뒤 같은 방식으로 재검증해야 한다)
+  const up = isSemiconductor(ticker) ? computeUpRate(candles) : null;
+
   return {
     ticker,
     name,
@@ -1060,6 +1065,9 @@ export function runEngine(params: {
     investorFlow: params.investorFlow ?? [],
     volForecast: volForecast.available ? volForecast : null,
     forecastPath: forecastPath.available ? forecastPath : null,
+    upRate: up?.available
+      ? { regime: up.regime, upRatePct: up.upRatePct, sampleN: up.sampleN, overallPct: up.overallPct, distinguishable: up.distinguishable, headline: up.headline }
+      : null,
     suggestedEntryPrice: suggestedEntryPrice?.price ?? null,
     entryPriceBasis: suggestedEntryPrice?.basis ?? null,
   };
