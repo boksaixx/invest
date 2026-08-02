@@ -48,9 +48,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  row-gap: 10px;
-  padding: 8px 4px 20px;
+  gap: 10px;
+  /* nowrap — 예전에는 wrap이라 설정 버튼이 둘째 줄로 밀려 헤더가 141px까지 늘어났다 */
+  flex-wrap: nowrap;
+  padding: 8px 4px 16px;
 }
 .header h1 {
   font-size: calc(21px * var(--font-scale));
@@ -1953,3 +1954,189 @@ details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
 .jn-res { font-weight: 800; flex: 0 0 auto; color: var(--text-weak); }
 .jn-res.pos { color: var(--red); }
 .jn-res.neg { color: var(--blue); }
+
+/* ========================================================================
+   토스식 압축 레이아웃 — 보이는 것만 단순하게.
+   원칙: 한 화면에 답 하나 / 숫자는 크게, 설명은 작게 / 나머지는 탭하면 나온다
+   ======================================================================== */
+
+/* 헤더 — 예전에는 제목·부제·접속주소·버튼 2개가 첫 화면의 1/4을 먹었다 */
+.hd-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
+.hd-left h1 { flex: 0 0 auto; }
+.hd-chip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: calc(11.5px * var(--font-scale));
+  font-weight: 700;
+  color: var(--text-weak);
+  background: var(--gray-weak);
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+.hd-chip-stale { background: var(--red-weak); color: #c9353f; }
+.hd-icon {
+  /* 44px — 애플·구글 접근성 가이드의 최소 터치 크기. 설정 진입점이라 넉넉히 잡는다 */
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: var(--card);
+  border-radius: 12px;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  flex: 0 0 auto;
+}
+
+/* 설정 시트 — 자주 안 쓰는 것은 전부 여기로 */
+.set-sheet { padding: 8px 8px 12px; }
+.set-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 12px;
+  border: none;
+  background: none;
+  font-size: calc(14.5px * var(--font-scale));
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.set-row + .set-row { border-top: 1px solid #f2f4f6; }
+.set-arrow { color: var(--text-weak); font-size: 18px; }
+.set-meta {
+  padding: 10px 12px 2px;
+  font-size: calc(11px * var(--font-scale));
+  color: var(--text-weak);
+  border-top: 1px solid #f2f4f6;
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+/* 경고 칩 — 중요하지만 이 앱의 목적이 아니므로 한 줄로 접는다 */
+.warn-chip {
+  background: #fff8e6;
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+.warn-chip > summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: calc(13px * var(--font-scale));
+  font-weight: 700;
+  color: #8a5a00;
+}
+.warn-chip > summary::-webkit-details-marker { display: none; }
+.warn-chip > summary::after { content: " ▾"; margin-left: auto; padding-left: 8px; }
+.warn-chip[open] > summary::after { content: " ▴"; }
+.warn-body {
+  padding: 0 14px 14px;
+  font-size: calc(12.5px * var(--font-scale));
+  line-height: 1.6;
+  color: #7a4d00;
+}
+.warn-list { margin: 8px 0 0; padding-left: 18px; }
+.warn-list li { margin-bottom: 4px; }
+
+/* 자산 카드 — 큰 숫자 하나가 먼저 눈에 들어와야 한다 */
+.asset-card .asset-label { font-size: calc(12.5px * var(--font-scale)); }
+.asset-more > summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  font-size: calc(12.5px * var(--font-scale));
+  font-weight: 700;
+  color: var(--text-weak);
+  margin-top: 4px;
+}
+.asset-more > summary::-webkit-details-marker { display: none; }
+.asset-more > summary::after { content: " ▾"; margin-left: 4px; }
+.asset-more[open] > summary::after { content: " ▴"; }
+.asset-more-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: calc(13px * var(--font-scale));
+  color: var(--text-sub);
+  border-top: 1px solid #f5f6f8;
+}
+
+/* 종목 행 — 10개 카드를 다 펼치면 6,000px이 넘는다. 기본은 한 줄. */
+.stock-card { padding: 0 20px; }
+.stock-card.open { padding: 0 20px 22px; }
+.stock-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 12px 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+.sr-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sr-name {
+  font-size: calc(16px * var(--font-scale));
+  font-weight: 800;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sr-sub {
+  font-size: calc(12px * var(--font-scale));
+  color: var(--text-weak);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sr-right { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.sr-price { font-size: calc(15px * var(--font-scale)); font-weight: 800; white-space: nowrap; }
+.sr-chg { font-size: calc(12.5px * var(--font-scale)); font-weight: 700; }
+.sr-badge {
+  flex: 0 0 auto;
+  padding: 5px 10px !important;
+  font-size: calc(12px * var(--font-scale)) !important;
+}
+.sr-caret { flex: 0 0 auto; color: var(--text-weak); font-size: 13px; }
+
+/* 오늘의 작전 — 접힘 상태의 요약 줄 */
+.plan-sum {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+}
+.plan-sum::-webkit-details-marker { display: none; }
+.plan-sum::after { content: "▾"; margin-left: auto; color: var(--text-weak); font-size: 13px; }
+.plan-card[open] .plan-sum::after { content: "▴"; }
+.plan-sum-note {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: calc(12.5px * var(--font-scale));
+  font-weight: 600;
+  color: var(--text-sub);
+  line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}

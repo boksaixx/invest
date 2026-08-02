@@ -319,6 +319,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newsNotice, setNewsNotice] = useState<string | null>(null);
   const [health, setHealth] = useState<Record<string, string> | null>(null);
@@ -552,7 +553,7 @@ export default function Home() {
         ? `자동수집 ${Math.max(1, Math.round(snapshotAgeH * 60))}분 전`
         : snapshotAgeH < 24
           ? `자동수집 ${Math.round(snapshotAgeH)}시간 전`
-          : `⚠ 자동수집 ${Math.floor(snapshotAgeH / 24)}일 전 — 데이터 갱신이 멈췄습니다`;
+          : `⚠ ${Math.floor(snapshotAgeH / 24)}일째 갱신 멈춤`;
 
   // "AI 정밀 분석"을 누르기 전에는 자동수집 스냅샷의 마스터 스코어를, 누른 뒤에는 방금 계산된 것을 보여준다.
   // 단 하루 넘게 갱신되지 않은 스냅샷은 오늘의 판단 근거가 될 수 없으므로 아예 보여주지 않는다.
@@ -561,64 +562,77 @@ export default function Home() {
 
   return (
     <main className="container">
+      {/* 헤더 — 예전에는 제목·부제·접속주소·버튼 2개가 첫 화면의 1/4을 먹었다.
+          토스처럼 "지금 필요한 것"만 남기고 나머지는 설정 시트로 내렸다. */}
       <div className="header">
-        <div>
-          <h1>반도체 트레이딩 AI</h1>
-          <div className="sub">
-            국내 10종목 단타 어드바이저 (반도체 5 + 비반도체 5)
-            {snapshotLabel && (
-              <span style={snapshotStale ? { color: "#c9353f", fontWeight: 700 } : undefined}> · {snapshotLabel}</span>
-            )}
-          </div>
-          {hostname && <div className="hostname-tag">접속 주소: {hostname}</div>}
+        <div className="hd-left">
+          <h1>내 주식 비서</h1>
+          {snapshotLabel && (
+            <span className={snapshotStale ? "hd-chip hd-chip-stale" : "hd-chip"}>
+              {snapshotLabel.replace("자동수집 ", "")}
+            </span>
+          )}
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button className="btn-ghost btn" style={{ width: "auto" }} onClick={() => setEditOpen((v) => !v)}>
-            {editOpen ? "닫기" : "내 자산 입력"}
+        <button className="hd-icon" onClick={() => setSettingsOpen((v) => !v)} aria-label="설정">
+          ⚙️
+        </button>
+      </div>
+
+      {/* 설정 — 자주 쓰지 않는 것은 전부 여기로. 기본은 닫혀 있다. */}
+      {settingsOpen && (
+        <div className="card set-sheet">
+          <button className="set-row" onClick={() => { setEditOpen(true); setSettingsOpen(false); }}>
+            <span>💰 내 자산 입력</span><span className="set-arrow">›</span>
+          </button>
+          <button className="set-row" onClick={() => { void runDiagnosis(); setSettingsOpen(false); }}>
+            <span>🔍 연결 상태 확인</span><span className="set-arrow">›</span>
           </button>
           <button
-            className="btn-ghost btn"
-            style={{ width: "auto" }}
+            className="set-row"
             onClick={async () => {
               await fetch("/api/auth", { method: "DELETE" });
               window.location.href = "/login";
             }}
           >
-            로그아웃
+            <span>🚪 로그아웃</span><span className="set-arrow">›</span>
           </button>
-        </div>
-      </div>
-
-      {/* 저장소 자가진단 — localStorage 쓰기/읽기가 실패하면 자산정보·분석결과가 계속 초기화되는데,
-          원인이 조용히 묻히지 않도록 화면에 명확히 알려준다 */}
-      {defaultPassword && (
-        <div className="storage-warning">
-          <div className="storage-warning-title">🔓 기본 비밀번호로 열려 있습니다</div>
-          <div className="storage-warning-body">
-            이 비밀번호는 공개된 소스코드에 그대로 적혀 있어서 실질적인 보호가 되지 않습니다.
-            주소를 아는 사람은 누구나 <strong>내 보유 종목과 수량</strong>을 볼 수 있고, API 크레딧도 소모시킬 수 있어요.
+          <div className="set-meta">
+            추적 종목 10개 (반도체 5 + 비반도체 5){hostname ? ` · ${hostname}` : ""}
           </div>
-          <ul className="storage-warning-list">
-            <li>Vercel 대시보드 → 이 프로젝트 → Settings → Environment Variables로 이동하세요.</li>
-            <li><strong>APP_PASSWORD</strong> 이름으로 나만 아는 비밀번호를 추가하고 저장하세요.</li>
-            <li>저장 후 Deployments 탭에서 최신 배포를 <strong>Redeploy</strong> 하면 적용됩니다.</li>
-          </ul>
         </div>
       )}
 
-      {storageBlocked && (
-        <div className="storage-warning">
-          <div className="storage-warning-title">⚠️ 이 브라우저에서 데이터 저장이 차단되어 있어요</div>
-          <div className="storage-warning-body">
-            자산 정보와 분석 결과가 계속 초기화되는 이유입니다. 아래를 확인해주세요.
+      {/* 저장소 자가진단 — localStorage 쓰기/읽기가 실패하면 자산정보·분석결과가 계속 초기화되는데,
+          원인이 조용히 묻히지 않도록 화면에 명확히 알려준다 */}
+      {/* 경고는 한 줄로 접어둔다 — 중요하지만 이 앱의 목적이 아니다.
+          예전에는 이 박스 하나가 첫 화면의 40%를 먹어 정작 "오늘 뭘 할지"가 밀려났다. */}
+      {defaultPassword && (
+        <details className="warn-chip">
+          <summary>🔓 기본 비밀번호로 열려 있어요 — 설정 방법 보기</summary>
+          <div className="warn-body">
+            이 비밀번호는 공개된 소스코드에 적혀 있어 실질적인 보호가 되지 않습니다.
+            주소를 아는 사람이 <strong>내 보유 종목과 수량</strong>을 볼 수 있어요.
+            <ol className="warn-list">
+              <li>Vercel → 이 프로젝트 → Settings → Environment Variables</li>
+              <li><strong>APP_PASSWORD</strong>에 나만 아는 비밀번호를 추가</li>
+              <li>Deployments에서 최신 배포를 Redeploy</li>
+            </ol>
           </div>
-          <ul className="storage-warning-list">
-            <li>시크릿 모드(프라이빗 브라우징)로 열려 있지 않은지 확인하세요 — 시크릿 모드는 탭을 닫으면 저장된 데이터가 전부 사라집니다.</li>
-            <li>크롬 설정 → 사이트 설정 → 쿠키 및 사이트 데이터에서 이 사이트가 차단되어 있지 않은지 확인하세요.</li>
-            <li>휴대폰 저장공간이 가득 차 있으면 브라우저가 저장을 거부할 수 있으니 공간을 확보해보세요.</li>
-            <li>일부 폰의 "배터리/메모리 최적화" 기능이 브라우저 데이터를 강제로 지우기도 합니다 — 이 앱(또는 크롬)을 최적화 대상에서 제외해보세요.</li>
-          </ul>
-        </div>
+        </details>
+      )}
+
+      {storageBlocked && (
+        <details className="warn-chip">
+          <summary>⚠️ 저장이 차단돼 자산 정보가 계속 지워져요 — 해결 방법</summary>
+          <div className="warn-body">
+            <ol className="warn-list">
+              <li>시크릿 모드로 열려 있지 않은지 확인 (탭을 닫으면 데이터가 사라집니다)</li>
+              <li>크롬 설정 → 사이트 설정 → 쿠키에서 이 사이트가 차단됐는지 확인</li>
+              <li>휴대폰 저장공간 확보</li>
+              <li>배터리·메모리 최적화 대상에서 이 앱(또는 크롬) 제외</li>
+            </ol>
+          </div>
+        </details>
       )}
 
       {/* 글자 크기 조절 — 가- / 가+ 로 전체 화면 글자 크기를 바꿀 수 있다 (다음에 켜도 유지됨) */}
@@ -697,8 +711,7 @@ export default function Home() {
                   </details>
                 )}
                 <div className="doit-foot">
-                  방향(오를지 내릴지)은 예측하지 않습니다 — 5년 데이터로 세 번 검증했고 세 번 다 동전던지기였습니다.
-                  대신 <b>얼마에·얼마나·어디서 자를지</b>만 말합니다. 주문은 토스 앱에서 직접 넣으세요.
+                  주문은 증권사 앱에서 직접 넣으세요 · <b>얼마에·얼마나·어디서 자를지</b>만 말합니다
                 </div>
               </>
             );
@@ -707,12 +720,14 @@ export default function Home() {
       )}
 
       {/* 오늘의 작전 — 엔진이 장세(폭락장/급등과열/변동성확대/보통)를 스스로 판별해 그날의 플레이북 제시 */}
+      {/* 오늘의 작전 — 예전에는 이 카드 하나가 1,056px로 오늘 탭의 80%를 먹었다.
+          "지금 어떤 장이고 무엇을 조심할지" 두 줄만 남기고 나머지는 탭하면 나오게 접었다. */}
       {result?.todayPlan && (
-        <div className={`plan-card plan-${result.todayPlan.regime}`}>
-          <div className="plan-head">
+        <details className={`plan-card plan-${result.todayPlan.regime}`}>
+          <summary className="plan-sum">
             <span className={`plan-badge plan-badge-${result.todayPlan.regime}`}>{result.todayPlan.regime}</span>
-            <span className="plan-regime-note">{result.todayPlan.regimeNote}</span>
-          </div>
+            <span className="plan-sum-note">{result.todayPlan.regimeNote}</span>
+          </summary>
           <div className="plan-market-note">{result.todayPlan.marketNote}</div>
           {/* 보유 vs 트레이딩 — 단타를 권하기 전에 "지금 사고파는 게 유리한 국면인가"부터 알린다 */}
           {result.todayPlan.holdEdge?.available && (
@@ -792,7 +807,7 @@ export default function Home() {
             </div>
           )}
           {result.todayPlan.skippedNote && <div className="plan-skipped">{result.todayPlan.skippedNote}</div>}
-        </div>
+        </details>
       )}
 
       {/* 마스터 스코어: 추적종목 전체+매크로 종합 "오늘의 매수 매력도" — AI 호출 없이 항상 즉시 계산됨 */}
@@ -812,23 +827,24 @@ export default function Home() {
       {/* ===== 탭: 종목 ===== */}
       <div style={{ display: tab === "종목" ? undefined : "none" }}>
       {/* 총 자산 — 원화+달러 보유를 실시간 환율로 환산해 하나의 숫자로 합산 */}
-      <div className="card">
-        <div className="asset-label">총 자산 (현금 + 주식 평가금, 원화 환산)</div>
+      <div className="card asset-card">
+        <div className="asset-label">내 자산</div>
         <div className="asset-total">{won(totalAsset)}원</div>
         {investedCost > 0 && (
           <div className={`asset-pnl ${pctClass(totalPnl)}`}>
-            평가손익 {totalPnl >= 0 ? "+" : ""}
-            {won(totalPnl)}원 ({totalPnlPct >= 0 ? "+" : ""}
-            {totalPnlPct.toFixed(2)}%)
+            {totalPnl >= 0 ? "+" : ""}{won(totalPnl)}원 ({totalPnlPct >= 0 ? "+" : ""}{totalPnlPct.toFixed(1)}%)
           </div>
         )}
-        <div className="hint">
-          현금 {won(portfolio.cash)}원{portfolio.cashUSD > 0 && ` + $${won(portfolio.cashUSD)}`} · 주식 {won(holdingsValueKRW)}원
-          {holdingsValueUSD > 0 && ` + $${won(holdingsValueUSD)}`}
-        </div>
+        {/* 세부 내역은 접어둔다 — 큰 숫자 하나가 먼저 눈에 들어와야 한다 */}
+        <details className="asset-more">
+          <summary>내역</summary>
+          <div className="asset-more-row"><span>현금</span><b>{won(portfolio.cash)}원{portfolio.cashUSD > 0 && ` + $${won(portfolio.cashUSD)}`}</b></div>
+          <div className="asset-more-row"><span>주식</span><b>{won(holdingsValueKRW)}원{holdingsValueUSD > 0 && ` + $${won(holdingsValueUSD)}`}</b></div>
+          {investedCost > 0 && <div className="asset-more-row"><span>산 가격 합계</span><b>{won(investedCost)}원</b></div>}
+        </details>
         {!usdKrwRate && (portfolio.cashUSD > 0 || holdingsValueUSD > 0) && (
           <div className="hint" style={{ color: "var(--red)" }}>
-            환율 정보를 아직 못 가져와 달러 자산이 총 자산에 반영되지 않았어요 (잠시 후 자동 갱신).
+            환율을 아직 못 가져와 달러 자산이 빠져 있어요 (잠시 후 자동 갱신).
           </div>
         )}
       </div>
@@ -1060,7 +1076,7 @@ export default function Home() {
       </button>
       {!loading && result && (
         <div className="hint" style={{ textAlign: "center", marginBottom: 14 }}>
-          {staleness(result.generatedAt, "분석")} · 화면을 껐다 켜도 이 결과는 유지돼요. 새 판단이 필요하면 다시 분석하기를 눌러주세요.
+          {staleness(result.generatedAt, "분석")}
         </div>
       )}
       {error && (
@@ -1126,9 +1142,13 @@ export default function Home() {
         </>
       )}
       {result && !result.aiAvailable && (
-        <div className="card" style={{ fontSize: 13, color: "var(--text-sub)" }}>
-          ANTHROPIC_API_KEY가 설정되지 않아 룰 엔진 신호만 표시합니다. Vercel 환경변수에 키를 추가하면 AI 종합 판단이 활성화됩니다.
-        </div>
+        <details className="warn-chip">
+          <summary>ℹ️ AI 종합 판단이 꺼져 있어요 — 켜는 방법</summary>
+          <div className="warn-body">
+            지금은 계산 엔진의 신호만 보여드리고 있어요. Vercel 환경변수에 <strong>ANTHROPIC_API_KEY</strong>를
+            추가하면 뉴스·공시까지 함께 읽는 AI 종합 판단이 켜집니다.
+          </div>
+        </details>
       )}
 
       {/* 지금 뭘 해야 하나 — 추적종목 전체 강도순 랭킹 (핵심 요약) */}
@@ -1301,52 +1321,44 @@ export default function Home() {
         const action = ai?.action ?? sig?.action;
         const info = computeScoreInfo(held, sig, ai);
         const isOpen = expanded.has(ticker);
-        // 행동이 필요한 종목(보유 중이거나 매수/매도 신호)만 기본으로 펼친다
-        const worthOpening = held || (action != null && action !== "관망" && action !== "보유");
-        const open = cardOpen[ticker] ?? worthOpening;
+        // 기본은 전부 접어둔다. 예전에는 보유·신호 종목을 자동으로 펼쳐서
+        // 종목 탭이 6,000px을 넘었다 — 스크롤 지옥의 원인이었다.
+        // "무엇을 할지"는 오늘 탭의 행동 카드가 이미 말해주므로, 여기는 훑어보는 목록이면 된다.
+        const open = cardOpen[ticker] ?? false;
+        // 한 줄 요약 — 접힌 상태에서 딱 이만큼만 보인다.
+        // 배지(행동)와 어긋나면 안 된다: "손절" 배지 옆에 "매수 검토" 문구가 붙으면 초보자는 혼란만 겪는다.
+        const sellish = action === "손절" || action === "전량매도" || action === "부분매도";
+        const oneLine = held && h
+          ? `${h.qty}주 보유${sig?.pnlPct != null ? ` · ${sig.pnlPct >= 0 ? "+" : ""}${sig.pnlPct}%` : ""}`
+          : sellish
+            ? "지금 새로 살 자리는 아니에요"
+            : sig?.forecastPath?.orderLevels
+              ? `${fmt(sig.forecastPath.orderLevels.buyPrice, currency)}까지 오면 검토`
+              : null;
         return (
-          <div className="card" key={ticker}>
-            <div className="stock-head">
-              <div>
-                <span className="stock-name">{name}</span>
-                <span className="stock-code">{ticker}</span>
-                <div className="stock-price">{fmt(q?.price ?? sig?.price, currency)}</div>
-                <div className={`stock-change ${pctClass(q?.changePct)}`}>
-                  {q ? `${q.change >= 0 ? "▲" : "▼"} ${fmt(Math.abs(q.change), currency)} (${q.changePct >= 0 ? "+" : ""}${q.changePct.toFixed(2)}%)` : "시세 로딩 중…"}
-                </div>
-                {q?.time && <div className="hint" style={{ marginTop: 2 }}>{staleness(q.time)}</div>}
-              </div>
-              <div className="stock-head-right">
-                {action && <span className={badgeClass(action)}>{action}</span>}
-                <button
-                  className="card-toggle"
-                  aria-expanded={open}
-                  onClick={() => setCardOpen((p) => ({ ...p, [ticker]: !open }))}
-                >
-                  {open ? "접기 ▲" : "자세히 ▼"}
-                </button>
-              </div>
-            </div>
+          <div className={open ? "card stock-card open" : "card stock-card"} key={ticker}>
+            {/* 행 전체가 버튼 — 토스처럼 어디를 눌러도 열린다 */}
+            <button
+              className="stock-row"
+              aria-expanded={open}
+              onClick={() => setCardOpen((p) => ({ ...p, [ticker]: !open }))}
+            >
+              <span className="sr-main">
+                <span className="sr-name">{name}</span>
+                {oneLine && <span className="sr-sub">{oneLine}</span>}
+              </span>
+              <span className="sr-right">
+                <span className="sr-price">{fmt(q?.price ?? sig?.price, currency)}</span>
+                <span className={`sr-chg ${pctClass(q?.changePct)}`}>
+                  {q ? `${q.changePct >= 0 ? "+" : ""}${q.changePct.toFixed(1)}%` : "—"}
+                </span>
+              </span>
+              {action && action !== "관망" && <span className={`sr-badge ${badgeClass(action)}`}>{action}</span>}
+              <span className="sr-caret">{open ? "▴" : "▾"}</span>
+            </button>
 
-            {/* 접힌 상태에서도 판단에 필요한 한 줄은 남긴다 — 다 접고 나서 아무것도 모르면 의미가 없다 */}
-            {!open && (
-              <div className="card-collapsed">
-                {info && (
-                  <span className={`cc-score ${info.tone}`}>
-                    {info.score}/10 {info.label}
-                  </span>
-                )}
-                {held && h && <span className="cc-item">보유 {h.qty}주{sig?.pnlPct != null && ` (${sig.pnlPct >= 0 ? "+" : ""}${sig.pnlPct}%)`}</span>}
-                {sig?.forecastPath?.orderLevels && (
-                  <span className="cc-item">
-                    {action === "손절" || action === "전량매도" || action === "부분매도"
-                      ? `정리 지정가 ${fmt(sig.forecastPath.orderLevels.sellPrice, currency)}`
-                      : `지정가 매수 ${fmt(sig.forecastPath.orderLevels.buyPrice, currency)} / 매도 ${fmt(sig.forecastPath.orderLevels.sellPrice, currency)}`}
-                  </span>
-                )}
-              </div>
-            )}
-
+            {open && (<>
+            {q?.time && <div className="hint" style={{ marginBottom: 8 }}>{staleness(q.time)}</div>}
             {held && (
               <div className="kv-row">
                 <span className="k">내 보유</span>
@@ -1360,8 +1372,6 @@ export default function Home() {
                 </span>
               </div>
             )}
-
-            {open && (<>
             {/* 0~10점 매수/매도 강도 — 가장 먼저 봐야 하는 숫자 */}
             {info && (
               <div className="score-panel">
@@ -1779,8 +1789,8 @@ export default function Home() {
           ))}
         </details>
 
-        <div className="doc-sec">
-          <div className="doc-h">② 어떻게 예측하나 — 4단계</div>
+        <details className="doc-sec">
+          <summary className="doc-h">② 어떻게 예측하나 — 단계별</summary>
           <div className="doc-step"><span className="doc-num">1</span><div>
             <strong>변동성 추정</strong> — 내일 얼마나 움직일지를 확률 구간으로 계산합니다.
             최근 변동에 가중치를 크게 두는 방식(EWMA)에 전일 SOX 급변동과 거래량 급증을 반영하고,
@@ -1819,7 +1829,7 @@ export default function Home() {
             <div className="doc-chk">실측 상관: 5년 0.72 → 최근 1년 0.84 → 최근 6개월 0.89 (급변동장일수록 더 붙는다)</div>
             <div className="doc-chk">주의: 이 한도는 수익을 늘리지 않습니다. 위험대비수익은 한도를 바꿔도 거의 그대로였고(6개월 기준 1.57~1.71), 오직 최악의 날을 줄입니다 — 2천만원 기준 -280만원 → -140만원</div>
           </div></div>
-        </div>
+        </details>
 
         {/* 뉴스는 "읽을 거리"가 아니라 "집계 가능한 신호"다 — 이 구분이 이번 개편의 핵심 */}
         <details className="doc-sec">
