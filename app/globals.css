@@ -62,12 +62,6 @@ body {
   font-size: calc(12px * var(--font-scale));
   color: var(--text-weak);
 }
-.hostname-tag {
-  font-size: calc(10px * var(--font-scale));
-  color: var(--text-weak);
-  opacity: 0.7;
-  margin-top: 2px;
-}
 
 .storage-warning {
   background: #fff4e5;
@@ -247,21 +241,9 @@ body {
   font-weight: 700;
 }
 
-.stock-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
 .stock-name {
   font-size: calc(17px * var(--font-scale));
   font-weight: 800;
-}
-.stock-code {
-  font-size: calc(12px * var(--font-scale));
-  color: var(--text-weak);
-  margin-left: 6px;
-  font-weight: 500;
 }
 .stock-price {
   font-size: calc(24px * var(--font-scale));
@@ -951,61 +933,10 @@ body {
 .vol-극단 { background: var(--red-weak); color: #c9353f; }
 
 /* 보유 기준 하루 예상 변동 카드 — 종목별 %가 아니라 "내 계좌 금액"으로 위험을 보여준다 */
-.risk-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-left: 4px solid #c9353f;
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 14px;
-}
-.risk-title {
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 800;
-  margin-bottom: 8px;
-}
-.risk-main {
-  font-size: calc(15px * var(--font-scale));
-  font-weight: 700;
-  line-height: 1.5;
-  margin-bottom: 10px;
-}
-.risk-main strong {
-  font-size: calc(19px * var(--font-scale));
-  color: #c9353f;
-}
 .risk-sub {
   font-weight: 600;
   color: var(--muted);
   font-size: calc(13px * var(--font-scale));
-}
-.risk-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-  font-size: calc(13px * var(--font-scale));
-  padding: 5px 0;
-  border-top: 1px dashed var(--border);
-}
-.risk-row span {
-  color: var(--muted);
-}
-.risk-warn {
-  margin-top: 9px;
-  background: var(--red-weak);
-  color: #c9353f;
-  border-radius: 10px;
-  padding: 9px 11px;
-  font-size: calc(12.5px * var(--font-scale));
-  font-weight: 600;
-  line-height: 1.5;
-}
-.risk-note {
-  margin-top: 9px;
-  font-size: calc(11.5px * var(--font-scale));
-  color: var(--muted);
-  line-height: 1.5;
 }
 
 .intraday-box {
@@ -1360,30 +1291,13 @@ body {
 }
 
 /* 0~10점 매수/매도 강도 — 앱을 처음 보는 사람도 바로 알아보는 핵심 지표 */
+/* 강도 패널 — 원형 배지 + 텍스트 가로 배치였으나, 눈금 방식으로 바꾸면서
+   세로 흐름(제목 → 눈금 → 뜻풀이)이 되어 block으로 되돌린다.
+   flex가 남아 있으면 자식들이 옆으로 밀려 글자가 세로로 짜부라진다. */
 .score-panel {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 4px 0 14px;
+  display: block;
+  margin: 4px 0 16px;
 }
-.score-circle {
-  flex: 0 0 auto;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  color: #fff;
-}
-.score-circle .num { font-size: calc(22px * var(--font-scale)); line-height: 1; letter-spacing: -0.5px; }
-.score-circle .denom { font-size: calc(10px * var(--font-scale)); opacity: 0.85; margin-top: 1px; }
-.score-circle.buy { background: linear-gradient(135deg, #ff8a8d, var(--red)); }
-.score-circle.sell { background: linear-gradient(135deg, #6bb1ff, var(--blue)); }
-.score-circle.danger { background: linear-gradient(135deg, #4a505a, #191f28); }
-.score-circle.neutral { background: linear-gradient(135deg, #c7ccd3, var(--text-weak)); }
 
 .score-text { flex: 1; min-width: 0; }
 .score-action {
@@ -1396,17 +1310,6 @@ body {
   color: var(--text-weak);
   margin-top: 3px;
   line-height: 1.45;
-}
-.score-bar-track {
-  height: 8px;
-  border-radius: 999px;
-  background: var(--gray-weak);
-  margin-top: 8px;
-  overflow: hidden;
-}
-.score-bar-fill {
-  height: 100%;
-  border-radius: 999px;
 }
 .score-bar-fill.buy { background: var(--red); }
 .score-bar-fill.sell { background: var(--blue); }
@@ -1701,41 +1604,6 @@ body {
 .doc-fail-t { font-weight: 800; margin-bottom: 3px; color: #9c1f28; }
 
 /* 종목 카드 접기 — 5개를 다 펼치면 스크롤이 1만 픽셀을 넘는다. 볼 이유가 있는 것만 펼친다 */
-.stock-head-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-.card-toggle {
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--text-sub);
-  border-radius: 10px;
-  padding: 0 12px;
-  min-height: 40px;
-  font-size: calc(12.5px * var(--font-scale));
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.card-collapsed {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed var(--border);
-  font-size: calc(12.5px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text-sub);
-}
-.cc-score {
-  padding: 3px 9px;
-  border-radius: 8px;
-  font-weight: 800;
-}
 .cc-score.buy { background: var(--blue-weak); color: #1b64da; }
 .cc-score.sell { background: var(--red-weak); color: #c9353f; }
 .cc-score.neutral { background: var(--gray-weak); color: var(--text-sub); }
@@ -2139,4 +2007,233 @@ details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+/* 예상 경로 — 탭하면 그 시점 가격을 읽어주는 창.
+   예전에는 오른쪽 눈금 3개만 있어 "이 지점이 얼마인지"를 눈대중해야 했다. */
+.fc-hint-tap {
+  margin-top: 8px;
+  text-align: center;
+  font-size: calc(12px * var(--font-scale));
+  color: var(--text-weak);
+  font-weight: 600;
+}
+.fc-read {
+  margin-top: 10px;
+  background: var(--blue-weak);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.fc-read-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: calc(13px * var(--font-scale));
+  color: #1b64da;
+}
+.fc-read-x {
+  border: none;
+  background: none;
+  color: #1b64da;
+  font-size: 15px;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  line-height: 1;
+}
+.fc-read-now { margin-top: 4px; font-size: calc(14px * var(--font-scale)); }
+.fc-read-band {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 6px;
+}
+.fc-read-band .lo,
+.fc-read-band .hi {
+  font-size: calc(16px * var(--font-scale));
+  font-weight: 800;
+  white-space: nowrap;
+}
+.fc-read-band .lo { color: var(--blue); }
+.fc-read-band .hi { color: var(--red); }
+.fc-read-band .mid {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: calc(11px * var(--font-scale));
+  color: var(--text-sub);
+  white-space: nowrap;
+}
+.fc-read-sub {
+  margin-top: 5px;
+  font-size: calc(11.5px * var(--font-scale));
+  color: var(--text-sub);
+  line-height: 1.5;
+}
+
+/* 매수·매도 강도 눈금 — "7점"이 높은 건지 낮은 건지 알 수 있게 한다 */
+.score-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.score-label { font-size: calc(12.5px * var(--font-scale)); color: var(--text-weak); font-weight: 700; }
+.score-band {
+  font-size: calc(14px * var(--font-scale));
+  font-weight: 800;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: var(--gray-weak);
+  color: var(--text-sub);
+}
+.score-band.buy { background: var(--red-weak); color: var(--red); }
+.score-band.sell { background: var(--blue-weak); color: var(--blue); }
+.score-band.danger { background: #191f28; color: #fff; }
+
+.score-scale { margin-top: 14px; }
+.score-scale-track {
+  position: relative;
+  display: flex;
+  gap: 3px;
+  height: 10px;
+}
+.ss-seg { flex: 1 1 0; background: var(--gray-weak); border-radius: 3px; }
+.ss-seg.on { background: var(--text-weak); }
+.ss-seg.on.buy { background: var(--red); }
+.ss-seg.on.sell { background: var(--blue); }
+.ss-seg.on.danger { background: #191f28; }
+.ss-seg.on.neutral { background: var(--text-weak); }
+.ss-pin {
+  position: absolute;
+  top: -9px;
+  transform: translateX(-50%);
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--text);
+  color: #fff;
+  font-size: calc(13px * var(--font-scale));
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+.ss-pin.buy { background: var(--red); }
+.ss-pin.sell { background: var(--blue); }
+.ss-pin.danger { background: #191f28; }
+.score-scale-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  font-size: calc(10.5px * var(--font-scale));
+  color: var(--text-weak);
+  font-weight: 600;
+}
+.score-mean {
+  margin-top: 10px;
+  font-size: calc(15px * var(--font-scale));
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+/* 보유 종목 3택 — 팔기 / 지키기 / 더 사기.
+   "매도 강도 3/10"처럼 한 축만 보여주면 지키라는 건지 사라는 건지 알 수 없다. */
+.hv { margin: 4px 0 14px; }
+.hv-seg {
+  display: flex;
+  gap: 4px;
+  background: var(--gray-weak);
+  border-radius: 12px;
+  padding: 4px;
+}
+.hv-item {
+  flex: 1 1 0;
+  text-align: center;
+  padding: 10px 4px;
+  border-radius: 9px;
+  font-size: calc(14px * var(--font-scale));
+  font-weight: 700;
+  color: var(--text-weak);
+}
+.hv-item.on { font-weight: 800; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1); }
+.hv-item.on.hv-sell { background: var(--blue); color: #fff; }
+.hv-item.on.hv-keep { background: var(--card); color: var(--text); }
+.hv-item.on.hv-buy { background: var(--red); color: #fff; }
+.hv-why {
+  margin-top: 9px;
+  font-size: calc(13.5px * var(--font-scale));
+  line-height: 1.5;
+  color: var(--text);
+  font-weight: 600;
+}
+.hv-pos {
+  margin-top: 5px;
+  font-size: calc(12px * var(--font-scale));
+  color: var(--text-weak);
+  font-weight: 600;
+}
+
+/* 섹션 제목 — 보유 / 관심 종목을 갈라준다 */
+.sec-h {
+  font-size: calc(13px * var(--font-scale));
+  font-weight: 800;
+  color: var(--text-sub);
+  padding: 14px 4px 8px;
+}
+
+/* 종합 리포트 — 흩어진 카드 대신 "내 계좌 상태"를 한 카드에 */
+.rep-title { font-size: calc(15px * var(--font-scale)); font-weight: 800; margin-bottom: 12px; }
+.rep-grid { display: flex; gap: 6px; }
+.rep-cell {
+  flex: 1 1 0;
+  background: var(--bg-sub);
+  border-radius: 12px;
+  padding: 12px 4px;
+  text-align: center;
+}
+.rep-cell b { display: block; font-size: calc(22px * var(--font-scale)); font-weight: 800; color: var(--text-weak); }
+.rep-cell span { display: block; font-size: calc(11.5px * var(--font-scale)); color: var(--text-weak); margin-top: 2px; font-weight: 600; }
+.rep-cell.on.rep-sell b, .rep-cell.on.rep-sell span { color: var(--blue); }
+.rep-cell.on.rep-sell { background: var(--blue-weak); }
+.rep-cell.on.rep-buy b, .rep-cell.on.rep-buy span { color: var(--red); }
+.rep-cell.on.rep-buy { background: var(--red-weak); }
+.rep-cell.on.rep-keep b, .rep-cell.on.rep-keep span { color: var(--text); }
+.rep-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f5f6f8;
+  font-size: calc(13px * var(--font-scale));
+}
+.rep-row:first-of-type { margin-top: 8px; }
+.rep-row span { color: var(--text-weak); font-weight: 600; }
+.rep-row b { font-weight: 800; white-space: nowrap; }
+.rep-more > summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: calc(12.5px * var(--font-scale));
+  font-weight: 700;
+  color: var(--text-weak);
+}
+.rep-more > summary::-webkit-details-marker { display: none; }
+.rep-more > summary::after { content: " ▾"; margin-left: 4px; }
+.rep-more[open] > summary::after { content: " ▴"; }
+.rep-warn {
+  margin-top: 8px;
+  background: var(--red-weak);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: calc(12px * var(--font-scale));
+  line-height: 1.5;
+  color: #c9353f;
+  font-weight: 600;
+}
+.rep-note {
+  margin-top: 10px;
+  font-size: calc(11.5px * var(--font-scale));
+  color: var(--text-weak);
+  line-height: 1.55;
 }

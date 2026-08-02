@@ -239,7 +239,6 @@ export async function POST(req: Request) {
       macro,
       news,
       portfolio,
-      history: snapshot,
       events: eventsData.events,
       relativeStrengthSummary,
       sectorConcentrationWarning: concentration.warning,

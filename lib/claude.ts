@@ -232,7 +232,6 @@ export async function generateAdvice(params: {
   macro: MacroSnapshot;
   news: NewsItem[];
   portfolio: Portfolio;
-  history?: CollectedSnapshot | null; // 자동 수집된 직전 스냅샷 (있으면 맥락 제공)
   events?: { date: string; title: string; note: string }[]; // 과거 주요 이벤트 타임라인
   relativeStrengthSummary?: string | null; // 국내/미국 그룹별 상대강도 랭킹 요약 (합쳐진 문자열)
   sectorConcentrationWarning?: string | null; // 섹터/테마 집중도 경고 (있으면)
@@ -346,7 +345,6 @@ export function buildAdvicePayload(params: {
   macro: MacroSnapshot;
   news: NewsItem[];
   portfolio: Portfolio;
-  history?: CollectedSnapshot | null;
   events?: { date: string; title: string; note: string }[];
   relativeStrengthSummary?: string | null;
   sectorConcentrationWarning?: string | null;
@@ -560,7 +558,11 @@ export function buildAdvicePayload(params: {
     최신뉴스: selectNewsForPrompt(news, 12).map((n) =>
       `${n.isBreaking ? "[속보]" : ""}[${n.sentiment}/${n.impact}] ${n.title} — ${n.summary} (${n.relatedTo}, ${n.source}, ${n.publishedAt})`,
     ),
-    직전_자동수집_요약: params.history?.aiSummary ?? null,
+    // 직전 자동수집 브리핑(history.aiSummary)은 보내지 않는다.
+    //
+    // 종목별 매수강도·가격·트리거를 마크다운 장식까지 붙여 992자(약 450토큰) 차지했는데,
+    // 그 내용은 전부 위 룰엔진_신호에 지금 값으로 다시 들어 있다. 게다가 최대 15분 전 스냅샷이라
+    // 현재 판단과 어긋날 수 있어, 중복인 동시에 오히려 혼선을 만드는 입력이었다.
   });
 }
 

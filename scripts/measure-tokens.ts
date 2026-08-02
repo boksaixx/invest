@@ -157,7 +157,6 @@ async function main() {
     macro: snap.macro,
     news: snap.news,
     portfolio: { cash: 20_000_000, cashUSD: 0, holdings: [] },
-    history: snap,
     events: events.events,
     relativeStrengthSummary: null,
     sectorConcentrationWarning: null,

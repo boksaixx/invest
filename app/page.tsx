@@ -1,7 +1,7 @@
 "use client";
 
 // 토스 스타일 대시보드: 현금/보유 입력 → 실시간 시세 → AI 매매 조언
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import type { AiAdvice, EngineSignal, MasterScore, NewsItem, Portfolio, Quote } from "@/lib/types";
 import { STOCKS, TICKER_LIST } from "@/lib/types";
 import ForecastChart from "./ForecastChart";
@@ -269,6 +269,44 @@ interface ScoreInfo {
   tone: "buy" | "sell" | "danger" | "neutral";
   label: string; // "매수 강도" | "매도 강도"
   oneLiner: string;
+}
+
+/**
+ * 0~10 숫자만으로는 그게 높은 값인지 낮은 값인지 알 수 없다.
+ * "7점"이 잘한 건지 못한 건지 판단하려면 눈금이 필요하다.
+ *
+ * 구간은 엔진이 실제로 행동을 바꾸는 문턱(4점, 9점)에 맞췄다 —
+ * 4점 미만은 엔진이 "관망"으로 두는 구간이고, 9점 이상은 즉시 정리를 권하는 구간이다.
+ * 임의로 나눈 등급이 아니라 엔진의 의사결정 경계 그대로다.
+ */
+const SCORE_BANDS: { max: number; name: string; buy: string; sell: string }[] = [
+  { max: 1, name: "거의 없음", buy: "살 이유가 거의 없어요", sell: "팔 이유가 거의 없어요" },
+  { max: 3, name: "약함", buy: "아직 근거가 부족해요", sell: "아직 서두를 때는 아니에요" },
+  { max: 6, name: "보통", buy: "조건이 맞으면 검토할 만해요", sell: "슬슬 정리를 생각할 때예요" },
+  { max: 8, name: "강함", buy: "지금 사도 괜찮은 자리예요", sell: "정리하는 쪽이 나아 보여요" },
+  { max: 10, name: "매우 강함", buy: "지금이 가장 강한 신호예요", sell: "지금 정리하세요" },
+];
+/**
+ * 보유 중인 종목의 판단을 세 갈래로 정리한다 — 팔기 / 지키기 / 더 사기.
+ *
+ * 왜 필요한가: 지금까지는 보유 종목에 "매도 강도 3/10"처럼 한 축만 보여줬다.
+ * 낮은 매도 강도가 "지키라"는 뜻인지 "사도 된다"는 뜻인지 초보자는 알 수 없다.
+ * 엔진의 action을 사용자가 실제로 할 수 있는 세 행동으로 번역한다.
+ */
+type HoldChoice = "팔기" | "지키기" | "더 사기";
+function holdVerdict(action: string | undefined): { choice: HoldChoice; why: string } {
+  if (action === "손절") return { choice: "팔기", why: "손절선이 깨졌어요. 원칙대로 정리할 자리입니다" };
+  if (action === "전량매도") return { choice: "팔기", why: "들고 있을 이유가 사라졌어요" };
+  if (action === "부분매도") return { choice: "팔기", why: "절반만 정리해 위험을 줄일 자리예요" };
+  if (action === "추가매수") return { choice: "더 사기", why: "지금까지의 판단이 맞았고, 더 실을 만한 자리예요" };
+  return { choice: "지키기", why: "지금 사거나 팔 이유가 둘 다 약해요. 손절선만 지키면 됩니다" };
+}
+const HOLD_CHOICES: HoldChoice[] = ["팔기", "지키기", "더 사기"];
+
+function scoreBand(score: number, kind: "buy" | "sell"): { name: string; text: string; idx: number } {
+  const i = SCORE_BANDS.findIndex((b) => score <= b.max);
+  const b = SCORE_BANDS[i < 0 ? SCORE_BANDS.length - 1 : i];
+  return { name: b.name, text: kind === "buy" ? b.buy : b.sell, idx: i < 0 ? SCORE_BANDS.length - 1 : i };
 }
 
 // 종목 하나의 최종 표시 점수를 계산 — AI 판단이 있으면 그 값을, 없으면 룰 엔진 1차 계산값을 쓴다.
@@ -849,39 +887,69 @@ export default function Home() {
         )}
       </div>
 
-      {/* 내 돈 기준 하루 변동 예상 — 종목별 %보다 "내 계좌가 얼마 흔들리나"가 훨씬 체감된다 */}
-      {result?.portfolioRisk && portfolio.holdings.some((h) => h.qty > 0) && (
-        <div className="risk-card">
-          <div className="risk-title">💰 내 보유 기준 하루 예상 변동</div>
-          <div className="risk-main">
-            평가금 {manwon(result.portfolioRisk.totalValue)} 기준 하루 ±
-            <strong>{manwon(result.portfolioRisk.sigmaDailyAmount)}</strong>
-            <span className="risk-sub"> (±{result.portfolioRisk.sigmaDailyPct.toFixed(1)}%)</span>
+      {/* 종합 리포트 — 카드가 흩어져 있으면 "그래서 지금 내 계좌 상태가 어떻다는 건가"를
+          한눈에 알 수 없다. 보유 판단 분포와 위험을 한 카드에 모은다. */}
+      {result && portfolio.holdings.some((x) => x.qty > 0) && (() => {
+        const mine = portfolio.holdings
+          .filter((x) => x.qty > 0)
+          .map((x) => {
+            const sg = result.signals.find((v) => v.ticker === x.ticker);
+            const av = result.advice?.stocks.find((v) => v.ticker === x.ticker || v.ticker.includes(x.ticker));
+            return { h: x, sig: sg, verdict: holdVerdict(av?.action ?? sg?.action) };
+          });
+        const cnt = (c: HoldChoice) => mine.filter((m) => m.verdict.choice === c).length;
+        return (
+          <div className="card rep">
+            <div className="rep-title">📊 오늘 내 계좌 리포트</div>
+            <div className="rep-grid">
+              {HOLD_CHOICES.map((c) => (
+                <div key={c} className={`rep-cell${cnt(c) > 0 ? ` on rep-${c === "팔기" ? "sell" : c === "더 사기" ? "buy" : "keep"}` : ""}`}>
+                  <b>{cnt(c)}</b>
+                  <span>{c}</span>
+                </div>
+              ))}
+            </div>
+            {result.dailyRisk && (
+              <div className="rep-row">
+                <span>오늘 손익</span>
+                <b className={result.dailyRisk.todayPnlWon >= 0 ? "up" : "down"}>
+                  {result.dailyRisk.todayPnlWon >= 0 ? "+" : ""}{won(result.dailyRisk.todayPnlWon)}원 ({result.dailyRisk.todayPnlPct >= 0 ? "+" : ""}{result.dailyRisk.todayPnlPct}%)
+                </b>
+              </div>
+            )}
+            {result.portfolioRisk && (
+              <>
+                <div className="rep-row">
+                  <span>하루 흔들리는 폭</span>
+                  <b>±{manwon(result.portfolioRisk.sigmaDailyAmount)}</b>
+                </div>
+                <div className="rep-row">
+                  <span>100일에 한 번 오는 최악</span>
+                  <b className="down">{manwon(result.portfolioRisk.loss1Pct)}</b>
+                </div>
+              </>
+            )}
+            <details className="rep-more">
+              <summary>자세한 위험 지표</summary>
+              {result.portfolioRisk && (
+                <>
+                  <div className="rep-row"><span>20일에 한 번 나쁜 날</span><b className="down">{manwon(result.portfolioRisk.loss5Pct)}</b></div>
+                  <div className="rep-row"><span>실질 분산 효과</span><b>{result.portfolioRisk.effectiveBets.toFixed(1)}종목</b></div>
+                  <div className="rep-row"><span>상관 무시 시 과소평가</span><b>{result.portfolioRisk.naiveUnderestimatePct}%</b></div>
+                </>
+              )}
+              {result.portfolioRisk?.warnings.map((w, i) => <div className="rep-warn" key={`pr${i}`}>{w}</div>)}
+              {result.sectorConcentrationWarning && <div className="rep-warn">{result.sectorConcentrationWarning}</div>}
+              {result.correlationCap?.warnings.map((w, i) => <div className="rep-warn" key={`cc${i}`}>{w}</div>)}
+              <div className="rep-note">
+                과거 5년 실데이터로 검증한 추정치입니다(90% 구간 적중률 약 88%).
+                확정 예측이 아니라 &quot;이 정도 범위는 각오해야 한다&quot;는 기준으로만 쓰세요.
+              </div>
+            </details>
           </div>
-          <div className="risk-row">
-            <span>20일에 한 번 겪는 나쁜 날</span>
-            <strong style={{ color: "#c9353f" }}>{manwon(result.portfolioRisk.loss5Pct)}</strong>
-          </div>
-          <div className="risk-row">
-            <span>100일에 한 번 오는 최악의 날</span>
-            <strong style={{ color: "#c9353f" }}>{manwon(result.portfolioRisk.loss1Pct)}</strong>
-          </div>
-          <div className="risk-row">
-            <span>실질 분산 효과</span>
-            <strong>{result.portfolioRisk.effectiveBets.toFixed(1)}종목 수준</strong>
-          </div>
-          {result.portfolioRisk.warnings.map((w, i) => (
-            <div key={i} className="risk-warn">⚠️ {w}</div>
-          ))}
-          {/* 상관 합산 비중 한도 — 종목당 한도만으로는 "상관 0.9인 두 종목에 반반"이 안 걸러진다 */}
-          {result.correlationCap?.warnings.map((w, i) => (
-            <div key={`cc${i}`} className="risk-warn">⚠️ {w}</div>
-          ))}
-          <div className="risk-note">
-            과거 5년 실데이터로 검증한 추정치입니다(90% 구간 적중률 약 88%). 확정 예측이 아니라 "이 정도 범위는 각오해야 한다"는 기준으로만 쓰세요.
-          </div>
-        </div>
-      )}
+        );
+      })()}
+
 
       {/* 자산 입력 */}
       {editOpen && (
@@ -1310,8 +1378,16 @@ export default function Home() {
       </div>{/* ===== /탭: 정보 2구간 ===== */}
 
       <div style={{ display: tab === "종목" ? undefined : "none" }}>
-      {/* 종목 카드 */}
-      {TICKERS.map(({ ticker, name }) => {
+      {/* 종목을 "내가 가진 것"과 "지켜보는 것"으로 나눈다.
+          섞여 있으면 10개를 하나씩 확인해야 내 포지션을 파악할 수 있다. */}
+      {portfolio.holdings.some((x) => x.qty > 0) && <div className="sec-h">내가 가진 종목</div>}
+      {[...TICKERS]
+        .sort((a, b) => {
+          const ha = portfolio.holdings.some((x) => x.ticker === a.ticker && x.qty > 0) ? 0 : 1;
+          const hb = portfolio.holdings.some((x) => x.ticker === b.ticker && x.qty > 0) ? 0 : 1;
+          return ha - hb;
+        })
+        .map(({ ticker, name }, listIdx, arr) => {
         const currency = STOCKS[ticker].currency;
         const q = market?.quotes?.[ticker];
         const sig = result?.signals.find((s) => s.ticker === ticker);
@@ -1335,8 +1411,13 @@ export default function Home() {
             : sig?.forecastPath?.orderLevels
               ? `${fmt(sig.forecastPath.orderLevels.buyPrice, currency)}까지 오면 검토`
               : null;
+        // 보유 → 관심 종목으로 넘어가는 첫 종목 앞에 구분 제목을 넣는다
+        const prevHeld = listIdx > 0 && portfolio.holdings.some((x) => x.ticker === arr[listIdx - 1].ticker && x.qty > 0);
+        const showWatchHeading = !held && (listIdx === 0 || prevHeld);
         return (
-          <div className={open ? "card stock-card open" : "card stock-card"} key={ticker}>
+          <Fragment key={ticker}>
+          {showWatchHeading && <div className="sec-h">지켜보는 종목</div>}
+          <div className={open ? "card stock-card open" : "card stock-card"}>
             {/* 행 전체가 버튼 — 토스처럼 어디를 눌러도 열린다 */}
             <button
               className="stock-row"
@@ -1359,35 +1440,60 @@ export default function Home() {
 
             {open && (<>
             {q?.time && <div className="hint" style={{ marginBottom: 8 }}>{staleness(q.time)}</div>}
-            {held && (
-              <div className="kv-row">
-                <span className="k">내 보유</span>
-                <span className="v">
-                  {h!.qty}주 · 평단 {fmt(h!.avgPrice, currency)}
-                  {sig?.pnlPct != null && (
-                    <span className={pctClass(sig.pnlPct)}>
-                      {" "}({sig.pnlPct >= 0 ? "+" : ""}{sig.pnlPct}%)
-                    </span>
-                  )}
-                </span>
-              </div>
-            )}
-            {/* 0~10점 매수/매도 강도 — 가장 먼저 봐야 하는 숫자 */}
-            {info && (
-              <div className="score-panel">
-                <div className={`score-circle ${info.tone}`}>
-                  <span className="num">{info.score}</span>
-                  <span className="denom">/10 {info.label}</span>
-                </div>
-                <div className="score-text">
-                  <div className="score-action">{info.oneLiner}</div>
-                  <div className="score-bar-track">
-                    <div className={`score-bar-fill ${info.tone}`} style={{ width: `${info.score * 10}%` }} />
+            {/* 보유 중이면 "지금 뭘 해야 하나"를 세 갈래로 먼저 보여준다.
+                매도 강도 숫자 하나만으로는 지키라는 건지 사라는 건지 알 수 없다. */}
+            {held && (() => {
+              const hv = holdVerdict(action);
+              return (
+                <div className="hv">
+                  <div className="hv-seg">
+                    {HOLD_CHOICES.map((c) => (
+                      <span key={c} className={`hv-item${c === hv.choice ? ` on hv-${c === "팔기" ? "sell" : c === "더 사기" ? "buy" : "keep"}` : ""}`}>
+                        {c}
+                      </span>
+                    ))}
                   </div>
+                  <div className="hv-why">{hv.why}</div>
+                  <div className="hv-pos">
+                    {h!.qty}주 · 평단 {fmt(h!.avgPrice, currency)}
+                    {sig?.pnlPct != null && (
+                      <span className={pctClass(sig.pnlPct)}> · {sig.pnlPct >= 0 ? "+" : ""}{sig.pnlPct}%</span>
+                    )}
+                    {sig?.breakEvenPrice != null && ` · 본전 ${fmt(sig.breakEvenPrice, currency)}`}
+                  </div>
+                </div>
+              );
+            })()}
+            {/* 0~10점 매수/매도 강도 — 가장 먼저 봐야 하는 숫자 */}
+            {info && (() => {
+              const kind: "buy" | "sell" = info.label.includes("매도") ? "sell" : "buy";
+              const band = scoreBand(info.score, kind);
+              return (
+                <div className="score-panel">
+                  <div className="score-top">
+                    <span className="score-label">{info.label}</span>
+                    <span className={`score-band ${info.tone}`}>{band.name}</span>
+                  </div>
+                  {/* 0~10 눈금 — 숫자가 어디쯤인지 눈으로 보이게 한다 */}
+                  <div className="score-scale">
+                    <div className="score-scale-track">
+                      {SCORE_BANDS.map((b, i) => (
+                        <span key={b.name} className={`ss-seg${i <= band.idx ? ` on ${info.tone}` : ""}`} />
+                      ))}
+                      <span className={`ss-pin ${info.tone}`} style={{ left: `${(info.score / 10) * 100}%` }}>
+                        {info.score}
+                      </span>
+                    </div>
+                    <div className="score-scale-ticks">
+                      <span>0 없음</span><span>5 보통</span><span>10 매우 강함</span>
+                    </div>
+                  </div>
+                  <div className="score-mean">{band.text}</div>
+                  <div className="score-action">{info.oneLiner}</div>
                   {sig?.verdict && <div className="score-sub">{sig.verdict}</div>}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {sig && (
               <>
@@ -1675,6 +1781,7 @@ export default function Home() {
             )}
             </>)}
           </div>
+          </Fragment>
         );
       })}
 

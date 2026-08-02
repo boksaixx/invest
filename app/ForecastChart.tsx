@@ -16,6 +16,7 @@
 //  - 중앙선은 예측이 아니라 "제자리 + 과거 같은 국면의 아주 약한 평균 흐름"이다.
 //  - 눈금 글자는 SVG 밖 DOM으로 그린다. SVG는 가로폭에 맞춰 비율대로 늘어나는데, 글자까지
 //    같이 늘어나면 화면 크기마다 글자 크기가 달라져 읽기 나빠진다.
+import { useState } from "react";
 import type { ForecastPathData } from "@/lib/types";
 import { TOUCH_SAMPLE_SIZE } from "@/lib/touchProb";
 
@@ -68,6 +69,11 @@ function shortLabel(label: string): string {
 }
 
 export default function ForecastChart({ path, currency, stopPrice, targetPrice, action }: Props) {
+  // 탭한 지점 — 그림만 보고 "얼마인지" 추정해야 하는 문제를 없앤다.
+  // null이면 아무것도 선택하지 않은 상태(안내 문구를 띄운다).
+  // 훅은 조건부 return보다 먼저 호출해야 한다(React 규칙).
+  const [picked, setPicked] = useState<number | null>(null);
+
   // 엔진이 정리(매도·손절)를 권하는 중이면 매수 지정가를 제시하지 않는다.
   // "지금 팔아라"와 "이 값에 사라"를 나란히 보여주는 것은 사용자를 혼란에 빠뜨리는 것을 넘어
   // 실제 손실로 이어질 수 있다.
@@ -178,6 +184,32 @@ export default function ForecastChart({ path, currency, stopPrice, targetPrice, 
           )}
           <path d={medianPath} fill="none" stroke="var(--blue)" strokeWidth="1.6" />
           <circle cx={x(0)} cy={y(path.currentPrice)} r="2.8" fill="var(--blue)" />
+          {/* 선택된 지점 강조 */}
+          {picked != null && (
+            <>
+              <line x1={x(picked)} x2={x(picked)} y1={PAD_T} y2={H - PAD_B} stroke="var(--blue)" strokeWidth="1.2" />
+              <circle cx={x(picked)} cy={y(pts[picked].p75)} r="3" fill="var(--blue)" />
+              <circle cx={x(picked)} cy={y(pts[picked].p25)} r="3" fill="var(--blue)" />
+            </>
+          )}
+          {/* 투명 탭 영역 — 지점 사이 중간까지를 그 지점의 터치 범위로 잡는다.
+              그림만 보고 가격을 추정해야 했던 문제를 없애기 위한 핵심 조작부다. */}
+          {pts.map((_, i) => {
+            const left = i === 0 ? 0 : (x(i - 1) + x(i)) / 2;
+            const right = i === pts.length - 1 ? W - PAD_R : (x(i) + x(i + 1)) / 2;
+            return (
+              <rect
+                key={`hit${i}`}
+                x={left}
+                y={0}
+                width={Math.max(1, right - left)}
+                height={H}
+                fill="transparent"
+                style={{ cursor: "pointer" }}
+                onClick={() => setPicked((v) => (v === i ? null : i))}
+              />
+            );
+          })}
         </svg>
         <div className="fc-ylabels" aria-hidden="true">
           <span style={{ top: `${pctY(yMax)}%` }}>{fmtTick(yMax, currency)}</span>
@@ -196,6 +228,40 @@ export default function ForecastChart({ path, currency, stopPrice, targetPrice, 
           )}
         </div>
       </div>
+      {/* 탭한 지점의 가격 — 차트에서 바로 읽을 수 있게 한다 */}
+      {picked != null ? (
+        <div className="fc-read">
+          <div className="fc-read-h">
+            <b>{picked === 0 ? path.asOfLabel : pts[picked].label}</b>
+            <button className="fc-read-x" onClick={() => setPicked(null)} aria-label="닫기">✕</button>
+          </div>
+          {picked === 0 ? (
+            <div className="fc-read-now">지금 가격 <b>{fmtPrice(path.currentPrice, currency)}</b></div>
+          ) : (
+            <>
+              <div className="fc-read-band">
+                <span className="lo">{fmtPrice(pts[picked].p25, currency)}</span>
+                <span className="mid">절반 확률로 이 사이</span>
+                <span className="hi">{fmtPrice(pts[picked].p75, currency)}</span>
+              </div>
+              <div className="fc-read-sub">
+                넓게 보면(90%) {fmtPrice(pts[picked].p05, currency)} ~ {fmtPrice(pts[picked].p95, currency)}
+                {path.orderLevels && path.points[picked - 1] && (
+                  <>
+                    {" · "}
+                    {!sellingMode && `매수 지정가 체결 ${path.points[picked - 1].buyFillProbPct}%`}
+                    {!sellingMode && " / "}
+                    {`매도 ${path.points[picked - 1].sellFillProbPct}%`}
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="fc-hint-tap">👆 그래프를 누르면 그 시점의 예상 가격이 나옵니다</div>
+      )}
+
       <div className="fc-legend">
         <span>
           <i className="sw sw-in" />
