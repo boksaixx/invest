@@ -2249,3 +2249,103 @@ details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
   color: #7a5a12;
   font-weight: 600;
 }
+
+/* ===== 자산 입력 모달 =====
+   어느 탭에서 열어도 동작해야 하므로 화면 전체를 덮는 오버레이로 띄운다.
+   (예전에는 "종목" 탭 안에 그려져 다른 탭에서는 열려도 보이지 않았다) */
+.modal-back {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-sheet {
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  background: var(--card);
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.modal-title { font-size: calc(17px * var(--font-scale)); font-weight: 800; }
+.modal-done {
+  border: none;
+  background: none;
+  color: #1b64da;
+  font-size: calc(15px * var(--font-scale));
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 4px;
+  min-height: 40px;
+}
+.modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 18px 18px;
+}
+.modal-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+.save-chip {
+  flex: 0 0 auto;
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 700;
+  color: #0f9d58;
+  white-space: nowrap;
+}
+.modal-close-btn { flex: 1 1 auto; margin: 0; }
+
+/* ===== 연결 상태 확인 결과 ===== */
+.diag-card { padding: 14px 16px; }
+.diag-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 800;
+  font-size: calc(14px * var(--font-scale));
+  margin-bottom: 8px;
+}
+.diag-close {
+  border: none;
+  background: none;
+  color: var(--text-weak);
+  font-size: 16px;
+  cursor: pointer;
+  min-width: 32px;
+  min-height: 32px;
+}
+.diag-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(13px * var(--font-scale));
+  color: var(--text-sub);
+  font-weight: 600;
+  padding: 4px 0;
+}
+.diag-v {
+  font-size: calc(12px * var(--font-scale));
+  text-align: right;
+  max-width: 62%;
+  font-weight: 600;
+}

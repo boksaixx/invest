@@ -1,7 +1,7 @@
 "use client";
 
 // 토스 스타일 대시보드: 현금/보유 입력 → 실시간 시세 → AI 매매 조언
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AiAdvice, EngineSignal, MasterScore, NewsItem, Portfolio, Quote } from "@/lib/types";
 import { STOCKS, TICKER_LIST } from "@/lib/types";
 import ForecastChart from "./ForecastChart";
@@ -361,6 +361,13 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [newsNotice, setNewsNotice] = useState<string | null>(null);
   const [health, setHealth] = useState<Record<string, string> | null>(null);
+  // 연결 상태 확인은 네트워크를 타므로 결과가 오기 전 몇 초간은 화면에 아무 변화가 없다.
+  // 그 침묵을 "버튼이 안 먹는다"로 읽는 게 정상이므로 진행 중임을 반드시 보여준다.
+  const [healthLoading, setHealthLoading] = useState(false);
+  // 자산 입력은 타이핑할 때마다 자동 저장되지만, 저장됐다는 신호가 없으면
+  // 사용자는 "저장이 안 된다"고 느낀다. 마지막 저장 시각을 남겨 화면에 표시한다.
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [portfolioLoaded, setPortfolioLoaded] = useState(false);
   const [snapshotTime, setSnapshotTime] = useState<string | null>(null);
   const [snapshotMasterScore, setSnapshotMasterScore] = useState<MasterScore | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -402,6 +409,7 @@ export default function Home() {
     setStorageBlocked(!testStorageWritable());
     setHostname(window.location.host);
     setPortfolio(loadPortfolio());
+    setPortfolioLoaded(true);
     const cached = loadCachedResult();
     if (cached) setResult(cached);
     setJournal(loadJournal());
@@ -419,10 +427,28 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const savePortfolio = useCallback((p: Portfolio) => {
-    setPortfolio(p);
-    persistPortfolio(p);
+  // 저장은 "다음 상태를 만드는 함수"로 받는다. 예전에는 완성된 Portfolio를 그대로 받았는데,
+  // 그 객체는 렌더 시점의 portfolio를 복사해 만들어진 것이라 입력칸 두 개를 빠르게 연달아
+  // 고치면 뒤 입력이 앞 입력을 덮어써(stale closure) 한쪽이 저장되지 않았다.
+  const savePortfolio = useCallback((next: (prev: Portfolio) => Portfolio) => {
+    setPortfolio(next);
   }, []);
+
+  // 실제 디스크 기록은 상태 변경의 부수효과로 한 곳에서만 처리한다.
+  // 반드시 "사용자가 고쳤을 때만" 쓴다. 불러온 직후에 되쓰지 않는 이유는 안전 때문이다 —
+  // 저장소를 일시적으로 못 읽은 상황(용량 부족·프라이빗 모드·모바일 크롬의 저장소 정리)에서는
+  // loadPortfolio가 기본값을 돌려주는데, 그걸 그대로 기록하면 마지막 백업인 쿠키까지
+  // 기본값으로 덮어써서 보유 내역이 영영 사라진다.
+  const firstPersist = useRef(true);
+  useEffect(() => {
+    if (!portfolioLoaded) return;
+    if (firstPersist.current) {
+      firstPersist.current = false;
+      return;
+    }
+    persistPortfolio(portfolio);
+    setSavedAt(Date.now());
+  }, [portfolio, portfolioLoaded]);
 
   async function refreshMarket() {
     try {
@@ -432,10 +458,17 @@ export default function Home() {
   }
 
   async function runDiagnosis() {
+    setHealthLoading(true);
     try {
       const res = await fetch("/api/health", { cache: "no-store" });
       if (res.ok) setHealth((await res.json()) as Record<string, string>);
-    } catch {}
+      // 예전에는 실패하면 조용히 아무것도 안 했다 — 사용자 입장에선 버튼이 죽은 것과 구별되지 않는다.
+      else setHealth({ 연결_상태: `서버가 오류로 응답했어요 (HTTP ${res.status})` });
+    } catch {
+      setHealth({ 연결_상태: "서버에 연결하지 못했어요. 인터넷 연결을 확인해주세요." });
+    } finally {
+      setHealthLoading(false);
+    }
   }
 
   async function runAnalysis() {
@@ -461,7 +494,7 @@ export default function Home() {
       if (!res.ok || !json) {
         setError(
           json?.error ??
-            `서버 응답 오류 (HTTP ${res.status}). 분석 시간이 초과되었을 수 있어요. 아래 자가 진단 결과를 확인해주세요.`,
+            `서버 응답 오류 (HTTP ${res.status}). 분석 시간이 초과되었을 수 있어요. 화면 위쪽 “연결 상태 확인” 결과를 확인해주세요.`,
         );
         void runDiagnosis();
       } else {
@@ -495,7 +528,7 @@ export default function Home() {
         }
       }
     } catch {
-      setError("네트워크 오류 또는 응답 시간 초과입니다. 아래 자가 진단 결과를 확인해주세요.");
+      setError("네트워크 오류 또는 응답 시간 초과입니다. 화면 위쪽 “연결 상태 확인” 결과를 확인해주세요.");
       void runDiagnosis();
     } finally {
       clearInterval(timer);
@@ -637,6 +670,31 @@ export default function Home() {
           <div className="set-meta">
             추적 종목 10개 (반도체 5 + 비반도체 5){hostname ? ` · ${hostname}` : ""}
           </div>
+        </div>
+      )}
+
+      {/* 연결 상태 확인 결과 — 자산 입력과 같은 이유로 전역에 그린다.
+          예전에는 "오늘" 탭 안에 있어서 다른 탭에서 설정 → 연결 상태 확인을 눌러도
+          결과 카드가 display:none 안에 그려져 버튼이 죽은 것처럼 보였다(사용자 신고 버그).
+          네트워크 응답을 기다리는 동안에도 반드시 무언가를 보여준다. */}
+      {(healthLoading || health) && (
+        <div className="card diag-card">
+          <div className="diag-head">
+            <span>🔍 연결 상태 확인</span>
+            {!healthLoading && (
+              <button className="diag-close" onClick={() => setHealth(null)} aria-label="닫기">✕</button>
+            )}
+          </div>
+          {healthLoading ? (
+            <div className="diag-loading"><span className="spinner" />확인 중이에요…</div>
+          ) : (
+            Object.entries(health ?? {}).map(([k, v]) => (
+              <div className="kv-row" key={k}>
+                <span className="k">{k.replace(/_/g, " ")}</span>
+                <span className="v diag-v">{v}</span>
+              </div>
+            ))
+          )}
         </div>
       )}
 
@@ -951,91 +1009,121 @@ export default function Home() {
       })()}
 
 
-      {/* 자산 입력 */}
+      </div>{/* ===== /탭: 종목 1구간 ===== */}
+
+      {/* 자산 입력 — 반드시 탭 컨테이너 바깥(전역)에 있어야 한다.
+          예전에는 이 폼이 "종목" 탭 안에 있어서, 오늘/뉴스·시장/분석방식 탭에서 설정 →
+          내 자산 입력을 눌러도 editOpen만 true가 되고 폼은 display:none 안에 그려져
+          "아무 일도 일어나지 않는" 것처럼 보였다(사용자 신고 버그).
+          어느 탭에서 열든 화면을 덮는 모달로 띄운다. */}
       {editOpen && (
-        <div className="card">
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>내 자산 입력</div>
-          <div className="input-row">
-            <label>보유 현금</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={portfolio.cash.toLocaleString("ko-KR")}
-              onChange={(e) => {
-                const v = Number(e.target.value.replace(/[^0-9]/g, ""));
-                savePortfolio({ ...portfolio, cash: isNaN(v) ? 0 : v });
-              }}
-            />
-            <span className="input-suffix">원</span>
-          </div>
-          {/* 달러현금 입력은 추적 종목에 달러 종목이 있을 때만 의미가 있다. 지금은 전 종목이
-              원화라 기본적으로 숨기되, 예전에 입력해둔 잔액이 남아 있으면 지울 수 있게 보여준다
-              (숨기기만 하면 총자산에 계속 반영되는데 손댈 방법이 없어진다). */}
-          {(TICKERS.some(({ ticker }) => STOCKS[ticker].currency === "USD") || portfolio.cashUSD > 0) && (
-            <div className="input-row">
-              <label>보유 달러현금</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={portfolio.cashUSD.toLocaleString("en-US")}
-                onChange={(e) => {
-                  const v = Number(e.target.value.replace(/[^0-9.]/g, ""));
-                  savePortfolio({ ...portfolio, cashUSD: isNaN(v) ? 0 : v });
-                }}
-              />
-              <span className="input-suffix">$</span>
+        <div className="modal-back" onClick={() => setEditOpen(false)} role="presentation">
+          <div
+            className="modal-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="내 자산 입력"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-head">
+              <div className="modal-title">내 자산 입력</div>
+              <button className="modal-done" onClick={() => setEditOpen(false)}>완료</button>
             </div>
-          )}
-          {TICKERS.map(({ ticker, name }) => {
-            const currency = STOCKS[ticker].currency;
-            const h = portfolio.holdings.find((x) => x.ticker === ticker);
-            const update = (avgPrice: number, qty: number) => {
-              const rest = portfolio.holdings.filter((x) => x.ticker !== ticker);
-              // qty가 아직 0이어도(평단가만 먼저 입력한 상태) 항목을 유지해야 입력값이 화면에서
-              // 사라지지 않는다 — "실제 보유중"인지는 소비하는 쪽에서 항상 qty>0으로 별도 판단한다.
-              const next =
-                avgPrice > 0 || qty > 0 ? [...rest, { ticker, avgPrice, qty }] : rest;
-              savePortfolio({ ...portfolio, holdings: next });
-            };
-            return (
-              <div key={ticker} style={{ marginTop: 18 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{name}</div>
-                <div className="input-row">
-                  <label>매수 평단가</label>
-                  <input
-                    type="text"
-                    inputMode={currency === "USD" ? "decimal" : "numeric"}
-                    placeholder="0"
-                    value={h ? h.avgPrice.toLocaleString(currency === "USD" ? "en-US" : "ko-KR") : ""}
-                    onChange={(e) => {
-                      const v = Number(e.target.value.replace(currency === "USD" ? /[^0-9.]/g : /[^0-9]/g, ""));
-                      update(isNaN(v) ? 0 : v, h?.qty ?? 0);
-                    }}
-                  />
-                  <span className="input-suffix">{currency === "USD" ? "$" : "원"}</span>
-                </div>
-                <div className="input-row">
-                  <label>보유 수량</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="0 (없으면 비워두세요)"
-                    value={h ? h.qty.toLocaleString("ko-KR") : ""}
-                    onChange={(e) => {
-                      const v = Number(e.target.value.replace(/[^0-9]/g, ""));
-                      update(h?.avgPrice ?? 0, isNaN(v) ? 0 : v);
-                    }}
-                  />
-                  <span className="input-suffix">주</span>
-                </div>
+            <div className="modal-body">
+              <div className="input-row">
+                <label>보유 현금</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={portfolio.cash.toLocaleString("ko-KR")}
+                  onChange={(e) => {
+                    const v = Number(e.target.value.replace(/[^0-9]/g, ""));
+                    savePortfolio((prev) => ({ ...prev, cash: isNaN(v) ? 0 : v }));
+                  }}
+                />
+                <span className="input-suffix">원</span>
               </div>
-            );
-          })}
-          <div className="hint">입력한 정보는 이 휴대폰/브라우저에만 저장됩니다. 서버에 저장되지 않아요.</div>
+              {/* 달러현금 입력은 추적 종목에 달러 종목이 있을 때만 의미가 있다. 지금은 전 종목이
+                  원화라 기본적으로 숨기되, 예전에 입력해둔 잔액이 남아 있으면 지울 수 있게 보여준다
+                  (숨기기만 하면 총자산에 계속 반영되는데 손댈 방법이 없어진다). */}
+              {(TICKERS.some(({ ticker }) => STOCKS[ticker].currency === "USD") || portfolio.cashUSD > 0) && (
+                <div className="input-row">
+                  <label>보유 달러현금</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={portfolio.cashUSD.toLocaleString("en-US")}
+                    onChange={(e) => {
+                      const v = Number(e.target.value.replace(/[^0-9.]/g, ""));
+                      savePortfolio((prev) => ({ ...prev, cashUSD: isNaN(v) ? 0 : v }));
+                    }}
+                  />
+                  <span className="input-suffix">$</span>
+                </div>
+              )}
+              {TICKERS.map(({ ticker, name }) => {
+                const currency = STOCKS[ticker].currency;
+                const h = portfolio.holdings.find((x) => x.ticker === ticker);
+                const update = (avgPrice: number, qty: number) => {
+                  savePortfolio((prev) => {
+                    const rest = prev.holdings.filter((x) => x.ticker !== ticker);
+                    // qty가 아직 0이어도(평단가만 먼저 입력한 상태) 항목을 유지해야 입력값이 화면에서
+                    // 사라지지 않는다 — "실제 보유중"인지는 소비하는 쪽에서 항상 qty>0으로 별도 판단한다.
+                    const next = avgPrice > 0 || qty > 0 ? [...rest, { ticker, avgPrice, qty }] : rest;
+                    return { ...prev, holdings: next };
+                  });
+                };
+                return (
+                  <div key={ticker} style={{ marginTop: 18 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{name}</div>
+                    <div className="input-row">
+                      <label>매수 평단가</label>
+                      <input
+                        type="text"
+                        inputMode={currency === "USD" ? "decimal" : "numeric"}
+                        placeholder="0"
+                        value={h ? h.avgPrice.toLocaleString(currency === "USD" ? "en-US" : "ko-KR") : ""}
+                        onChange={(e) => {
+                          const v = Number(e.target.value.replace(currency === "USD" ? /[^0-9.]/g : /[^0-9]/g, ""));
+                          update(isNaN(v) ? 0 : v, h?.qty ?? 0);
+                        }}
+                      />
+                      <span className="input-suffix">{currency === "USD" ? "$" : "원"}</span>
+                    </div>
+                    <div className="input-row">
+                      <label>보유 수량</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0 (없으면 비워두세요)"
+                        value={h ? h.qty.toLocaleString("ko-KR") : ""}
+                        onChange={(e) => {
+                          const v = Number(e.target.value.replace(/[^0-9]/g, ""));
+                          update(h?.avgPrice ?? 0, isNaN(v) ? 0 : v);
+                        }}
+                      />
+                      <span className="input-suffix">주</span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="hint">입력한 정보는 이 휴대폰/브라우저에만 저장됩니다. 서버에 저장되지 않아요.</div>
+            </div>
+            {/* 저장 버튼이 따로 없다는 사실 자체가 "저장이 안 된다"는 오해를 만들었다.
+                입력하는 즉시 저장된다는 것을 눈에 보이게 알려주고, 닫는 버튼을 명확히 둔다. */}
+            <div className="modal-foot">
+              <span className="save-chip">
+                {savedAt
+                  ? `✓ ${new Date(savedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 저장됨`
+                  : "입력하면 바로 저장돼요"}
+              </span>
+              <button className="btn btn-primary modal-close-btn" onClick={() => setEditOpen(false)}>
+                저장하고 닫기
+              </button>
+            </div>
+          </div>
         </div>
       )}
-
-      </div>{/* ===== /탭: 종목 1구간 ===== */}
 
       {/* ===== 탭: 정보 ===== */}
       <div style={{ display: tab === "정보" ? undefined : "none" }}>
@@ -1155,17 +1243,6 @@ export default function Home() {
       {!error && newsNotice && (
         <div className="card" style={{ color: "var(--text-sub)", fontSize: 13, fontWeight: 600 }}>
           ℹ️ {newsNotice}
-        </div>
-      )}
-      {health && (
-        <div className="card">
-          <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 14 }}>🔍 자가 진단 결과</div>
-          {Object.entries(health).map(([k, v]) => (
-            <div className="kv-row" key={k}>
-              <span className="k">{k.replace(/_/g, " ")}</span>
-              <span className="v" style={{ fontSize: 12, textAlign: "right", maxWidth: "62%", fontWeight: 600 }}>{v}</span>
-            </div>
-          ))}
         </div>
       )}
 
