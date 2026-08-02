@@ -208,22 +208,62 @@ export default function ForecastChart({ path, currency, stopPrice, targetPrice }
           </span>
         )}
       </div>
-      <div className="fc-readout">
-        <div>
-          <span className="k">{endLabel} · 절반 확률</span>
-          <span className="v">
-            {fmtPrice(last.p25, currency)} ~ {fmtPrice(last.p75, currency)}
-          </span>
+      {/* 지정가 후보 — 이 카드에서 사용자가 실제로 주문에 옮겨 적는 숫자 */}
+      {path.orderLevels && (
+        <div className="fc-orders">
+          <div className="fc-order buy">
+            <div className="fc-order-k">이 값에 사면</div>
+            <div className="fc-order-v">{fmtPrice(path.orderLevels.buyPrice, currency)}</div>
+            <div className="fc-order-p">
+              {path.orderLevels.horizonLabel} 닿을 확률 <b>{path.orderLevels.buyProbPct}%</b>
+            </div>
+          </div>
+          <div className="fc-order sell">
+            <div className="fc-order-k">이 값에 팔면</div>
+            <div className="fc-order-v">{fmtPrice(path.orderLevels.sellPrice, currency)}</div>
+            <div className="fc-order-p">
+              {path.orderLevels.horizonLabel} 닿을 확률 <b>{path.orderLevels.sellProbPct}%</b>
+            </div>
+          </div>
         </div>
-        <div>
-          <span className="k">{endLabel} · 90% 범위</span>
-          <span className="v">
-            {fmtPrice(last.p05, currency)} ~ {fmtPrice(last.p95, currency)}
-          </span>
+      )}
+
+      {/* 시간대별 예상 상·하단과 지정가 체결 확률 — "몇 시쯤 체결을 기대할 수 있나" */}
+      <details className="fc-table">
+        <summary>시간대별 예상 금액 · 체결 확률 보기</summary>
+        <div className="fc-table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>시점</th>
+                <th>하단</th>
+                <th>상단</th>
+                {path.orderLevels && <th>매수 체결</th>}
+                {path.orderLevels && <th>매도 체결</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {path.points.map((q, i) => (
+                <tr key={i} className={q.isDayBoundary ? "b" : ""}>
+                  <td>{q.label}</td>
+                  <td>{fmtPrice(q.p25, currency)}</td>
+                  <td>{fmtPrice(q.p75, currency)}</td>
+                  {path.orderLevels && <td>{q.buyFillProbPct}%</td>}
+                  {path.orderLevels && <td>{q.sellFillProbPct}%</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
+        <p className="fc-note">
+          하단·상단은 그 시점에 도달 가능한 범위(절반 확률 구간)이고, 체결 확률은 위 지정가에 <b>그 시각까지 한 번이라도 닿을</b> 누적 확률입니다.
+          5년 실측표(2,495일) 기준이며 방향 예측이 아닙니다.
+        </p>
+      </details>
+
       <p className="fc-note">
-        방향을 맞히는 예측이 아니라 <b>“이만큼은 움직일 수 있다”</b>는 폭의 추정입니다. 가로축은 시간 비례가 아니라 오늘 남은 구간·이후 각 거래일에 자리를 나눈 것입니다.
+        {endLabel} 90% 범위 {fmtPrice(last.p05, currency)} ~ {fmtPrice(last.p95, currency)}.
+        <b> 오를지 내릴지는 예측하지 않습니다</b> — 방향 예측은 5년 데이터로 검증했을 때 적중률이 동전던지기보다 낮아 쓰지 않습니다.
       </p>
     </div>
   );

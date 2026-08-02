@@ -1,0 +1,57 @@
+{
+ "generatedAt": "2026-08-02T00:45:42.727Z",
+ "evalDays": 500,
+ "universe": "국내 반도체 5종목",
+ "method": "전일 종가 기준 다음 거래일 장중 고가·저가가 ±kσ 지점에 닿았는지 실측. σ는 그 시점까지의 데이터만 쓴 EWMA 추정치(미래정보 없음).",
+ "calibration": [
+  {
+   "kSigma": 0.3,
+   "theoryPct": 76.4,
+   "downPct": 59.6,
+   "upPct": 65.2,
+   "avgPct": 62.4,
+   "n": 2495
+  },
+  {
+   "kSigma": 0.5,
+   "theoryPct": 61.7,
+   "downPct": 46.9,
+   "upPct": 53.6,
+   "avgPct": 50.2,
+   "n": 2495
+  },
+  {
+   "kSigma": 0.75,
+   "theoryPct": 45.3,
+   "downPct": 32.6,
+   "upPct": 39.5,
+   "avgPct": 36.1,
+   "n": 2495
+  },
+  {
+   "kSigma": 1,
+   "theoryPct": 31.7,
+   "downPct": 22.6,
+   "upPct": 28.6,
+   "avgPct": 25.6,
+   "n": 2495
+  },
+  {
+   "kSigma": 1.5,
+   "theoryPct": 13.4,
+   "downPct": 10.3,
+   "upPct": 14.7,
+   "avgPct": 12.5,
+   "n": 2495
+  },
+  {
+   "kSigma": 2,
+   "theoryPct": 4.6,
+   "downPct": 4.6,
+   "upPct": 8.3,
+   "avgPct": 6.4,
+   "n": 2495
+  }
+ ],
+ "note": "이론(반사원리)값과 실측이 다르면 앱은 실측값을 쓴다. 하단 도달률이 상단보다 높으면 그만큼 하방 꼬리가 두껍다는 뜻이다."
+}

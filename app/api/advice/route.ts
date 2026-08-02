@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote } from "@/lib/market";
 import { collectNews } from "@/lib/gemini";
-import { fetchDartDisclosures } from "@/lib/dart";
+import { fetchDartDisclosures, fetchRelatedDisclosures } from "@/lib/dart";
 import { fetchInvestorFlows } from "@/lib/investorFlow";
 import { computeMasterScore, computeRelativeStrength, computeSectorConcentration, runEngine } from "@/lib/engine";
 import { computeCorrelationCap, computePortfolioRisk } from "@/lib/volatility";
@@ -30,11 +30,12 @@ export async function POST(req: Request) {
       holdings: body.portfolio?.holdings ?? [],
     };
 
-    const [macro, snapshot, backtest, disclosureResult, flowResult, creditTrend, ...stockData] = await Promise.all([
+    const [macro, snapshot, backtest, disclosureResult, relatedFilings, flowResult, creditTrend, ...stockData] = await Promise.all([
       getMacroSnapshot(),
       fetchLatestSnapshot(),
       fetchBacktestSnapshot(),
       fetchDartDisclosures(),
+      fetchRelatedDisclosures(), // 밸류체인 관련사 공시 (선행 신호). 키 없으면 빈 배열
       fetchInvestorFlows(),
       fetchCreditBalanceTrend(), // KOFIA 신용잔고 — 실패 시 null (신호 자동 비활성)
       ...TICKER_LIST.map(async (t) => {
@@ -225,6 +226,7 @@ export async function POST(req: Request) {
       relativeStrengthSummary,
       sectorConcentrationWarning: concentration.warning,
       portfolioRisk: portfolioRisk.available ? portfolioRisk : null,
+      relatedFilings,
       correlationCap: corrCap.available && corrCap.warnings.length > 0 ? { warnings: corrCap.warnings, pairs: corrCap.pairs.filter((x) => x.overCap) } : null,
       todayPlan,
       creditBalance: creditTrend,

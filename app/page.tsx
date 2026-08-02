@@ -284,6 +284,10 @@ export default function Home() {
   const [tab, setTab] = useState<"오늘" | "종목" | "정보" | "분석방식">("오늘");
   // 작전 카드에서 트레이드별 "왜 이 판단인가"(검증 통계) 펼침 상태
   const [openWhy, setOpenWhy] = useState<Record<string, boolean>>({});
+  // 종목 카드 펼침 — 5개 카드를 전부 펼쳐두면 종목 탭이 1만 픽셀을 넘어 스크롤 지옥이 된다.
+  // 기본은 "지금 볼 이유가 있는 것"만 펼친다: 보유 중이거나 행동을 권하는 종목.
+  // 사용자가 직접 접거나 편 종목은 그 선택을 기억한다(null = 아직 안 건드림).
+  const [cardOpen, setCardOpen] = useState<Record<string, boolean>>({});
   const [market, setMarket] = useState<MarketData | null>(null);
   const [result, setResult] = useState<AdviceResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1043,6 +1047,9 @@ export default function Home() {
         const action = ai?.action ?? sig?.action;
         const info = computeScoreInfo(held, sig, ai);
         const isOpen = expanded.has(ticker);
+        // 행동이 필요한 종목(보유 중이거나 매수/매도 신호)만 기본으로 펼친다
+        const worthOpening = held || (action != null && action !== "관망" && action !== "보유");
+        const open = cardOpen[ticker] ?? worthOpening;
         return (
           <div className="card" key={ticker}>
             <div className="stock-head">
@@ -1055,8 +1062,34 @@ export default function Home() {
                 </div>
                 {q?.time && <div className="hint" style={{ marginTop: 2 }}>{staleness(q.time)}</div>}
               </div>
-              {action && <span className={badgeClass(action)}>{action}</span>}
+              <div className="stock-head-right">
+                {action && <span className={badgeClass(action)}>{action}</span>}
+                <button
+                  className="card-toggle"
+                  aria-expanded={open}
+                  onClick={() => setCardOpen((p) => ({ ...p, [ticker]: !open }))}
+                >
+                  {open ? "접기 ▲" : "자세히 ▼"}
+                </button>
+              </div>
             </div>
+
+            {/* 접힌 상태에서도 판단에 필요한 한 줄은 남긴다 — 다 접고 나서 아무것도 모르면 의미가 없다 */}
+            {!open && (
+              <div className="card-collapsed">
+                {info && (
+                  <span className={`cc-score ${info.tone}`}>
+                    {info.score}/10 {info.label}
+                  </span>
+                )}
+                {held && h && <span className="cc-item">보유 {h.qty}주{sig?.pnlPct != null && ` (${sig.pnlPct >= 0 ? "+" : ""}${sig.pnlPct}%)`}</span>}
+                {sig?.forecastPath?.orderLevels && (
+                  <span className="cc-item">
+                    지정가 매수 {fmt(sig.forecastPath.orderLevels.buyPrice, currency)} / 매도 {fmt(sig.forecastPath.orderLevels.sellPrice, currency)}
+                  </span>
+                )}
+              </div>
+            )}
 
             {held && (
               <div className="kv-row">
@@ -1072,6 +1105,7 @@ export default function Home() {
               </div>
             )}
 
+            {open && (<>
             {/* 0~10점 매수/매도 강도 — 가장 먼저 봐야 하는 숫자 */}
             {info && (
               <div className="score-panel">
@@ -1329,6 +1363,7 @@ export default function Home() {
             {!sig && !loading && (
               <div className="hint">위의 &quot;AI 정밀 분석&quot; 버튼을 누르면 매수/매도 타이밍 조언이 표시됩니다.</div>
             )}
+            </>)}
           </div>
         );
       })}
@@ -1342,8 +1377,8 @@ export default function Home() {
           전부 공개합니다. 숫자는 모두 5개년 실데이터로 검증한 값이며, 검증 스크립트로 언제든 재현할 수 있습니다.
         </div>
 
-        <div className="doc-sec">
-          <div className="doc-h">① 무엇을 보고 판단하나 — 입력 변수</div>
+        <details className="doc-sec">
+          <summary className="doc-h">① 무엇을 보고 판단하나 — 입력 변수</summary>
           {[
             { g: "가격·차트", items: [
               ["일봉 5년치", "추세선(20·60일), RSI, MACD, 볼린저, 스토캐스틱, 피벗, ADX, 다이버전스, 해머캔들, OBV"],
@@ -1381,7 +1416,7 @@ export default function Home() {
               ))}
             </div>
           ))}
-        </div>
+        </details>
 
         <div className="doc-sec">
           <div className="doc-h">② 어떻게 예측하나 — 4단계</div>
@@ -1425,8 +1460,76 @@ export default function Home() {
           </div></div>
         </div>
 
-        <div className="doc-sec">
-          <div className="doc-h">③ 검증된 숫자</div>
+        <details className="doc-sec">
+          <summary className="doc-h">③ 변수는 서로 어떻게 얽혀 있나 (상관관계와 반영 경로)</summary>
+          <div className="doc-flow">
+            {[
+              {
+                src: "간밤 미국 SOX 지수",
+                rel: "국내 반도체주와 상관 0.33~0.43 (같은 날짜 SOX보다 2배 강함)",
+                into: "① 변동성 추정에서 예상 등락폭을 넓히고 → ② 장세 판별(폭락장/급등과열) 기준이 되며 → ③ 매크로 점수로 개별 종목 점수에 직접 가산·감산",
+              },
+              {
+                src: "뉴스 (Gemini 실시간)",
+                rel: "고임팩트 악재는 기술적 신호를 무효화. 뉴스 감성 점수가 기술 점수와 어긋나면 보수적으로 채택",
+                into: "① 뉴스 감성 점수로 종목 점수에 반영 → ② 과열 교차검증(기술적 매수 신호라도 악재가 있으면 진입 보류) → ③ Claude가 구조적 리스크로 인용",
+              },
+              {
+                src: "DART 공시 · 밸류체인 관련사 공시",
+                rel: "뉴스보다 빠르고 법적 의무 정보라 신뢰도 우선. 장비주 수주 공시는 대장주 설비투자를 선행",
+                into: "같은 사안이면 뉴스 대신 공시를 1차 근거로 사용. 관련사 수주·증설 공시는 업황 방향 참고로만(점수 미반영)",
+              },
+              {
+                src: "변동성(σ)",
+                rel: "거의 모든 출력의 뿌리. 손절폭·목표가·매수 수량·예상 경로 폭·지정가 거리가 전부 σ에 비례",
+                into: "σ가 커지면 → 손절폭이 넓어지고 → 리스크 1% 규칙에 따라 매수 수량이 자동으로 줄어든다 (고정 %가 아니라 σ 비례라 장세에 자동 적응)",
+              },
+              {
+                src: "종목 간 상관 (삼성전자·하이닉스 0.89)",
+                rel: "높을수록 분산 효과가 사라짐. 급변동장일수록 더 높아짐(5년 0.72 → 6개월 0.89)",
+                into: "포트폴리오 위험을 상관행렬로 합산 → 합산 비중 50% 한도로 매수 수량 제한",
+              },
+              {
+                src: "외국인·기관·연기금 수급",
+                rel: "20일 평균거래량 대비 비율로 정규화(절대 주수는 종목마다 규모가 달라 비교 불가)",
+                into: "수급 점수로 종목 점수에 가산·감산. 연기금 3일 연속 순매수는 별도 +2점",
+              },
+            ].map((f) => (
+              <div className="doc-flow-item" key={f.src}>
+                <div className="doc-flow-src">{f.src}</div>
+                <div className="doc-flow-rel">↳ 관계: {f.rel}</div>
+                <div className="doc-flow-into">↳ 반영: {f.into}</div>
+              </div>
+            ))}
+          </div>
+          <div className="doc-chk" style={{ marginTop: 8 }}>
+            변수는 독립적으로 더해지지 않습니다. σ가 커지면 손절·수량·경로폭이 <b>동시에</b> 바뀌고, 상관이 높아지면 개별 종목 판단이 맞아도 포트폴리오 위험은 커집니다.
+          </div>
+        </details>
+
+        <details className="doc-sec doc-warn">
+          <summary className="doc-h">④ 우리가 시도했다가 버린 것 (실패 기록)</summary>
+          <div className="doc-fail">
+            <div className="doc-fail-t">방향 예측 (오를까 내릴까)</div>
+            <div>
+              지금 상태를 10개 변수로 벡터화해 과거 5,845개 패턴 중 가장 닮은 120건을 찾고, 그 다음날 결과로 방향을 예측하는 모델을 만들어 검증했습니다.
+              결과는 <b>적중률 47~50%</b>로 기준선(54.2%)에 못 미쳤고, 확신도가 높을수록 오히려 더 틀렸으며(확신 60~65% 구간 적중률 40%),
+              그대로 따라갔다면 <b>매일 평균 -0.16%</b>씩 잃었습니다. 이웃 수·인접일 제외·평가기간을 바꿔 5가지로 재검증해도 결론은 같았습니다.
+              <div className="doc-chk">그래서 이 앱은 &quot;오를 것&quot; &quot;내릴 것&quot;을 말하지 않습니다. 대신 <b>도달 확률</b>(지정가에 닿을 가능성)을 제시합니다 — 이건 방향이 아니라 변동폭의 문제라 실제로 맞습니다.</div>
+            </div>
+          </div>
+          <div className="doc-fail">
+            <div className="doc-fail-t">고정 % 손절·익절 (-2% / +3%)</div>
+            <div>학습구간 +36% → 검증구간 -5.5%로 뒤집혔습니다(과적합). σ 비례 방식만 네 구간을 모두 견뎠습니다.</div>
+          </div>
+          <div className="doc-fail">
+            <div className="doc-fail-t">VIX를 변동성 모델에 넣기</div>
+            <div>이론상 선행지표지만 실측 기여도가 0이라 제외했습니다. 미 10년물 국채금리도 같은 이유로 점수에는 넣지 않고 맥락으로만 씁니다.</div>
+          </div>
+        </details>
+
+        <details className="doc-sec">
+          <summary className="doc-h">⑤ 검증된 숫자</summary>
           <table className="doc-tbl"><tbody>
             <tr><th>폭락(-7%↓) 다음날</th><td>평균 +0.75% · 승률 58% (표본 127회, 거래비용 차감)</td></tr>
             <tr><th>급등(+12%↑) 다음날</th><td>고가 평균 +5.4% · +3% 지정가 도달 64% · 갭하락 출발 42% (50회)</td></tr>
@@ -1436,10 +1539,10 @@ export default function Home() {
             <tr><th>감시주문(하루 이상 방치)</th><td>최악 -34.0% → -20.0%, -10% 넘는 손실 비율 4.8% → 2.4%</td></tr>
             <tr><th>감시주문(당일 재확인 가능)</th><td>오히려 불리 — 스치고 되돌아와 손해 94회 &gt; 손실 줄인 66회</td></tr>
           </tbody></table>
-        </div>
+        </details>
 
         <div className="doc-sec doc-warn">
-          <div className="doc-h">④ 믿으면 안 되는 것 (한계)</div>
+          <div className="doc-h">⑥ 믿으면 안 되는 것 (한계)</div>
           <ul className="doc-ul">
             <li><strong>&quot;매일 5% 수익&quot;은 불가능합니다.</strong> 기회가 있는 날은 96%였지만, 순진하게 추격하는 전략은 6개월 -54%였습니다.</li>
             <li><strong>과거 통계는 미래 보장이 아닙니다.</strong> 특히 표본이 적은 국면(예: 폭락바닥권 23회)은 우연의 영향이 큽니다.</li>
@@ -1452,8 +1555,8 @@ export default function Home() {
           </ul>
         </div>
 
-        <div className="doc-sec">
-          <div className="doc-h">⑤ 직접 확인하기</div>
+        <details className="doc-sec">
+          <summary className="doc-h">⑦ 직접 확인하기</summary>
           <div className="doc-code">npx tsx scripts/validate-volatility.ts</div>
           <div className="doc-cap">변동성 모델 적중률 — 실제 배포 코드를 그대로 호출해 검증</div>
           <div className="doc-code">npx tsx scripts/validate-modes.ts</div>
@@ -1462,13 +1565,17 @@ export default function Home() {
           <div className="doc-cap">매매 vs 보유 비교 — 1주/1개월/6개월</div>
           <div className="doc-code">npx tsx scripts/validate-forecast-path.ts</div>
           <div className="doc-cap">예상 경로 차트의 구간 적중률 + √시간 가정 점검</div>
+          <div className="doc-code">npx tsx scripts/validate-analog.ts</div>
+          <div className="doc-cap">방향 예측 모델의 실패를 재현 — 적중률·확신도별 성적·변수별 기여도</div>
+          <div className="doc-code">npx tsx scripts/validate-touch.ts</div>
+          <div className="doc-cap">지정가 도달 확률 실측표 생성 (2,495일)</div>
           <div className="doc-code">npx tsx scripts/validate-correlation-cap.ts</div>
           <div className="doc-cap">상관 비중 한도의 위험/수익 교환비 — 캡 수준별 최악의 날·최대낙폭</div>
           <div className="doc-code">npx tsx scripts/validate-watch-orders.ts</div>
           <div className="doc-cap">예약(감시)주문 효과 — 못 보는 기간 1/3/5거래일별 꼬리 손실 비교</div>
           <div className="doc-code">npx tsx scripts/build-scenarios.ts</div>
           <div className="doc-cap">국면별 통계 테이블 재생성</div>
-        </div>
+        </details>
       </div>
 
       {/* 하단 고정 탭바 — 한 손 조작 기준으로 화면을 3개 영역으로 나눈다 */}

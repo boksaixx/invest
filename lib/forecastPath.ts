@@ -21,6 +21,7 @@
 //    일반적으로 관찰되는 표준 형태를 썼다. 종목별로 다를 수 있다.
 //  - 갑작스러운 뉴스·공시는 어떤 통계 모델도 미리 알 수 없다.
 import type { ForecastPathData, VolForecast } from "./types";
+import { touchProbability } from "./touchProb";
 
 // 국내장 09:00~15:30 (390분) 동안의 분산 배분 — 개장 직후와 마감 무렵이 크고 점심때가 작은 U자.
 // 각 원소는 30분 구간이 하루 전체 분산에서 차지하는 비율이며 합이 1이다.
@@ -78,12 +79,26 @@ export function buildForecastPath(
     points: [],
     intradayRemainingPct: 0,
     note: "",
+    orderLevels: null,
   };
   if (!vf?.available || !(currentPrice > 0)) return empty;
 
   const sigma = vf.sigmaDailyPct;
   const zq = vf.zQuantiles;
   const fmtHm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+  // 지정가 후보를 먼저 정한다 — 시간대별 확률이 이 "고정 가격"을 향해 올라가야 하기 때문.
+  // 0.75σ를 쓰는 이유: 실측 도달률이 하단 33%·상단 40%로 "가끔 오는" 거리라 지정가로 걸어둘
+  // 만하다. 더 가까우면 노이즈에 체결되고, 더 멀면 거의 오지 않는다.
+  const ORDER_K = 0.75;
+  // 기준 기간: 국내장 장중이면 오늘 마감까지 남은 변동성, 그 외에는 하루치
+  const horizonVar =
+    isKrMarket && tradingDayNow && nowKstMinutes < SESSION_END_MIN
+      ? Math.max(0.05, varianceFraction(Math.max(SESSION_START_MIN, nowKstMinutes), SESSION_END_MIN))
+      : 1;
+  const orderMovePct = sigma * Math.sqrt(horizonVar) * ORDER_K;
+  const buyLevel = Math.round(currentPrice * (1 - orderMovePct / 100));
+  const sellLevel = Math.round(currentPrice * (1 + orderMovePct / 100));
 
   // 구간 폭을 "누적 분산 비율"에서 계산 — 폭은 √(분산비율)에 비례한다
   const pointAt = (label: string, varFraction: number, minutesAhead: number, isDayBoundary: boolean): PathPoint => {
@@ -92,6 +107,9 @@ export function buildForecastPath(
     // 변동성이 극단으로 튀는 날에도 음수 가격이 나오지 않도록 바닥을 둔다(현재가의 1%).
     // 국내장은 ±30% 가격제한폭이 있어 현실에서 걸릴 일은 없지만, 차트가 깨지는 것보다는 낫다.
     const px = (zScaled: number) => Math.max(Math.round(currentPrice * 0.01), Math.round(currentPrice * (1 + (drift + zScaled * sigma * scale) / 100)));
+    // 지정가 도달 확률은 "고정된 지정가까지 몇 σ 남았나"로 계산한다. 시간이 갈수록 scale이
+    // 커져 같은 가격이 가까워지므로 확률이 올라간다 — "몇 시쯤 체결을 기대할 수 있나"를 읽는 값.
+    const kTo = (target: number) => (scale > 0 ? Math.abs((target / currentPrice - 1) * 100) / (sigma * scale) : Infinity);
     return {
       label,
       minutesAhead,
@@ -101,6 +119,8 @@ export function buildForecastPath(
       p05: px(zq.q05),
       p95: px(zq.q95),
       isDayBoundary,
+      buyFillProbPct: Math.round(touchProbability(kTo(buyLevel), "down")),
+      sellFillProbPct: Math.round(touchProbability(kTo(sellLevel), "up")),
     };
   };
 
@@ -139,6 +159,18 @@ export function buildForecastPath(
     `${last.label} 기준 90% 범위는 ${last.p05.toLocaleString()} ~ ${last.p95.toLocaleString()}입니다. ` +
     `방향을 맞히는 예측이 아니라 "이만큼은 움직일 수 있다"는 폭의 추정입니다.`;
 
+  const anchor = points.find((p) => p.isDayBoundary) ?? last;
+  const orderLevels =
+    orderMovePct > 0
+      ? {
+          buyPrice: buyLevel,
+          buyProbPct: Math.round(touchProbability(ORDER_K, "down")),
+          sellPrice: sellLevel,
+          sellProbPct: Math.round(touchProbability(ORDER_K, "up")),
+          horizonLabel: anchor.label === "15:30 마감" ? "오늘 마감까지" : `${anchor.label}까지`,
+        }
+      : null;
+
   return {
     available: true,
     currentPrice,
@@ -146,6 +178,7 @@ export function buildForecastPath(
     points,
     intradayRemainingPct: intradayRemaining * 100,
     note,
+    orderLevels,
   };
 }
 

@@ -97,7 +97,26 @@ async function fetchRecentDisclosures(apiKey: string, corpCode: string, days = 3
     .filter((f) => f.title);
 }
 
+// 추적 5종목 밖이지만 국내 반도체 밸류체인에 직접 영향을 주는 상장사들.
+// 이들의 수주·실적·증설 공시는 삼성전자·SK하이닉스의 투자 사이클을 선행해서 보여주는 경우가 많다
+// (장비주는 발주가 나야 매출이 잡히므로 발주 시점이 곧 대장주 CAPEX 신호).
+// 5종목 공시가 조용한 날에도 밸류체인에서 무슨 일이 벌어지는지 알 수 있게 함께 조회한다.
+export const RELATED_CORPS: { stockCode: string; name: string; role: string }[] = [
+  { stockCode: "402340", name: "SK스퀘어", role: "SK하이닉스 지주사" },
+  { stockCode: "240810", name: "원익IPS", role: "반도체 증착장비" },
+  { stockCode: "036930", name: "주성엔지니어링", role: "반도체 증착장비" },
+  { stockCode: "039030", name: "이오테크닉스", role: "레이저 장비(HBM 공정)" },
+  { stockCode: "058470", name: "리노공업", role: "테스트 부품" },
+  { stockCode: "064760", name: "티씨케이", role: "소모성 부품" },
+];
+
 let disclosureCache: { data: Partial<Record<StockTicker, DartFiling[]>>; expiresAt: number } | null = null;
+let relatedCache: { data: RelatedFiling[]; expiresAt: number } | null = null;
+
+export interface RelatedFiling extends DartFiling {
+  companyName: string;
+  role: string;
+}
 const DISCLOSURE_CACHE_TTL_MS = 15 * 60_000; // 자동수집 간격과 맞춤
 
 // DART_API_KEY가 없으면 조용히 빈 결과를 돌려준다 — 선택 기능이라 에러로 취급하지 않는다
@@ -134,5 +153,44 @@ export async function fetchDartDisclosures(): Promise<{ data: Partial<Record<Sto
     // 실패해도 짧게 캐시해 연속 재시도로 API를 낭비하지 않음
     disclosureCache = { data: {}, expiresAt: now + 60_000 };
     return { data: {}, error: msg };
+  }
+}
+
+
+/**
+ * 밸류체인 관련 기업들의 최근 공시.
+ *
+ * 5종목만 보면 "장비 발주가 시작됐다" 같은 선행 신호를 놓친다. 다만 이건 보조 정보라
+ * 실패해도 조용히 빈 배열을 돌려주고, 중요도가 낮은 정기공시는 걸러 토큰·화면을 아낀다.
+ */
+export async function fetchRelatedDisclosures(): Promise<RelatedFiling[]> {
+  const apiKey = process.env.DART_API_KEY;
+  if (!apiKey) return [];
+  const now = Date.now();
+  if (relatedCache && relatedCache.expiresAt > now) return relatedCache.data;
+
+  try {
+    const corpMap = await fetchCorpCodeMap(apiKey);
+    const out: RelatedFiling[] = [];
+    for (const { stockCode, name, role } of RELATED_CORPS) {
+      const corpCode = corpMap.get(stockCode);
+      if (!corpCode) continue;
+      try {
+        const filings = await fetchRecentDisclosures(apiKey, corpCode, 3);
+        for (const f of filings) out.push({ ...f, companyName: name, role });
+      } catch {
+        // 개별 실패는 무시 — 보조 정보라 전체를 막을 이유가 없다
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    // 판단에 쓸모 있는 공시만 남긴다 (정기보고서·소액 지분변동 등은 단타 판단에 무의미)
+    const MATERIAL = /수주|공급계약|증설|투자|실적|영업[(잠정)]*|유상증자|무상증자|자기주식|합병|분할|특허|계약\s*체결|매출/;
+    const filtered = out.filter((f) => MATERIAL.test(f.title));
+    relatedCache = { data: filtered.slice(0, 12), expiresAt: now + DISCLOSURE_CACHE_TTL_MS };
+    return relatedCache.data;
+  } catch (e) {
+    console.error("DART 관련기업 공시 조회 실패:", e);
+    relatedCache = { data: [], expiresAt: now + 60_000 };
+    return [];
   }
 }

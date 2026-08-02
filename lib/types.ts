@@ -200,9 +200,23 @@ export interface ForecastPathData {
     p05: number;
     p95: number;
     isDayBoundary: boolean;
+    // 아래 orderLevels의 매수·매도 지정가에 "이 시각까지 한 번이라도 닿을" 누적 확률(%).
+    // 시간이 갈수록 올라가므로 "몇 시쯤 체결을 기대할 수 있나"를 읽을 수 있다.
+    // 방향 예측이 아니라 도달 가능성이다 — 방향 예측은 검증에서 실패해 쓰지 않는다
+    // (scripts/validate-analog.ts: 적중률 47~50%로 기준선 미달, 따라가면 평균 손실).
+    buyFillProbPct: number;
+    sellFillProbPct: number;
   }[];
   intradayRemainingPct: number;
   note: string;
+  // 바로 주문에 쓸 수 있는 지정가 후보. 확률은 5년 실측표(data/touch-stats.json) 기준.
+  orderLevels: {
+    buyPrice: number; // 눌림목 매수 지정가 후보
+    buyProbPct: number; // 마감(또는 다음 거래일)까지 여기에 닿을 확률
+    sellPrice: number; // 반등 매도 지정가 후보
+    sellProbPct: number;
+    horizonLabel: string; // 이 확률이 적용되는 기간 ("오늘 마감까지" 등)
+  } | null;
 }
 
 // 시장 레짐 — 엔진이 그날 장세를 스스로 판별해 "오늘의 작전"을 바꾼다.

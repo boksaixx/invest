@@ -1497,3 +1497,140 @@ body {
 .plan-watch .plan-block-title {
   color: #b26a00;
 }
+
+/* 지정가 후보 — 이 카드에서 사용자가 실제로 주문창에 옮겨 적는 숫자 */
+.fc-orders {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.fc-order {
+  padding: 10px;
+  border-radius: 12px;
+  text-align: center;
+}
+.fc-order.buy { background: var(--blue-weak); }
+.fc-order.sell { background: var(--red-weak); }
+.fc-order-k {
+  font-size: calc(11.5px * var(--font-scale));
+  font-weight: 700;
+  color: var(--text-weak);
+}
+.fc-order-v {
+  font-size: calc(17px * var(--font-scale));
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  margin: 2px 0 3px;
+}
+.fc-order.buy .fc-order-v { color: #1b64da; }
+.fc-order.sell .fc-order-v { color: #c9353f; }
+.fc-order-p {
+  font-size: calc(11px * var(--font-scale));
+  color: var(--text-sub);
+  font-weight: 600;
+}
+.fc-table { margin-top: 8px; }
+.fc-table > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 0;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  font-size: calc(12.5px * var(--font-scale));
+  font-weight: 700;
+  color: var(--blue);
+}
+.fc-table > summary::-webkit-details-marker { display: none; }
+.fc-table > summary::after { content: " ▾"; }
+.fc-table[open] > summary::after { content: " ▴"; }
+.fc-table-scroll { overflow-x: auto; }
+.fc-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: calc(11.5px * var(--font-scale));
+  white-space: nowrap;
+}
+.fc-table th, .fc-table td {
+  padding: 5px 6px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+.fc-table th:first-child, .fc-table td:first-child { text-align: left; }
+.fc-table th { color: var(--text-weak); font-weight: 700; }
+.fc-table tr.b td { font-weight: 800; background: var(--bg-weak); }
+
+/* 변수 간 상관관계·반영 경로 (분석 방식 탭) */
+.doc-flow { display: flex; flex-direction: column; gap: 10px; }
+.doc-flow-item {
+  padding: 10px 12px;
+  background: var(--bg-weak);
+  border-radius: 12px;
+  border-left: 3px solid var(--blue);
+}
+.doc-flow-src { font-weight: 800; font-size: calc(13px * var(--font-scale)); margin-bottom: 4px; }
+.doc-flow-rel, .doc-flow-into {
+  font-size: calc(12px * var(--font-scale));
+  line-height: 1.55;
+  color: var(--text-sub);
+}
+.doc-flow-rel { margin-bottom: 2px; }
+.doc-flow-into { color: var(--text); }
+/* 실패 기록 — 시도했다가 버린 접근 */
+.doc-fail { margin-bottom: 12px; font-size: calc(12.5px * var(--font-scale)); line-height: 1.6; }
+.doc-fail-t { font-weight: 800; margin-bottom: 3px; color: #9c1f28; }
+
+/* 종목 카드 접기 — 5개를 다 펼치면 스크롤이 1만 픽셀을 넘는다. 볼 이유가 있는 것만 펼친다 */
+.stock-head-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.card-toggle {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text-sub);
+  border-radius: 10px;
+  padding: 0 12px;
+  min-height: 40px;
+  font-size: calc(12.5px * var(--font-scale));
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.card-collapsed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: calc(12.5px * var(--font-scale));
+  font-weight: 700;
+  color: var(--text-sub);
+}
+.cc-score {
+  padding: 3px 9px;
+  border-radius: 8px;
+  font-weight: 800;
+}
+.cc-score.buy { background: var(--blue-weak); color: #1b64da; }
+.cc-score.sell { background: var(--red-weak); color: #c9353f; }
+.cc-score.neutral { background: var(--gray-weak); color: var(--text-sub); }
+.cc-item { color: var(--text-weak); }
+
+/* 분석 방식 탭 — 참고 문서라 기본은 접어둔다 (다 펼치면 6천 픽셀) */
+details.doc-sec > summary.doc-h {
+  cursor: pointer;
+  list-style: none;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+details.doc-sec > summary.doc-h::-webkit-details-marker { display: none; }
+details.doc-sec > summary.doc-h::after { content: "▾"; color: var(--text-weak); font-weight: 700; }
+details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
