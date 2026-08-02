@@ -4,6 +4,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AiAdvice, CollectedSnapshot, EngineSignal, MacroSnapshot, MarketPhaseInfo, NewsItem, Portfolio, StockTicker, TodayPlan } from "./types";
 import { STOCKS } from "./types";
+import { roundToTick } from "./tick";
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-4-8";
 // 자동 수집(장중 최대 15분 간격)은 호출 빈도가 훨씬 높으므로 저렴한 모델을 기본값으로 사용해 월 비용을 통제한다.
@@ -222,6 +223,8 @@ export async function generateAdvice(params: {
   const krPhase = signals.find((s) => STOCKS[s.ticker].market === "KR")?.marketPhase ?? null;
   const usPhase = signals.find((s) => STOCKS[s.ticker].market === "US")?.marketPhase ?? null;
 
+  // 페이로드에서 한 줄로 압축된 종목 — 이 종목들의 AI 가격은 근거가 없으므로 나중에 버린다
+  const quietTickers = new Set(signals.filter((s) => !needsDetail(s, params.portfolio)).map((s) => s.ticker as string));
   const userContent = JSON.stringify(buildAdvicePayload({ ...params, krPhase, usPhase }));
 
   // 프롬프트 캐싱 — SYSTEM(약 4천 토큰)과 과거 이벤트 목록은 호출마다 완전히 동일하다.
@@ -263,7 +266,7 @@ export async function generateAdvice(params: {
     }
     const text = response.content.find((b) => b.type === "text");
     if (!text || text.type !== "text") return { advice: null, error: "AI 응답 형식 오류" };
-    const parsed = JSON.parse(text.text) as Omit<AiAdvice, "generatedAt">;
+    const parsed = sanitizeAdvicePrices(JSON.parse(text.text) as Omit<AiAdvice, "generatedAt">, signals, quietTickers);
     applyConsistencyCheck(parsed, signals);
     return { advice: { ...parsed, generatedAt: new Date().toISOString() }, error: null };
   } catch (e) {
@@ -296,6 +299,19 @@ function prune<T extends Record<string, unknown>>(obj: T): Partial<T> {
  *     피벗선은 현재가가 그 레벨 근처(3% 이내)일 때만.
  *  4. 배열·객체 대신 사람이 읽는 한 줄 문자열로 압축한다(JSON 구조 문자 자체가 토큰이다).
  */
+/**
+ * 상세히 보낼 종목인지 판정. 추적 종목이 10개로 늘면서 전 종목을 같은 깊이로 실으면
+ * 입력이 50% 불어나는데, "보유도 아니고 신호도 없고 점수도 중립"인 종목은 길게 읽어도
+ * 결론이 관망으로 같다. 판단이 필요한 종목만 상세히 싣는다.
+ *
+ * generateAdvice의 응답 정제도 같은 기준을 써야 하므로(상세를 안 준 종목의 AI 가격은 버린다)
+ * 여기 한 곳에서만 정의한다.
+ */
+export function needsDetail(s: EngineSignal, portfolio: Portfolio): boolean {
+  const held = portfolio.holdings.some((h) => h.ticker === s.ticker && h.qty > 0);
+  return held || s.action !== "관망" || s.score >= 62 || s.score <= 38 || s.warnings.length > 0;
+}
+
 export function buildAdvicePayload(params: {
   signals: EngineSignal[];
   macro: MacroSnapshot;
@@ -315,13 +331,8 @@ export function buildAdvicePayload(params: {
     ? "오늘(장중 진행 중)"
     : "가장 최근 거래일(마감)";
 
-  // 상세히 보낼 종목과 한 줄로 압축할 종목을 가른다.
-  // 상세 조건: 보유 중 / 관망이 아닌 판단 / 점수가 한쪽으로 뚜렷함 / 경고가 있음.
-  const held = new Set(params.portfolio.holdings.filter((h) => h.qty > 0).map((h) => h.ticker));
-  const needsDetail = (s: EngineSignal) =>
-    held.has(s.ticker) || s.action !== "관망" || s.score >= 62 || s.score <= 38 || s.warnings.length > 0;
-  const focusSignals = signals.filter(needsDetail);
-  const quietSignals = signals.filter((s) => !needsDetail(s));
+  const focusSignals = signals.filter((s) => needsDetail(s, params.portfolio));
+  const quietSignals = signals.filter((s) => !needsDetail(s, params.portfolio));
 
   // 종목마다 같은 문장이 반복되는 필드는 최상위로 올려 한 번만 싣는다
   const invalidations = focusSignals.map((s) => trimInvalidation(s.invalidation));
@@ -504,6 +515,44 @@ export function buildAdvicePayload(params: {
 /** 무효화 조건에서 "목표가/손절가와 무관하게…" 같은 상투구를 떼어 토큰을 아낀다 */
 function trimInvalidation(v: string | null): string | null {
   return v ? v.split(/\s*(?:발생\s*시|시),\s*목표가/)[0] : null;
+}
+
+/**
+ * AI가 낸 가격을 그대로 화면에 띄우지 않고 정제한다.
+ *
+ * 두 가지 실제 위험을 막는다.
+ *  1) 호가 미적용 — 엔진 가격은 lib/tick.ts로 실주문 가능한 값에 맞췄지만, AI가 낸 숫자는
+ *     그 경로를 타지 않는다. UI는 `ai?.stopPrice ?? sig.stopPrice`처럼 AI 값을 우선하므로,
+ *     정제하지 않으면 화면에 다시 "주문 불가한 가격"이 뜬다.
+ *  2) 근거 없는 값 — 토큰 절약으로 한 줄만 전달된(관망) 종목은 AI가 손절가·목표가를 알 수 없다.
+ *     그런데도 스키마상 필드는 채울 수 있어 지어낼 여지가 있다. 그런 종목은 가격 필드를 비워
+ *     엔진이 계산한 값(검증된 ATR 기반)이 그대로 쓰이게 한다.
+ */
+function sanitizeAdvicePrices(
+  advice: Omit<AiAdvice, "generatedAt">,
+  signals: EngineSignal[],
+  quietTickers: Set<string>,
+): Omit<AiAdvice, "generatedAt"> {
+  const byTicker = new Map(signals.map((s) => [s.ticker as string, s]));
+  const stocks = (advice.stocks ?? []).map((st) => {
+    const sig = byTicker.get(st.ticker);
+    if (!sig) return st;
+    if (quietTickers.has(st.ticker)) {
+      // 상세 데이터를 안 줬으므로 가격 판단도 받지 않는다 — 엔진 값으로 대체된다
+      return { ...st, entryPrice: null, targetPrice: null, stopPrice: null };
+    }
+    const cur = STOCKS[sig.ticker].currency;
+    const fix = (v: number | null | undefined, mode: "nearest" | "up" | "down") =>
+      v == null || !isFinite(v) || v <= 0 ? null : roundToTick(v, cur, mode);
+    return {
+      ...st,
+      entryPrice: fix(st.entryPrice, "nearest"),
+      // 손절은 올림(리스크가 계산치를 넘지 않게), 목표는 내림(도달 가능성 보수적) — 엔진과 같은 규칙
+      stopPrice: fix(st.stopPrice, "up"),
+      targetPrice: fix(st.targetPrice, "down"),
+    };
+  });
+  return { ...advice, stocks };
 }
 
 const CONSISTENCY_DIVERGENCE_PCT = 20; // AI 목표가/손절가가 룰 엔진 계산값과 이 이상 차이나면 경고

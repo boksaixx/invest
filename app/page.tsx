@@ -718,19 +718,24 @@ export default function Home() {
             />
             <span className="input-suffix">원</span>
           </div>
-          <div className="input-row">
-            <label>보유 달러현금</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={portfolio.cashUSD.toLocaleString("en-US")}
-              onChange={(e) => {
-                const v = Number(e.target.value.replace(/[^0-9.]/g, ""));
-                savePortfolio({ ...portfolio, cashUSD: isNaN(v) ? 0 : v });
-              }}
-            />
-            <span className="input-suffix">$</span>
-          </div>
+          {/* 달러현금 입력은 추적 종목에 달러 종목이 있을 때만 의미가 있다. 지금은 전 종목이
+              원화라 기본적으로 숨기되, 예전에 입력해둔 잔액이 남아 있으면 지울 수 있게 보여준다
+              (숨기기만 하면 총자산에 계속 반영되는데 손댈 방법이 없어진다). */}
+          {(TICKERS.some(({ ticker }) => STOCKS[ticker].currency === "USD") || portfolio.cashUSD > 0) && (
+            <div className="input-row">
+              <label>보유 달러현금</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={portfolio.cashUSD.toLocaleString("en-US")}
+                onChange={(e) => {
+                  const v = Number(e.target.value.replace(/[^0-9.]/g, ""));
+                  savePortfolio({ ...portfolio, cashUSD: isNaN(v) ? 0 : v });
+                }}
+              />
+              <span className="input-suffix">$</span>
+            </div>
+          )}
           {TICKERS.map(({ ticker, name }) => {
             const currency = STOCKS[ticker].currency;
             const h = portfolio.holdings.find((x) => x.ticker === ticker);
