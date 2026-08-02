@@ -9,6 +9,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
+import { DEFAULT_ADVICE_MODEL } from "../lib/claude";
 import { buildAdvicePayload } from "../lib/claude";
 import type { CollectedSnapshot } from "../lib/types";
 import { STOCKS } from "../lib/types";
@@ -173,7 +174,7 @@ async function main() {
     const client = new Anthropic({ apiKey: key });
     count = async (s: string) => {
       const r = await client.messages.countTokens({
-        model: process.env.CLAUDE_MODEL || "claude-opus-4-8",
+        model: process.env.CLAUDE_MODEL || DEFAULT_ADVICE_MODEL,
         messages: [{ role: "user", content: s }],
       });
       return r.input_tokens;

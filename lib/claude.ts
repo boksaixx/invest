@@ -7,10 +7,53 @@ import { STOCKS } from "./types";
 import { roundToTick } from "./tick";
 import { computeNewsSignal, selectNewsForPrompt } from "./newsSignal";
 
-const MODEL = process.env.CLAUDE_MODEL || "claude-opus-4-8";
+// 분석 모델 — 예전 기본값은 Opus 4.8이었다. 비용의 90%가 출력 토큰에서 나오는데
+// Opus는 출력이 $25/100만 토큰, Sonnet 5는 $15로 40% 싸다. 이 앱에서 AI가 하는 일은
+// "이미 계산된 엔진 결과를 교차검증하고 쉬운 한국어로 번역"하는 합성 작업이라
+// (변동성·확률·수량·손절선은 전부 결정론적 엔진이 계산한다) Sonnet 5로 충분하다.
+// 품질이 떨어진다고 느끼면 Vercel 환경변수 CLAUDE_MODEL=claude-opus-4-8 로 즉시 되돌릴 수 있다.
+export const DEFAULT_ADVICE_MODEL = "claude-sonnet-5";
+const MODEL = process.env.CLAUDE_MODEL || DEFAULT_ADVICE_MODEL;
 // 자동 수집(장중 최대 15분 간격)은 호출 빈도가 훨씬 높으므로 저렴한 모델을 기본값으로 사용해 월 비용을 통제한다.
 const SUMMARY_MODEL = process.env.CLAUDE_SUMMARY_MODEL || "claude-haiku-4-5";
 
+// 100만 토큰당 단가(USD). 화면에 "이번 분석에 얼마 썼는지"를 보여주기 위한 추정용이다.
+// 캐시 쓰기는 기본단가의 2배(1시간 TTL), 캐시 읽기는 0.1배다.
+const PRICE_PER_MTOK: Record<string, { in: number; out: number }> = {
+  "claude-sonnet-5": { in: 3, out: 15 },
+  "claude-opus-4-8": { in: 5, out: 25 },
+  "claude-opus-5": { in: 5, out: 25 },
+  "claude-haiku-4-5": { in: 1, out: 5 },
+};
+
+export type AdviceUsage = {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheWriteTokens: number;
+  cacheReadTokens: number;
+  costUsd: number;
+};
+
+function computeUsage(model: string, u: {
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
+} | null | undefined): AdviceUsage | null {
+  if (!u) return null;
+  const price = PRICE_PER_MTOK[model] ?? PRICE_PER_MTOK[DEFAULT_ADVICE_MODEL];
+  const inTok = u.input_tokens ?? 0;
+  const outTok = u.output_tokens ?? 0;
+  const cw = u.cache_creation_input_tokens ?? 0;
+  const cr = u.cache_read_input_tokens ?? 0;
+  const costUsd =
+    (inTok * price.in + cw * price.in * 2 + cr * price.in * 0.1 + outTok * price.out) / 1_000_000;
+  return { model, inputTokens: inTok, outputTokens: outTok, cacheWriteTokens: cw, cacheReadTokens: cr, costUsd };
+}
+
+// 비용 측정 스크립트가 캐시되는 입력 크기를 재는 데 쓴다(런타임 동작과 무관).
+export const SYSTEM_PROMPT_FOR_MEASURE = () => SYSTEM;
 const SYSTEM = `당신은 20년 경력의 한국 주식 단기(데이트레이딩) 트레이딩 전문가입니다. 고객은 실전 자금으로 국내 10종목(삼성전자·SK하이닉스·한미반도체·삼성전기·DB하이텍(반도체) + 한화에어로스페이스(방산)·현대차(자동차)·KB금융(금융)·셀트리온(바이오)·KT(통신))만 원화로 단타 매매하며, 이번 거래에서 반드시 수익을 내야 하는 상황입니다. 고객은 투자 초보라 쉬운 한국어를 쓰되, 판단 자체는 프로 데이트레이더 수준으로 날카롭고 구체적이어야 합니다. "관망하세요" 한 마디로 끝내지 말고, 지금 무엇을 보고 있어야 하는지, 어떤 조건이 되면 행동해야 하는지까지 항상 제시하세요.
 
 중요(업종 구분): 추적 종목은 반도체 5종목과 비반도체 5종목으로 나뉩니다. 아래 통계·보정은 국내 반도체 5종목으로 실측해 만든 것이라 **반도체 종목에만 적용**되며, 비반도체 종목에는 데이터에서 아예 빠지거나 "해당없음"으로 표시됩니다: 국면별_과거통계, 간밤 SOX 전이 보정, 폭락반등·급등익절 플레이북 실적. 비반도체 종목을 판단할 때 이 숫자들을 끌어다 쓰지 말고, 그 종목 자체의 변동성_추정·기술적 지표·수급·해당 업종 뉴스로만 판단하세요. 업종별 주된 동인은 데이터의 "업종"·"동인" 필드에 있습니다.
@@ -92,7 +135,10 @@ const SYSTEM = `당신은 20년 경력의 한국 주식 단기(데이트레이�
 12. headline과 rationale 중 최소 1곳 이상에는 반드시 구체적 숫자(가격·비율·지표값)를 인용해야 한다. "분위기가 좋다", "관심 필요" 같은 추상적 표현만으로 채우는 것은 금지.
 13. 확정적 수익을 약속하지 않으며, 모든 판단은 확률적 우위에 근거함을 전제로 한다. 시세는 무료 공개 API 기준이라 최대 15~20분 지연될 수 있음을 인지하고, 실제 주문 직전 증권사 앱에서 최신가를 반드시 재확인하라고 checklist에 포함한다.
 14. 최신 뉴스/속보 중 발행시각이 가장 최근이고 impact가 "높음"인 항목을 최우선으로 반영한다. 오래됐거나(예: 1일 이상 경과) 영향도가 낮은 뉴스보다 방금 나온 고영향 뉴스가 판단을 바꿀 수 있다면 headline과 rationale에서 그 사실을 명시적으로 언급한다.
-15. 토큰 절약을 위해 rationale은 최대 3개, checklist는 최대 2개, entryTriggers는 최대 2개 항목으로 간결하게 작성한다. 길게 쓰지 말고 핵심만 담는다. 각 항목은 한 문장(80자 이내)으로 끝낸다. "관망_종목_요약"에만 실린 종목(보유도 신호도 없는 종목)은 rationale 1개·checklist 0개·entryTriggers 1개까지만 쓰고 headline도 한 줄로 끝낸다 — 응답 전체가 너무 길어지면 중간에서 잘려 조언이 통째로 버려진다(실제 발생한 사고).
+15. 출력 길이 규칙 (반드시 지킬 것 — 응답이 길어지면 중간에서 잘려 조언이 통째로 버려지고, 출력 토큰이 이 앱 API 비용의 대부분을 차지한다):
+   · 상세 종목("룰엔진_신호"에 실린 종목 = 보유 중이거나 행동 신호가 난 종목): rationale 최대 3개, checklist 최대 2개, entryTriggers 최대 2개. 각 항목은 한 문장(80자 이내)으로 끝낸다.
+   · 압축 종목("관망_종목_요약"에 한 줄로만 실린 종목): 당신에게 주어진 정보 자체가 한 줄뿐이므로 길게 쓸 근거가 없다. headline 한 문장 + rationale 1개만 쓰고, checklist와 entryTriggers는 빈 배열([]), entryPrice·targetPrice·stopPrice는 null, invalidation도 null로 둔다. 이 종목들에 대해 길게 쓰는 것은 근거 없는 창작이므로 금지한다.
+   · 어떤 종목에도 같은 말을 두 번 쓰지 않는다. headline에 쓴 문장을 rationale에서 되풀이하지 않는다.
 16. timeHorizon(투자 시계열)을 항상 명시한다 — entryTriggers가 오늘 장중에 충족될 가능성이 높으면 "당일", 며칠에 걸쳐 조건(예: 눌림목, 되돌림, 추가 뉴스 확인)이 갖춰질 성격이면 "수일내(스윙)"로 표시한다. 이 앱은 단타 전용이므로 "수일내"라도 최대 며칠 내 단기 스윙을 의미하며 중장기 투자를 뜻하지 않는다.
 17. 최근 DART 공시가 있는 종목은 뉴스보다 우선해 headline/rationale에 구체적으로 반영한다(공시 제목과 접수일 인용). 공시와 뉴스가 같은 사안을 다루면 공시 쪽 시각을 기준으로 최신성을 판단한다.
 18. rationale/checklist/entryTriggers/invalidation에서도 RSI·MACD·ADX·볼린저·스토캐스틱·다이버전스·OBV·피벗·VWAP 같은 지표명을 그냥 나열하지 말고, "지금 과매수 구간이라 위험해요(RSI 74)"처럼 그 지표가 뜻하는 상황을 먼저 쉬운 말로 설명한 뒤 괄호로 수치/용어를 덧붙인다. 고객은 이런 용어를 전혀 모른다고 가정하고 쓴다.
@@ -238,7 +284,7 @@ export async function generateAdvice(params: {
   todayPlan?: TodayPlan | null; // 오늘의 작전 — 엔진이 판별한 레짐과 플레이북 (조언의 중심 축)
   creditNote?: string | null; // 시장 신용잔고(빚투) 요약 — KOFIA 연동 실패 시 null
   dailyRisk?: import("./dailyRisk").DailyRisk | null; // 계좌 하루 손실 — 한도 도달 시 신규매수 제안 금지
-}): Promise<{ advice: AiAdvice | null; error: string | null }> {
+}): Promise<{ advice: AiAdvice | null; error: string | null; usage?: AdviceUsage | null }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { advice: null, error: "ANTHROPIC_API_KEY 미설정 (Vercel 환경변수 확인 필요)" };
   // 타임아웃(ms) — 웹 요청 안에서 도는 호출이므로 재시도는 1회로 제한
@@ -270,6 +316,16 @@ export async function generateAdvice(params: {
     // 이 호출은 사용자가 화면에서 기다리는 단발 요청이라 스트리밍을 쓰지 않는다.
     // (그래도 잘릴 경우를 대비해 아래에서 부분 복구까지 한다 — 이중 방어)
     max_tokens: 16000,
+    // Opus 4.8은 thinking을 안 넘기면 "사고 없음"이지만 Sonnet 5는 반대로 "적응형 사고 켜짐"이
+    // 기본이다. 그대로 모델만 바꾸면 사고 토큰이 출력 요금($15/100만)으로 추가 청구되어
+    // 절감폭이 깎인다. 지금까지와 동일한 조건(사고 없음)으로 맞춰 모델 변경의 효과만 남긴다.
+    // 품질이 아쉬우면 CLAUDE_THINKING=adaptive 로 켤 수 있다(비용은 늘어난다).
+    // Fable/Mythos 계열은 사고를 끌 수 없어(400) 이 경우에만 적응형으로 둔다 —
+    // 운영자가 CLAUDE_MODEL을 바꿔 넣었을 때 분석이 통째로 죽는 것을 막는다.
+    thinking:
+      process.env.CLAUDE_THINKING === "adaptive" || /^claude-(fable|mythos)/.test(MODEL)
+        ? { type: "adaptive" as const }
+        : { type: "disabled" as const },
     output_config: {
       effort: "medium" as const, // 사용자가 화면에서 기다리는 호출이므로 응답 속도 우선
       format: { type: "json_schema" as const, schema: ADVICE_SCHEMA as unknown as Record<string, unknown> },
@@ -296,11 +352,14 @@ export async function generateAdvice(params: {
         system: `${SYSTEM}\n\n${eventsText}`,
       });
     }
+    // 실제로 얼마나 썼는지는 모델을 바꾼 뒤 "정말 줄었나"를 확인할 유일한 근거다.
+    // 실패한 호출도 입력 토큰은 청구되므로 성공/실패와 무관하게 집계한다.
+    const usage = computeUsage(MODEL, response.usage);
     if (response.stop_reason === "refusal") {
-      return { advice: null, error: "AI가 이 요청의 응답을 거절했습니다. 잠시 후 다시 시도해주세요." };
+      return { advice: null, error: "AI가 이 요청의 응답을 거절했습니다. 잠시 후 다시 시도해주세요.", usage };
     }
     const text = response.content.find((b) => b.type === "text");
-    if (!text || text.type !== "text") return { advice: null, error: "AI 응답 형식 오류" };
+    if (!text || text.type !== "text") return { advice: null, error: "AI 응답 형식 오류", usage };
     const { advice: raw, truncated } = parseAdviceResponse(text.text, response.stop_reason);
     if (!raw) {
       return {
@@ -309,6 +368,7 @@ export async function generateAdvice(params: {
           response.stop_reason === "max_tokens"
             ? "AI 응답이 너무 길어 중간에 끊겼습니다. 다시 시도해주세요."
             : "AI 응답을 해석하지 못했습니다. 다시 시도해주세요.",
+        usage,
       };
     }
     const parsed = sanitizeAdvicePrices(raw, signals, quietTickers);
@@ -320,10 +380,11 @@ export async function generateAdvice(params: {
       error: truncated
         ? `AI 응답이 중간에 끊겨 일부만 복구했습니다(종목 ${parsed.stocks.length}개). 전체를 보려면 다시 분석해주세요.`
         : null,
+      usage,
     };
   } catch (e) {
     console.error("Claude 조언 생성 실패:", e);
-    return { advice: null, error: describeAnthropicError(e) };
+    return { advice: null, error: describeAnthropicError(e), usage: null };
   }
 }
 

@@ -7,6 +7,7 @@ import { testGeminiConnection } from "@/lib/gemini";
 import { fetchDartDisclosures } from "@/lib/dart";
 import { fetchInvestorFlows } from "@/lib/investorFlow";
 import Anthropic from "@anthropic-ai/sdk";
+import { DEFAULT_ADVICE_MODEL } from "@/lib/claude";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -31,7 +32,7 @@ export async function GET() {
     try {
       const client = new Anthropic({ timeout: 30_000, maxRetries: 0 });
       const r = await client.messages.create({
-        model: process.env.CLAUDE_MODEL || "claude-opus-4-8",
+        model: process.env.CLAUDE_MODEL || DEFAULT_ADVICE_MODEL,
         max_tokens: 16,
         messages: [{ role: "user", content: "OK라고만 답해" }],
       });

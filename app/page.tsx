@@ -29,6 +29,14 @@ interface AdviceResponse {
   signals: EngineSignal[];
   advice: AiAdvice | null;
   adviceError?: string | null;
+  adviceUsage?: {
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    cacheWriteTokens: number;
+    cacheReadTokens: number;
+    costUsd: number;
+  } | null;
   masterScore?: MasterScore | null;
   news: NewsItem[];
   newsError?: string | null;
@@ -1240,6 +1248,16 @@ export default function Home() {
       {!loading && result && (
         <div className="hint" style={{ textAlign: "center", marginBottom: 14 }}>
           {staleness(result.generatedAt, "분석")}
+          {/* 이 버튼 한 번이 실제로 얼마인지 보이지 않으면 아껴 쓸 방법이 없다.
+              출력 토큰이 요금의 대부분이라 따로 보여준다. */}
+          {result.adviceUsage && (
+            <>
+              {" · "}
+              <span title={`${result.adviceUsage.model} · 입력 ${result.adviceUsage.inputTokens.toLocaleString()} + 캐시읽기 ${result.adviceUsage.cacheReadTokens.toLocaleString()} / 출력 ${result.adviceUsage.outputTokens.toLocaleString()} 토큰`}>
+                이번 분석 약 {usdKrwRate ? `${Math.round(result.adviceUsage.costUsd * usdKrwRate).toLocaleString()}원` : `$${result.adviceUsage.costUsd.toFixed(3)}`}
+              </span>
+            </>
+          )}
         </div>
       )}
       {error && (

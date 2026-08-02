@@ -234,7 +234,7 @@ export async function POST(req: Request) {
       scenarioData as unknown as import("@/lib/scenario").ScenarioTable,
     );
 
-    const { advice, error: adviceError } = await generateAdvice({
+    const { advice, error: adviceError, usage: adviceUsage } = await generateAdvice({
       signals,
       macro,
       news,
@@ -251,6 +251,7 @@ export async function POST(req: Request) {
       signals,
       advice,
       adviceError,
+      adviceUsage: adviceUsage ?? null,
       masterScore,
       news,
       newsError,
