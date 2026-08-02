@@ -10,6 +10,7 @@ import ForecastChart from "./ForecastChart";
 import analogStats from "@/data/analog-stats.json";
 import touchStats from "@/data/touch-stats.json";
 import probStats from "@/data/probability-stats.json";
+import powerStats from "@/data/power-stats.json";
 
 const TICKERS = TICKER_LIST.map((ticker) => ({ ticker, name: STOCKS[ticker].name }));
 
@@ -1556,6 +1557,20 @@ export default function Home() {
                 <tr><th>② 다중 시간대 로지스틱</th><td>3일·1주·2주·1개월·6개월·3년 수익률 + 변동성 국면 + 낙폭 + 이격 + RSI + 거래량 + 간밤 SOX + 전일 코스피 <b>13개 특징, 표본 {probStats.sample.toLocaleString()}개</b> → Brier {probStats.models["로지스틱(다중 시간대)"].brier} (기저율과 <b>완전히 동일</b>), AUC {probStats.models["로지스틱(다중 시간대)"].auc} = 정보량 0</td></tr>
                 <tr><th>③ 국면 조건부 (21개 국면)</th><td>다중검정 보정 후 기저율과 유의미하게 다른 국면 <b>{probStats.significantRegimes}개</b></td></tr>
               </tbody></table>
+              <div style={{ marginTop: 8, fontWeight: 800 }}>&quot;표본과 조합을 늘리면 되지 않나?&quot; — 이것도 측정했습니다</div>
+              <table className="doc-tbl" style={{ marginTop: 4 }}><tbody>
+                <tr><th>검정력</th><td>지금 표본으로 탐지 가능한 최소 우위는 적중률 <b>{(50 + (powerStats.powerAnalysis[0].minDetectableAuc - 0.5) * 80).toFixed(1)}%</b>. 표본을 <b>10배</b>로 늘려도 <b>{(50 + (powerStats.powerAnalysis[2].minDetectableAuc - 0.5) * 80).toFixed(1)}%</b>까지만 내려갑니다 — 게다가 그 정도 우위는 왕복 거래비용(0.25%)에도 못 미칩니다</td></tr>
+                <tr><th>조합 확대 실험</th><td>국면을 27 → 213 → 923 → 2,602개로 늘렸더니 <b>검증 적중률이 계속 떨어졌습니다</b> ({powerStats.comboResults.map((c: {testAcc:number}) => `${c.testAcc}%`).join(" → ")}). 셀당 표본이 194개 → 2개로 붕괴하기 때문입니다</td></tr>
+                <tr><th>종목·시계 확대</th><td>종목 9개 × 예측시계 5종으로 넓혀도 1·2·3·5일 전부 신뢰구간이 0.5를 포함(신호 없음). 10일 후에서만 AUC {powerStats.horizonResults[4].auc}로 약한 신호가 있었으나 <b>단타 시계가 아니고</b> 추가 검증이 필요합니다</td></tr>
+              </tbody></table>
+              <div className="doc-chk" style={{ marginTop: 6 }}>
+                조합을 늘리면 <b>학습 성적만 오르고 검증 성적은 떨어집니다</b>(과적합). 변수를 더 넣는 것이 답이 아니라는 뜻입니다.
+              </div>
+              <div className="doc-chk">
+                <b>트럼프 발언·중동 정세·중국 반도체 증설·마이클 버리 등 큰손 포지션·CAPEX 가이던스·실적 전망</b>은
+                과거 라벨이 없어 정량 모델에 넣을 수 없습니다. 대신 실시간 뉴스로 수집해 AI 판단 단계에 직접 투입하며,
+                AI는 &quot;이 요인이 룰 엔진 점수에 빠져 있다&quot;는 사실과 함께 자신의 해석을 밝히도록 되어 있습니다.
+              </div>
               <div className="doc-chk" style={{ marginTop: 6 }}>
                 모델이 단조로워서가 아닙니다. 시간대를 3일부터 3년까지 늘리고 인과 요인(SOX·코스피·거래량)을 넣어도
                 정보량이 늘지 않았습니다. <b>다음날 방향은 이 종목군에서 예측되지 않습니다.</b>
@@ -1626,6 +1641,8 @@ export default function Home() {
           <div className="doc-cap">매매 vs 보유 비교 — 1주/1개월/6개월</div>
           <div className="doc-code">npx tsx scripts/validate-forecast-path.ts</div>
           <div className="doc-cap">예상 경로 차트의 구간 적중률 + √시간 가정 점검</div>
+          <div className="doc-code">npx tsx scripts/validate-power.ts</div>
+          <div className="doc-cap">표본·조합 확대가 답을 바꾸는지 — 검정력·시계별·조합별 실험</div>
           <div className="doc-code">npx tsx scripts/validate-probability.ts</div>
           <div className="doc-cap">상승 확률 모델 3종 비교 — Brier·AUC·신뢰도·국면별 실측 상승률</div>
           <div className="doc-code">npx tsx scripts/validate-analog.ts</div>

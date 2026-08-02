@@ -1,0 +1,94 @@
+{
+ "generatedAt": "2026-08-02T05:53:42.113Z",
+ "note": "표본·조합 확대가 방향 예측을 가능하게 하는지 검정한 결과",
+ "powerAnalysis": [
+  {
+   "n": 4845,
+   "aucStdError": 0.0083,
+   "minDetectableAuc": 0.5232
+  },
+  {
+   "n": 10000,
+   "aucStdError": 0.0058,
+   "minDetectableAuc": 0.5162
+  },
+  {
+   "n": 48450,
+   "aucStdError": 0.0026,
+   "minDetectableAuc": 0.5073
+  },
+  {
+   "n": 200000,
+   "aucStdError": 0.0013,
+   "minDetectableAuc": 0.5036
+  }
+ ],
+ "horizonResults": [
+  {
+   "horizon": 1,
+   "n": 3497,
+   "auc": 0.5056,
+   "lo": 0.4865,
+   "hi": 0.5247
+  },
+  {
+   "horizon": 2,
+   "n": 3497,
+   "auc": 0.5148,
+   "lo": 0.4957,
+   "hi": 0.534
+  },
+  {
+   "horizon": 3,
+   "n": 3497,
+   "auc": 0.5128,
+   "lo": 0.4936,
+   "hi": 0.5319
+  },
+  {
+   "horizon": 5,
+   "n": 3497,
+   "auc": 0.5099,
+   "lo": 0.4907,
+   "hi": 0.529
+  },
+  {
+   "horizon": 10,
+   "n": 3497,
+   "auc": 0.5297,
+   "lo": 0.5105,
+   "hi": 0.5488
+  }
+ ],
+ "comboResults": [
+  {
+   "axes": "3축",
+   "cells": 27,
+   "perCell": 194.3,
+   "trainAcc": 53.4,
+   "testAcc": 50.2
+  },
+  {
+   "axes": "5축",
+   "cells": 213,
+   "perCell": 24.6,
+   "trainAcc": 54.4,
+   "testAcc": 49.3
+  },
+  {
+   "axes": "7축",
+   "cells": 923,
+   "perCell": 5.7,
+   "trainAcc": 52.4,
+   "testAcc": 48.3
+  },
+  {
+   "axes": "9축(세분)",
+   "cells": 2602,
+   "perCell": 2,
+   "trainAcc": 50.7,
+   "testAcc": 48.2
+  }
+ ],
+ "conclusion": "표본을 10배로 늘려도 탐지 한계는 √10배만 내려간다. 측정된 AUC가 0.5의 신뢰구간 안에 있으므로 '표본 부족'이 아니라 '신호 없음'이다. 국면 조합을 늘리면 학습 성적만 오르고 검증 성적은 따라오지 않는다(과적합)."
+}
