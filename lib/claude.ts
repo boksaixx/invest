@@ -92,7 +92,7 @@ const SYSTEM = `당신은 20년 경력의 한국 주식 단기(데이트레이�
 12. headline과 rationale 중 최소 1곳 이상에는 반드시 구체적 숫자(가격·비율·지표값)를 인용해야 한다. "분위기가 좋다", "관심 필요" 같은 추상적 표현만으로 채우는 것은 금지.
 13. 확정적 수익을 약속하지 않으며, 모든 판단은 확률적 우위에 근거함을 전제로 한다. 시세는 무료 공개 API 기준이라 최대 15~20분 지연될 수 있음을 인지하고, 실제 주문 직전 증권사 앱에서 최신가를 반드시 재확인하라고 checklist에 포함한다.
 14. 최신 뉴스/속보 중 발행시각이 가장 최근이고 impact가 "높음"인 항목을 최우선으로 반영한다. 오래됐거나(예: 1일 이상 경과) 영향도가 낮은 뉴스보다 방금 나온 고영향 뉴스가 판단을 바꿀 수 있다면 headline과 rationale에서 그 사실을 명시적으로 언급한다.
-15. 토큰 절약을 위해 rationale은 최대 3개, checklist는 최대 2개, entryTriggers는 최대 2개 항목으로 간결하게 작성한다. 길게 쓰지 말고 핵심만 담는다.
+15. 토큰 절약을 위해 rationale은 최대 3개, checklist는 최대 2개, entryTriggers는 최대 2개 항목으로 간결하게 작성한다. 길게 쓰지 말고 핵심만 담는다. 각 항목은 한 문장(80자 이내)으로 끝낸다. "관망_종목_요약"에만 실린 종목(보유도 신호도 없는 종목)은 rationale 1개·checklist 0개·entryTriggers 1개까지만 쓰고 headline도 한 줄로 끝낸다 — 응답 전체가 너무 길어지면 중간에서 잘려 조언이 통째로 버려진다(실제 발생한 사고).
 16. timeHorizon(투자 시계열)을 항상 명시한다 — entryTriggers가 오늘 장중에 충족될 가능성이 높으면 "당일", 며칠에 걸쳐 조건(예: 눌림목, 되돌림, 추가 뉴스 확인)이 갖춰질 성격이면 "수일내(스윙)"로 표시한다. 이 앱은 단타 전용이므로 "수일내"라도 최대 며칠 내 단기 스윙을 의미하며 중장기 투자를 뜻하지 않는다.
 17. 최근 DART 공시가 있는 종목은 뉴스보다 우선해 headline/rationale에 구체적으로 반영한다(공시 제목과 접수일 인용). 공시와 뉴스가 같은 사안을 다루면 공시 쪽 시각을 기준으로 최신성을 판단한다.
 18. rationale/checklist/entryTriggers/invalidation에서도 RSI·MACD·ADX·볼린저·스토캐스틱·다이버전스·OBV·피벗·VWAP 같은 지표명을 그냥 나열하지 말고, "지금 과매수 구간이라 위험해요(RSI 74)"처럼 그 지표가 뜻하는 상황을 먼저 쉬운 말로 설명한 뒤 괄호로 수치/용어를 덧붙인다. 고객은 이런 용어를 전혀 모른다고 가정하고 쓴다.
@@ -262,9 +262,14 @@ export async function generateAdvice(params: {
   const userMessage = `아래 데이터를 종합해 지금 시점의 최종 매매 조언을 JSON으로 작성하세요. 단타이므로 "지금 뭘 봐야 하는지"를 반드시 구체적 가격과 조건으로 제시하세요.\n\n${userContent}`;
   const baseRequest = {
     model: MODEL,
-    // 10종목 전부를 상세하게 답해도 실측 약 3,150토큰이라 2배 이상 여유가 있다.
-    // (Gemini 쪽에서 상한이 작아 응답이 잘리는 사고가 있었으므로 여기도 여유를 둔다)
-    max_tokens: 6800,
+    // 상한을 6,800으로 잡았다가 실제로 응답이 잘렸다 —
+    // 변동성 큰 날에 10종목이 전부 상세 판단 대상이 되면 한글 응답이 8,000자를 넘어가는데,
+    // 그러면 JSON이 문자열 한가운데서 끊겨 조언 전체가 버려진다("Unterminated string in JSON").
+    // 출력 토큰은 실제로 생성된 만큼만 과금되므로 상한을 올리는 것 자체의 비용은 0이다.
+    // 16,000은 스트리밍을 쓰지 않는 요청의 권장 상한이다(더 키우면 HTTP 타임아웃 위험).
+    // 이 호출은 사용자가 화면에서 기다리는 단발 요청이라 스트리밍을 쓰지 않는다.
+    // (그래도 잘릴 경우를 대비해 아래에서 부분 복구까지 한다 — 이중 방어)
+    max_tokens: 16000,
     output_config: {
       effort: "medium" as const, // 사용자가 화면에서 기다리는 호출이므로 응답 속도 우선
       format: { type: "json_schema" as const, schema: ADVICE_SCHEMA as unknown as Record<string, unknown> },
@@ -296,9 +301,26 @@ export async function generateAdvice(params: {
     }
     const text = response.content.find((b) => b.type === "text");
     if (!text || text.type !== "text") return { advice: null, error: "AI 응답 형식 오류" };
-    const parsed = sanitizeAdvicePrices(JSON.parse(text.text) as Omit<AiAdvice, "generatedAt">, signals, quietTickers);
+    const { advice: raw, truncated } = parseAdviceResponse(text.text, response.stop_reason);
+    if (!raw) {
+      return {
+        advice: null,
+        error:
+          response.stop_reason === "max_tokens"
+            ? "AI 응답이 너무 길어 중간에 끊겼습니다. 다시 시도해주세요."
+            : "AI 응답을 해석하지 못했습니다. 다시 시도해주세요.",
+      };
+    }
+    const parsed = sanitizeAdvicePrices(raw, signals, quietTickers);
     applyConsistencyCheck(parsed, signals);
-    return { advice: { ...parsed, generatedAt: new Date().toISOString() }, error: null };
+    return {
+      advice: { ...parsed, generatedAt: new Date().toISOString() },
+      // 부분 복구된 경우에도 화면에는 보여주되, 잘렸다는 사실을 반드시 알린다 —
+      // 일부 종목의 판단이 빠졌는데 그걸 모르면 "AI가 관망이라 했다"고 오해할 수 있다.
+      error: truncated
+        ? `AI 응답이 중간에 끊겨 일부만 복구했습니다(종목 ${parsed.stocks.length}개). 전체를 보려면 다시 분석해주세요.`
+        : null,
+    };
   } catch (e) {
     console.error("Claude 조언 생성 실패:", e);
     return { advice: null, error: describeAnthropicError(e) };
@@ -614,6 +636,103 @@ export function buildAdvicePayload(params: {
 /** 무효화 조건에서 "목표가/손절가와 무관하게…" 같은 상투구를 떼어 토큰을 아낀다 */
 function trimInvalidation(v: string | null): string | null {
   return v ? v.split(/\s*(?:발생\s*시|시),\s*목표가/)[0] : null;
+}
+
+/**
+ * 응답 JSON을 읽는다. 정상이면 그대로, 중간에 끊겼으면 살릴 수 있는 만큼만 살린다.
+ *
+ * 실제로 발생한 사고: max_tokens에 걸려 응답이 문자열 한가운데서 끝나
+ * "Unterminated string in JSON at position 8202"로 JSON.parse가 통째로 실패했고,
+ * 이미 완성돼 있던 종목 판단까지 전부 버려져 화면에는 빨간 오류만 남았다.
+ * 스키마 순서상 overall·insightReport는 stocks보다 먼저 나오므로, 끊기더라도
+ * 총평과 앞쪽 종목들은 온전하다. 그걸 버릴 이유가 없다.
+ */
+export function parseAdviceResponse(
+  rawText: string,
+  stopReason?: string | null,
+): { advice: Omit<AiAdvice, "generatedAt"> | null; truncated: boolean } {
+  try {
+    return { advice: JSON.parse(rawText) as Omit<AiAdvice, "generatedAt">, truncated: false };
+  } catch {
+    // 아래에서 복구를 시도한다
+  }
+  const repaired = repairTruncatedJson(rawText);
+  if (!repaired) return { advice: null, truncated: stopReason === "max_tokens" };
+  let obj: Record<string, unknown>;
+  try {
+    obj = JSON.parse(repaired) as Record<string, unknown>;
+  } catch {
+    return { advice: null, truncated: stopReason === "max_tokens" };
+  }
+  // 총평이 없으면 복구해봐야 화면에 띄울 게 없다 — 차라리 실패로 처리해 재시도를 유도한다.
+  const overall = obj.overall as AiAdvice["overall"] | undefined;
+  if (!overall?.headline) return { advice: null, truncated: true };
+  // 필수 필드가 빠진 종목(정확히 끊긴 그 종목)은 화면에서 잘못된 판단으로 읽힐 수 있으므로 버린다.
+  const stocks = (Array.isArray(obj.stocks) ? obj.stocks : []).filter(
+    (st): st is AiAdvice["stocks"][number] =>
+      !!st && typeof st === "object" &&
+      typeof (st as Record<string, unknown>).ticker === "string" &&
+      typeof (st as Record<string, unknown>).action === "string" &&
+      typeof (st as Record<string, unknown>).headline === "string",
+  );
+  const ir = obj.insightReport as AiAdvice["insightReport"] | undefined;
+  return {
+    advice: {
+      overall,
+      insightReport: {
+        marketRegime: ir?.marketRegime ?? "",
+        technicalSynthesis: ir?.technicalSynthesis ?? "",
+        flowAndSentiment: ir?.flowAndSentiment ?? "",
+        keyRisks: ir?.keyRisks ?? "",
+        actionPlan: ir?.actionPlan ?? "",
+      },
+      stocks,
+      newsHighlights: Array.isArray(obj.newsHighlights) ? (obj.newsHighlights as string[]) : [],
+    },
+    truncated: true,
+  };
+}
+
+/**
+ * 잘린 JSON을 파싱 가능한 형태로 되돌린다.
+ * 문자열 안/밖을 구분하며 훑어 "마지막으로 괄호가 닫힌 지점"까지 자른 뒤,
+ * 그 시점에 열려 있는 괄호를 역순으로 닫는다. 미완성 문자열·꼬리 쉼표는 자연히 잘려나간다.
+ */
+function repairTruncatedJson(raw: string): string | null {
+  let inString = false;
+  let escaped = false;
+  let lastClose = -1;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === "\\") escaped = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') inString = true;
+    else if (c === "}" || c === "]") lastClose = i;
+  }
+  if (lastClose < 0) return null;
+  const head = raw.slice(0, lastClose + 1);
+  // 잘라낸 앞부분 기준으로 아직 닫히지 않은 괄호를 다시 계산한다.
+  const stack: string[] = [];
+  inString = false;
+  escaped = false;
+  for (let i = 0; i < head.length; i++) {
+    const c = head[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === "\\") escaped = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') inString = true;
+    else if (c === "{") stack.push("}");
+    else if (c === "[") stack.push("]");
+    else if (c === "}" || c === "]") stack.pop();
+  }
+  return head + stack.reverse().join("");
 }
 
 /**

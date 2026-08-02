@@ -360,6 +360,8 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newsNotice, setNewsNotice] = useState<string | null>(null);
+  // AI 응답이 중간에 끊겨 일부만 복구된 경우의 안내 (오류가 아니라 "덜 왔다"는 사실 고지)
+  const [adviceNotice, setAdviceNotice] = useState<string | null>(null);
   const [health, setHealth] = useState<Record<string, string> | null>(null);
   // 연결 상태 확인은 네트워크를 타므로 결과가 오기 전 몇 초간은 화면에 아무 변화가 없다.
   // 그 침묵을 "버튼이 안 먹는다"로 읽는 게 정상이므로 진행 중임을 반드시 보여준다.
@@ -475,6 +477,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setNewsNotice(null);
+    setAdviceNotice(null);
     setHealth(null);
     setElapsed(0);
     const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
@@ -525,6 +528,10 @@ export default function Home() {
         if (!json.advice && json.adviceError) {
           setError(`AI 종합 판단 실패: ${json.adviceError}`);
           void runDiagnosis();
+        } else if (json.advice && json.adviceError) {
+          // 조언은 나왔지만 일부만 복구된 경우(응답이 중간에 끊김).
+          // 빨간 오류로 띄우면 조언 전체를 못 믿게 되므로, 안내 문구로만 알린다.
+          setAdviceNotice(json.adviceError);
         }
       }
     } catch {
@@ -1243,6 +1250,11 @@ export default function Home() {
       {!error && newsNotice && (
         <div className="card" style={{ color: "var(--text-sub)", fontSize: 13, fontWeight: 600 }}>
           ℹ️ {newsNotice}
+        </div>
+      )}
+      {adviceNotice && (
+        <div className="card" style={{ color: "#b06a00", fontSize: 13, fontWeight: 700 }}>
+          ⚠️ {adviceNotice}
         </div>
       )}
 
