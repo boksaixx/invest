@@ -330,7 +330,7 @@ async function fetchFearGreedIndex(): Promise<FearGreedIndex | null> {
 }
 
 export async function getMacroSnapshot(): Promise<MacroSnapshot> {
-  const [usdkrw, kospi, nasdaq, sox, nikkei, shanghai, vix, spFutures, nasdaqFutures, fearGreed, oil] = await Promise.all([
+  const [usdkrw, kospi, nasdaq, sox, nikkei, shanghai, vix, spFutures, nasdaqFutures, fearGreed, oil, us10y] = await Promise.all([
     fetchQuote("KRW=X"),
     fetchQuote("^KS11"),
     fetchQuote("^IXIC"),
@@ -342,6 +342,7 @@ export async function getMacroSnapshot(): Promise<MacroSnapshot> {
     fetchQuote("NQ=F"),
     fetchFearGreedIndex(),
     fetchQuote("CL=F"),
+    fetchQuote("^TNX"), // 미 10년물 국채금리 — 실패해도 null로 두고 나머지는 정상 동작
   ]);
-  return { usdkrw, kospi, nasdaq, sox, nikkei, shanghai, vix, spFutures, nasdaqFutures, fearGreed, oil };
+  return { usdkrw, kospi, nasdaq, sox, nikkei, shanghai, vix, spFutures, nasdaqFutures, fearGreed, oil, us10y };
 }

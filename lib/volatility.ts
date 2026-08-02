@@ -327,3 +327,114 @@ export function computePortfolioRisk(
     warnings,
   };
 }
+
+// ---------------- 상관 종목 합산 비중 한도 ----------------
+
+// 상관이 이 값 이상이면 "사실상 같은 종목"으로 보고 합산 비중을 함께 관리한다.
+// 실측: 삼성전자·SK하이닉스 5년 0.72 → 최근 1년 0.84 → 최근 6개월 0.89로 계속 높아지는 중이라
+// 급변동장일수록 이 규칙이 더 필요해진다.
+export const CORRELATED_PAIR_THRESHOLD = 0.7;
+// 상관 쌍의 합산 비중 상한 (총자산 대비). 지금 규칙은 종목당 50%라서
+// 삼성전자 50% + SK하이닉스 50% = 100%가 "분산"으로 통과된다 — 그 구멍을 막는다.
+//
+// 왜 50%인가: scripts/validate-correlation-cap.ts 실측상 이 캡은 수익을 개선하지 않는다
+// (위험대비수익이 캡 수준과 거의 무관). 순전히 "최악의 날을 견딜 수 있는 크기"로 묶는 한도다.
+// 2천만원 기준 5년 최악의 날 손실이 합산 100%면 -280만원, 50%면 -140만원이었다.
+export const CORRELATED_PAIR_MAX_WEIGHT = 0.5;
+
+export interface CorrelationCap {
+  available: boolean;
+  /** 티커별 "이 종목에 더 넣을 수 있는 금액"(원화/해당 통화). 캡을 이미 넘었으면 0 */
+  headroom: Record<string, number>;
+  /** 상관이 높아 함께 관리해야 하는 쌍들 (표시용) */
+  pairs: { a: string; b: string; corr: number; combinedWeightPct: number; overCap: boolean }[];
+  warnings: string[];
+}
+
+/**
+ * 상관이 높은 종목 쌍의 합산 비중이 한도를 넘지 않도록 종목별 추가 매수 여력을 계산한다.
+ *
+ * 개별 종목 비중만 보는 기존 규칙(MAX_POSITION_WEIGHT)으로는 "상관 0.9인 두 종목에 반반"이
+ * 걸러지지 않는다. 위험은 한 종목에 전액 넣은 것과 사실상 같은데도 규칙은 통과시킨다.
+ *
+ * 한도는 "현재 보유"를 기준으로 종목별 여력을 따로 계산한다. 따라서 한 번의 조회에서 쌍의
+ * 양쪽을 동시에 매수 제안하면 이론상 합산 한도를 넘길 수 있다. 실제로는 1회 매수 예산이
+ * 리스크 기준(총자산 1% ÷ 손절폭)으로 이미 총자산의 5~6% 수준까지 줄어들어 두 종목을 합쳐도
+ * 한도 근처에 가지 않으며, 사용자가 직접 사서 한도를 넘긴 경우는 다음 조회에서 잡힌다.
+ *
+ * @param positions 티커·이름·현재 평가금액·일봉 (평가금 0인 종목도 넘겨야 신규매수 한도가 계산된다)
+ * @param totalAsset 같은 통화 기준 총자산 (현금 + 평가금)
+ */
+export function computeCorrelationCap(
+  positions: { ticker: string; name: string; value: number; candles: Candle[] }[],
+  totalAsset: number,
+): CorrelationCap {
+  const empty: CorrelationCap = { available: false, headroom: {}, pairs: [], warnings: [] };
+  const valid = positions.filter((p) => p.candles.length >= MIN_CANDLES);
+  if (valid.length < 2 || !(totalAsset > 0)) return empty;
+
+  // 공통 거래일 기준 로그수익률 (최근 120일) — computePortfolioRisk와 같은 방식
+  const retMaps = valid.map((p) => {
+    const m = new Map<string, number>();
+    for (let i = 1; i < p.candles.length; i++) {
+      const prev = p.candles[i - 1].close;
+      const cur = p.candles[i].close;
+      if (prev > 0 && cur > 0) m.set(p.candles[i].date, Math.log(cur / prev));
+    }
+    return m;
+  });
+  const commonDates = [...retMaps[0].keys()].filter((d) => retMaps.every((m) => m.has(d))).sort().slice(-120);
+  if (commonDates.length < 30) return empty;
+  const series = retMaps.map((m) => commonDates.map((d) => m.get(d) as number));
+
+  const corrOf = (a: number[], b: number[]) => {
+    const ma = a.reduce((x, y) => x + y, 0) / a.length;
+    const mb = b.reduce((x, y) => x + y, 0) / b.length;
+    let num = 0;
+    let da = 0;
+    let db = 0;
+    for (let k = 0; k < a.length; k++) {
+      const x = a[k] - ma;
+      const y = b[k] - mb;
+      num += x * y;
+      da += x * x;
+      db += y * y;
+    }
+    return da > 0 && db > 0 ? num / Math.sqrt(da * db) : 0.7; // 계산 불가 시 섹터 평균으로 보수적 가정
+  };
+
+  const capAmount = totalAsset * CORRELATED_PAIR_MAX_WEIGHT;
+  // 각 종목의 여력은 "이 종목이 속한 모든 상관 쌍" 중 가장 빡빡한 쪽을 따른다
+  const headroom: Record<string, number> = {};
+  for (const p of valid) headroom[p.ticker] = Math.max(0, capAmount - p.value); // 쌍이 없으면 단독 기준
+  const pairs: CorrelationCap["pairs"] = [];
+  const warnings: string[] = [];
+
+  for (let i = 0; i < valid.length; i++) {
+    for (let j = i + 1; j < valid.length; j++) {
+      const rho = corrOf(series[i], series[j]);
+      if (rho < CORRELATED_PAIR_THRESHOLD) continue;
+      const combined = valid[i].value + valid[j].value;
+      const room = capAmount - combined;
+      const overCap = room < 0;
+      pairs.push({
+        a: valid[i].name,
+        b: valid[j].name,
+        corr: Number(rho.toFixed(2)),
+        combinedWeightPct: (combined / totalAsset) * 100,
+        overCap,
+      });
+      headroom[valid[i].ticker] = Math.min(headroom[valid[i].ticker], Math.max(0, room));
+      headroom[valid[j].ticker] = Math.min(headroom[valid[j].ticker], Math.max(0, room));
+      if (overCap) {
+        warnings.push(
+          `${valid[i].name}·${valid[j].name} 합산 비중이 ${((combined / totalAsset) * 100).toFixed(0)}%입니다 — ` +
+            `두 종목의 상관이 ${rho.toFixed(2)}로 사실상 한 종목이라, 나눠 담았어도 분산 효과가 없습니다. ` +
+            `합산 ${(CORRELATED_PAIR_MAX_WEIGHT * 100).toFixed(0)}% 이하로 줄이는 것을 권합니다(이 규칙은 수익을 늘리려는 게 아니라 최악의 날을 견디게 하는 한도입니다).`,
+        );
+      }
+    }
+  }
+
+  return { available: true, headroom, pairs, warnings };
+}

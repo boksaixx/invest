@@ -39,6 +39,11 @@ export interface MacroSnapshot {
   nasdaqFutures: Quote | null; // 나스닥100 선물
   fearGreed: FearGreedIndex | null; // CNN 공포탐욕지수 (수집 실패 시 null, 판단에서 선택적으로만 반영)
   oil: Quote | null; // WTI 원유 선물(CL=F) — 유가 급변동은 반도체 제조원가·글로벌 리스크심리에 영향
+  // 미 10년물 국채금리(^TNX) — 기술주·반도체주의 밸류에이션 할인율 리스크.
+  // ★ 점수(macroScore)에는 반영하지 않는다. 자체 히스토리가 아직 없어 기여도를 실측하지 못했기 때문이며,
+  //   검증 없이 점수에 넣지 않는 것이 이 엔진의 원칙이다(같은 이유로 VIX도 변동성 모델에서 제외됐다).
+  //   지금은 사람과 Claude가 읽는 "맥락 정보"로만 쓰고, 데이터가 쌓이면 그때 검증 후 반영한다.
+  us10y: Quote | null;
 }
 
 export interface Indicators {
@@ -157,6 +162,11 @@ export interface EngineSignal {
   invalidation: string | null; // 무효화 조건 — 발생 시 목표가/손절가와 무관하게 즉시 재검토
   scaledEntry: ScaledOrder[]; // 분할 매수 라인
   scaledExit: ScaledOrder[]; // 분할 매도(익절) 라인
+  // 자동 감시주문(HTS/MTS 예약) 지침. 확인 시간이 불규칙한 사용자를 위한 것으로,
+  // "무조건 걸어라"가 아니라 실측 근거에 따라 조건부로 제시한다
+  // (scripts/validate-watch-orders.ts: 하루 이상 못 보면 최악 -34%→-20%로 잘리지만,
+  //  당일 안에 다시 볼 수 있으면 스톱이 스쳐 털리는 손해가 더 크다)
+  watchOrderNote: string | null;
   relativeStrengthNote: string | null; // 반도체 5종목 중 상대강도 순위 코멘트
   estimatedRoundTripCostWon: number | null; // 왕복 거래비용(증권거래세+수수료) 추정액 (원)
   backtest: BacktestStats | null; // 5개년 일봉 기준 과거 신호 통계 (참고용, 확정적 예측 아님)

@@ -27,6 +27,7 @@ interface AdviceResponse {
   marketPhaseUS?: { phase: string; kstTime: string; note: string };
   relativeStrengthSummary?: string | null;
   sectorConcentrationWarning?: string | null;
+  correlationCap?: { warnings: string[]; pairs: { a: string; b: string; corr: number; combinedWeightPct: number }[] } | null;
   todayPlan?: {
     regime: "폭락장" | "급등과열" | "변동성확대" | "보통";
     regimeNote: string;
@@ -681,6 +682,10 @@ export default function Home() {
           {result.portfolioRisk.warnings.map((w, i) => (
             <div key={i} className="risk-warn">⚠️ {w}</div>
           ))}
+          {/* 상관 합산 비중 한도 — 종목당 한도만으로는 "상관 0.9인 두 종목에 반반"이 안 걸러진다 */}
+          {result.correlationCap?.warnings.map((w, i) => (
+            <div key={`cc${i}`} className="risk-warn">⚠️ {w}</div>
+          ))}
           <div className="risk-note">
             과거 5년 실데이터로 검증한 추정치입니다(90% 구간 적중률 약 88%). 확정 예측이 아니라 "이 정도 범위는 각오해야 한다"는 기준으로만 쓰세요.
           </div>
@@ -1270,6 +1275,13 @@ export default function Home() {
                         <div className="plan-item">{ai?.invalidation ?? sig.invalidation}</div>
                       </div>
                     )}
+                    {/* 확인 시간이 불규칙한 사용자를 위한 예약주문 안내 — 조건부(하루 이상 못 볼 때)로만 권한다 */}
+                    {sig.watchOrderNote && (
+                      <div className="plan-block plan-watch">
+                        <div className="plan-block-title">🔔 자리 비울 때 (증권사 예약·감시주문)</div>
+                        <div className="plan-item">{sig.watchOrderNote}</div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1343,6 +1355,7 @@ export default function Home() {
               ["원/달러 환율", "급등 시 외국인 이탈 압력"],
               ["국제유가(WTI)", "급등이든 급락이든 방향과 무관하게 매크로 리스크 확대 신호"],
               ["VIX·공포탐욕지수", "시장 전체 공포 수준 — 포지션 축소 판단"],
+              ["미 10년물 국채금리", "기술주 밸류에이션(할인율) 리스크. ※점수에는 반영하지 않고 맥락으로만 씁니다 — 자체 데이터가 아직 없어 기여도를 실측하지 못했고, 검증 안 된 변수는 점수에 넣지 않는 것이 이 엔진의 원칙입니다"],
               ["나스닥·S&P500 선물", "장 시작 전 방향성 참고"],
               ["코스피", "국내장 전반 리스크"],
             ]},
@@ -1354,6 +1367,7 @@ export default function Home() {
             ]},
             { g: "뉴스·이벤트", items: [
               ["실시간 속보(Gemini)", "3시간 이내 고영향 뉴스 우선. 트럼프 등 정치인 관세·규제 발언, AI 업황, 전쟁·지정학"],
+              ["반도체 사이클 뉴스", "D램/낸드 현물가 반등 여부(삼성전자·하이닉스 바닥 신호), 빅테크 AI 설비투자(CAPEX) 가이던스 상·하향 — 정형 데이터로 살 수 있는 API가 없어 뉴스로 수집합니다"],
               ["과거 이벤트 타임라인", "2023~2026 반도체·매크로 주요 사건과 그때의 교훈"],
             ]},
           ].map((blk) => (
@@ -1402,6 +1416,13 @@ export default function Home() {
             <div className="doc-chk">안쪽 50% 띠는 실제 적중 44.8~48.0% — 표시보다 살짝 좁게 잡힙니다(하루 기준 분위수를 여러 날에 그대로 써서 생기는 오차)</div>
             <div className="doc-chk">√시간 가정 실측 비율 0.87~1.04 (1.0이면 가정 정확)</div>
           </div></div>
+          <div className="doc-step"><span className="doc-num">6</span><div>
+            <strong>위험 한도</strong> — 상관이 0.7 이상인 종목 쌍은 &quot;사실상 한 종목&quot;으로 보고
+            합산 비중을 총자산의 50%로 제한합니다. 종목당 50%만 보던 기존 규칙으로는
+            삼성전자 50% + SK하이닉스 50% = 100%가 &quot;분산&quot;으로 통과됐습니다.
+            <div className="doc-chk">실측 상관: 5년 0.72 → 최근 1년 0.84 → 최근 6개월 0.89 (급변동장일수록 더 붙는다)</div>
+            <div className="doc-chk">주의: 이 한도는 수익을 늘리지 않습니다. 위험대비수익은 한도를 바꿔도 거의 그대로였고(6개월 기준 1.57~1.71), 오직 최악의 날을 줄입니다 — 2천만원 기준 -280만원 → -140만원</div>
+          </div></div>
         </div>
 
         <div className="doc-sec">
@@ -1411,7 +1432,9 @@ export default function Home() {
             <tr><th>급등(+12%↑) 다음날</th><td>고가 평균 +5.4% · +3% 지정가 도달 64% · 갭하락 출발 42% (50회)</td></tr>
             <tr><th>SOX 폭락 다음날 시가 매도</th><td>그냥 보유 대비 -0.13%p — 무익 (395회)</td></tr>
             <tr><th>눌림목 규칙</th><td>급변동 전반 +21.0% / 2025년 +4.3% / 평온한 2024년 +10.2%</td></tr>
-            <tr><th>삼성전자·하이닉스 상관</th><td>0.86 — 둘 다 보유해도 분산 효과 거의 없음</td></tr>
+            <tr><th>삼성전자·하이닉스 상관</th><td>최근 6개월 0.89 — 둘 다 보유해도 분산 효과 거의 없음</td></tr>
+            <tr><th>감시주문(하루 이상 방치)</th><td>최악 -34.0% → -20.0%, -10% 넘는 손실 비율 4.8% → 2.4%</td></tr>
+            <tr><th>감시주문(당일 재확인 가능)</th><td>오히려 불리 — 스치고 되돌아와 손해 94회 &gt; 손실 줄인 66회</td></tr>
           </tbody></table>
         </div>
 
@@ -1423,6 +1446,7 @@ export default function Home() {
             <li><strong>구조적 리스크는 과거 가격에 없습니다.</strong> AI 업황 둔화, 전쟁, 환율 급등, 국채금리 변동은 5년 데이터에 없던 형태로 올 수 있습니다.</li>
             <li><strong>강세장 수익률을 지금에 적용하지 않습니다.</strong> 고점 대비 15% 이상 무너지면 &quot;보유가 유리했다&quot;는 판정을 자동으로 철회합니다.</li>
             <li><strong>예상 경로 차트는 &quot;방향&quot;이 아니라 &quot;폭&quot;의 그림</strong>입니다. 언제 어느 쪽으로 튈지는 어떤 통계 모델도 모릅니다. 또한 하루 안의 U자 배분은 자체 수집 표본이 부족해(20건) 시장에서 통상 관찰되는 표준 형태를 쓴 값이라, 장중 부분구간은 일 단위만큼 정밀하게 검증되지 않았습니다.</li>
+            <li><strong>예약(감시)주문은 만능이 아닙니다.</strong> 하루 이상 못 볼 때는 꼬리 손실을 확실히 잘라주지만, 당일 안에 다시 확인할 수 있다면 잠깐 스치고 되돌아오는 날에 기계적으로 털려 오히려 손해였습니다(손해 94건 vs 구제 66건). 그래서 조건부로만 권합니다.</li>
             <li><strong>시세는 최대 15~20분 지연</strong>될 수 있습니다. 주문 직전 증권사 앱에서 반드시 재확인하세요.</li>
             <li><strong>플레이북은 수익 증폭기가 아니라 낙폭 방어 장치</strong>입니다. 최근 1개월 최대낙폭이 보유 34~43% vs 플레이북 8~11%였습니다.</li>
           </ul>
@@ -1438,6 +1462,10 @@ export default function Home() {
           <div className="doc-cap">매매 vs 보유 비교 — 1주/1개월/6개월</div>
           <div className="doc-code">npx tsx scripts/validate-forecast-path.ts</div>
           <div className="doc-cap">예상 경로 차트의 구간 적중률 + √시간 가정 점검</div>
+          <div className="doc-code">npx tsx scripts/validate-correlation-cap.ts</div>
+          <div className="doc-cap">상관 비중 한도의 위험/수익 교환비 — 캡 수준별 최악의 날·최대낙폭</div>
+          <div className="doc-code">npx tsx scripts/validate-watch-orders.ts</div>
+          <div className="doc-cap">예약(감시)주문 효과 — 못 보는 기간 1/3/5거래일별 꼬리 손실 비교</div>
           <div className="doc-code">npx tsx scripts/build-scenarios.ts</div>
           <div className="doc-cap">국면별 통계 테이블 재생성</div>
         </div>

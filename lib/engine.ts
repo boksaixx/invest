@@ -29,7 +29,7 @@ import type {
 } from "./types";
 import { STOCKS } from "./types";
 import { computeIndicators } from "./indicators";
-import { forecastVolatility } from "./volatility";
+import { CORRELATED_PAIR_MAX_WEIGHT, forecastVolatility } from "./volatility";
 import { buildForecastPath, driftFromScenario, kstMinutesNow } from "./forecastPath";
 import { computeScenarioOutlook, type ScenarioTable } from "./scenario";
 
@@ -459,20 +459,94 @@ function computeSuggestedEntryPrice(
   return null;
 }
 
+// 진입 트리거는 전부 "지금 가격이 어느 선 위/아래냐"라는 절대 가격 기준으로만 쓴다.
+// 특정 시각의 분봉 모양(예: "9시 30분 캔들이 양봉이면")을 기준으로 삼으면 그 시간에 화면을
+// 보지 못한 사람에게는 쓸모가 없다. 아래 기준들은 10시에 보든 2시에 보든 그대로 판정된다.
 function buildEntryTriggers(id: IntradayInsight | null, ind: Indicators): string[] {
   const triggers: string[] = [];
+  // 피벗 지지/저항은 전일 고저종만으로 정해져 장중 내내 고정이다 — 장중 데이터가 없어도 쓸 수 있는
+  // 유일한 절대 기준이라 항상 함께 제시한다.
+  const pivot = isNaN(ind.pivotS1)
+    ? null
+    : `피벗 지지선(${Math.round(ind.pivotS1).toLocaleString()}원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(${Math.round(ind.pivotR1).toLocaleString()}원) 돌파 시 추세 진입`;
   if (!id || !id.available) {
     triggers.push(`20일선(${Math.round(ind.ma20).toLocaleString()}원) 회복 확인 후 진입 검토 (장중 데이터 미확보로 보수적 접근)`);
+    if (pivot) triggers.push(pivot);
     return triggers;
   }
   triggers.push(`VWAP(${Math.round(id.vwap).toLocaleString()}원) 상향 돌파 + 거래량 증가 동반 시 1차 진입`);
   if (id.openingRangeHigh) {
     triggers.push(`오프닝레인지 상단(${Math.round(id.openingRangeHigh).toLocaleString()}원) 돌파 후 되돌림(눌림목)에서 진입`);
   }
+  if (pivot) triggers.push(pivot);
   if (id.gapType === "갭하락") {
     triggers.push(`당일 저가(${Math.round(id.todayLow).toLocaleString()}원) 지지 확인(이탈 없이 반등) 시 반발매수 진입`);
   }
   return triggers;
+}
+
+/**
+ * 상관이 높은 종목과의 합산 비중 한도로 매수 예산을 깎는다.
+ *
+ * 개별 종목 비중만 보면 "상관 0.9인 두 종목에 반반"이 걸러지지 않는다 —
+ * 위험은 한 종목에 전액 넣은 것과 같은데 규칙상으로는 분산으로 통과되기 때문.
+ */
+function applyCorrelationCap(
+  budget: number,
+  price: number,
+  headroom: number | null | undefined,
+  warnings: string[],
+): { budget: number; qty: number } {
+  const raw = Math.floor(budget);
+  const rawQty = Math.max(1, Math.floor(budget / price));
+  if (headroom == null || !isFinite(headroom)) return { budget: raw, qty: rawQty };
+
+  if (headroom < price) {
+    warnings.unshift(
+      `상관 종목 합산 비중 한도(총자산의 ${(CORRELATED_PAIR_MAX_WEIGHT * 100).toFixed(0)}%)에 도달해 이 종목은 더 담지 않습니다 — ` +
+        `이미 보유한 종목과 거의 같이 움직여서, 더 사면 분산이 아니라 같은 베팅을 키우는 것이 됩니다.`,
+    );
+    return { budget: 0, qty: 0 };
+  }
+  if (headroom < budget) {
+    const qty = Math.max(1, Math.floor(headroom / price));
+    warnings.push(
+      `상관 종목 합산 비중 한도로 매수 수량을 ${rawQty}주 → ${qty}주로 줄였습니다 — ` +
+        `이미 보유한 종목과 상관이 높아 합산 ${(CORRELATED_PAIR_MAX_WEIGHT * 100).toFixed(0)}%를 넘기지 않도록 제한합니다.`,
+    );
+    return { budget: Math.floor(qty * price), qty };
+  }
+  return { budget: raw, qty: rawQty };
+}
+
+/**
+ * 자동 감시주문(HTS/MTS 예약주문) 지침.
+ *
+ * "매수하면 무조건 예약을 걸어라"는 규칙은 데이터가 지지하지 않는다.
+ * scripts/validate-watch-orders.ts 실측(5년, 5종목):
+ *  - 하루 이상 못 보는 경우: 최악 -34.0% → -20.0%, -10% 이하 손실 비율 4.8% → 2.4%로 반토막.
+ *    꼬리를 확실히 자른다.
+ *  - 당일 안에 다시 볼 수 있는 경우(1거래일): 최악이 오히려 -17.8% → -19.1%로 나빠지고
+ *    건당 평균도 낮았다. 스톱을 스치고 되돌아오는 날(76회)이 실제로 구제된 날(56회)보다 많다.
+ * 그래서 "며칠 못 볼 것 같으면 손절 예약은 필수, 당일 확인 가능하면 선택"으로 조건부 제시한다.
+ */
+function buildWatchOrderNote(
+  action: Action,
+  price: number,
+  stopPrice: number | null,
+  targetPrice: number | null,
+  currency: "KRW" | "USD",
+): string | null {
+  if (action === "관망" || stopPrice == null || !(stopPrice > 0)) return null;
+  const fmt = (v: number) => (currency === "USD" ? `$${v.toFixed(2)}` : `${Math.round(v).toLocaleString()}원`);
+  const stopPct = ((price - stopPrice) / price) * 100;
+  const targetPart = targetPrice && targetPrice > 0 ? ` 익절 예약은 ${fmt(targetPrice)}에 절반만 걸어두세요(나머지는 추세를 따라가게).` : "";
+  return (
+    `내일까지 차트를 못 볼 것 같으면 증권사 앱에서 손절 감시주문을 ${fmt(stopPrice)}(현재가 대비 -${stopPct.toFixed(1)}%)에 미리 걸어두세요.` +
+    ` 5년 실측상 하루 이상 방치하면 최악의 손실이 -34%까지 갔지만, 예약을 걸어두면 -20%에서 끊겼습니다(-10% 넘는 손실 비율도 4.8%→2.4%).` +
+    `${targetPart}` +
+    ` 다만 당일 안에 다시 확인할 수 있다면 예약이 오히려 불리했습니다 — 잠깐 스치고 되돌아오는 날에 기계적으로 털리기 때문입니다.`
+  );
 }
 
 function buildInvalidation(id: IntradayInsight | null, macro: MacroSnapshot): string | null {
@@ -654,6 +728,9 @@ export function runEngine(params: {
   // 전일 종가 대비 오늘 등락률(%) — 국내 종목의 상한가/하한가(가격제한폭 ±30%) 도달 여부를
   // 판단하는 데 쓴다. 생략하면 상한가/하한가 판정을 건너뛴다(다른 로직에는 영향 없음).
   changePct?: number;
+  // 상관이 높은 종목과 합쳐서 이 종목에 더 넣을 수 있는 금액(해당 통화). lib/volatility.ts의
+  // computeCorrelationCap 결과를 호출부가 넘긴다. 생략하면 이 한도를 적용하지 않는다.
+  correlationHeadroom?: number | null;
   // 국면별 조건부 통계 테이블(data/scenarios.json). 예상 경로 차트의 아주 약한 방향성(drift)에만
   // 쓴다. 없으면 방향성 0(제자리)으로 폭만 그린다.
   scenarioTable?: ScenarioTable | null;
@@ -808,9 +885,11 @@ export function runEngine(params: {
       action = "추가매수";
       const budget =
         Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist) * volatilitySizeMultiplier;
-      suggestedBudget = Math.floor(budget);
-      suggestedQty = Math.max(1, Math.floor(budget / price));
-      reasons.unshift("수익 중 + 신호 강세 — 피라미딩(불타기) 조건 충족");
+      const capped = applyCorrelationCap(budget, price, params.correlationHeadroom, warnings);
+      suggestedBudget = capped.budget;
+      suggestedQty = capped.qty;
+      if (capped.qty === 0) action = "보유"; // 상관 한도 때문에 더 담을 수 없으면 추가매수가 아니다
+      else reasons.unshift("수익 중 + 신호 강세 — 피라미딩(불타기) 조건 충족");
     } else {
       action = "보유";
     }
@@ -845,17 +924,23 @@ export function runEngine(params: {
         `기술적 과열 보정 — 종합 점수(${Math.round(score)}점)는 매수 신호였지만 RSI ${ind.rsi14.toFixed(0)}(과매수) 또는 당일 고가권 근접으로 신규 진입을 보류합니다. 뉴스·매크로가 우호적이어도 추격 매수는 금지, 눌림목 또는 과열 해소 후 재진입 검토`,
       );
     } else if (score >= 68 && stockCash > price) {
-      action = "신규매수";
       const budget =
         Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist) * volatilitySizeMultiplier;
-      suggestedBudget = Math.floor(budget);
-      suggestedQty = Math.max(1, Math.floor(budget / price));
-      reasons.unshift(`진입 신호 충족 (점수 ${Math.round(score)}) — 분할 매수 권장, 진입 즉시 손절가 설정`);
-      if (volatilityRegime) {
-        warnings.push(volatilityWarning(volForecast, ind, price, "신규"));
+      const capped = applyCorrelationCap(budget, price, params.correlationHeadroom, warnings);
+      if (capped.qty === 0) {
+        // 상관 한도에 걸려 살 수 없으면 "사라"고 말하면 안 된다
+        action = "관망";
+      } else {
+        action = "신규매수";
+        suggestedBudget = capped.budget;
+        suggestedQty = capped.qty;
+        reasons.unshift(`진입 신호 충족 (점수 ${Math.round(score)}) — 분할 매수 권장, 진입 즉시 손절가 설정`);
+        if (volatilityRegime) {
+          warnings.push(volatilityWarning(volForecast, ind, price, "신규"));
+        }
+        scaledEntry = buildScaledEntry(price, suggestedQty);
+        scaledExit = buildScaledExit(price, targetPrice, suggestedQty);
       }
-      scaledEntry = buildScaledEntry(price, suggestedQty);
-      scaledExit = buildScaledExit(price, targetPrice, suggestedQty);
     } else if (score >= 58) {
       action = "관망";
       reasons.unshift("매수 근접 구간 — 아래 진입 트리거 충족 시까지 대기");
@@ -870,6 +955,7 @@ export function runEngine(params: {
     action === "신규매수" || action === "추가매수" ? computeSuggestedEntryPrice(action, price, intraday, ind) : null;
 
   const invalidation = buildInvalidation(intraday, macro);
+  const watchOrderNote = buildWatchOrderNote(action, price, stopPrice, targetPrice, currency);
 
   // 왕복 거래비용(증권거래세+수수료) 추정 — 목표가가 비용 대비 실익이 얇으면 경고
   let estimatedRoundTripCostWon: number | null = null;
@@ -951,6 +1037,7 @@ export function runEngine(params: {
     invalidation,
     scaledEntry,
     scaledExit,
+    watchOrderNote,
     relativeStrengthNote: params.relativeStrengthNote ?? null,
     estimatedRoundTripCostWon,
     backtest: params.backtest ?? null,

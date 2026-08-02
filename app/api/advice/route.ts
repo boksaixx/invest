@@ -5,7 +5,7 @@ import { collectNews } from "@/lib/gemini";
 import { fetchDartDisclosures } from "@/lib/dart";
 import { fetchInvestorFlows } from "@/lib/investorFlow";
 import { computeMasterScore, computeRelativeStrength, computeSectorConcentration, runEngine } from "@/lib/engine";
-import { computePortfolioRisk } from "@/lib/volatility";
+import { computeCorrelationCap, computePortfolioRisk } from "@/lib/volatility";
 import { computeTodayPlan } from "@/lib/genius";
 import { fetchCreditBalanceTrend } from "@/lib/creditBalance";
 import { computeIntradayInsight } from "@/lib/intraday";
@@ -105,6 +105,21 @@ export async function POST(req: Request) {
     const totalAssetKR = portfolio.cash + krHoldingsValue;
     const totalAssetUS = portfolio.cashUSD + usHoldingsValue;
 
+    // 상관이 높은 종목 쌍의 합산 비중 한도 — 종목당 50% 규칙만으로는
+    // "삼성전자 50% + SK하이닉스 50% = 100%"가 분산으로 통과되는 구멍이 있다.
+    // 평가금 0인 종목도 넘겨야 신규매수 한도가 계산된다.
+    const corrCap = computeCorrelationCap(
+      stockData
+        .filter((sd) => STOCKS[sd.ticker].market === "KR")
+        .map((sd) => ({
+          ticker: sd.ticker,
+          name: STOCKS[sd.ticker].name,
+          value: (portfolio.holdings.find((h) => h.ticker === sd.ticker)?.qty ?? 0) * (sd.quote?.price ?? 0),
+          candles: sd.candles,
+        })),
+      totalAssetKR,
+    );
+
     const signals: EngineSignal[] = [];
     for (const sd of stockData) {
       if (!sd.quote || sd.candles.length < 60) continue;
@@ -126,6 +141,7 @@ export async function POST(req: Request) {
           changePct: sd.quote.changePct,
           creditTrend,
           scenarioTable: scenarioData as unknown as import("@/lib/scenario").ScenarioTable,
+          correlationHeadroom: market === "KR" ? corrCap.headroom[sd.ticker] ?? null : null,
           // DART/KRX 라이브 호출이 비었으면(키 미설정/일시 오류) 자동수집 스냅샷의 직전 값으로 대체
           disclosures:
             disclosureResult.data[sd.ticker] ??
@@ -209,6 +225,7 @@ export async function POST(req: Request) {
       relativeStrengthSummary,
       sectorConcentrationWarning: concentration.warning,
       portfolioRisk: portfolioRisk.available ? portfolioRisk : null,
+      correlationCap: corrCap.available && corrCap.warnings.length > 0 ? { warnings: corrCap.warnings, pairs: corrCap.pairs.filter((x) => x.overCap) } : null,
       todayPlan,
       creditBalance: creditTrend,
       backtestDisclaimer: backtest?.disclaimer ?? null,

@@ -22,6 +22,7 @@ const SYMBOLS: { symbol: string; name: string }[] = [
   { symbol: "000001.SS", name: "상해종합" },
   { symbol: "^VIX", name: "VIX변동성지수" },
   { symbol: "CL=F", name: "WTI원유" },
+  { symbol: "^TNX", name: "미10년물국채금리" }, // 점수 반영 전 검증용 히스토리 축적
 ];
 
 async function main() {
