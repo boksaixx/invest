@@ -1929,5 +1929,1876 @@
    "strongestTicker": "105560",
    "strongestName": "KB금융"
   }
+ },
+ {
+  "collectedAt": "2026-08-07T02:09:02.987Z",
+  "quotes": {
+   "105560": {
+    "symbol": "105560",
+    "name": "KB금융",
+    "price": 175400,
+    "prevClose": 171500,
+    "change": 3900,
+    "changePct": 2.27,
+    "currency": "KRW",
+    "time": "2026-08-07T02:08:13.837Z"
+   },
+   "005930": {
+    "symbol": "005930",
+    "name": "삼성전자",
+    "price": 233000,
+    "prevClose": 230500,
+    "change": 2500,
+    "changePct": 1.08,
+    "currency": "KRW",
+    "time": "2026-08-07T02:08:12.923Z"
+   },
+   "000660": {
+    "symbol": "000660",
+    "name": "SK하이닉스",
+    "price": 1432000,
+    "prevClose": 1495000,
+    "change": -63000,
+    "changePct": -4.21,
+    "currency": "KRW",
+    "time": "2026-08-07T02:08:12.896Z"
+   },
+   "042700": {
+    "symbol": "042700",
+    "name": "한미반도체",
+    "price": 191700,
+    "prevClose": 200500,
+    "change": -8800,
+    "changePct": -4.39,
+    "currency": "KRW",
+    "time": "2026-08-07T02:08:13.051Z"
+   },
+   "009150": {
+    "symbol": "009150",
+    "name": "삼성전기",
+    "price": 1253000,
+    "prevClose": 1229000,
+    "change": 24000,
+    "changePct": 1.95,
+    "currency": "KRW",
+    "time": "2026-08-07T02:08:13.038Z"
+   },
+   "000990": {
+    "symbol": "000990",
+    "name": "DB하이텍",
+    "price": 83500,
+    "prevClose": 88600,
+    "change": -5100,
+    "changePct": -5.76,
+    "currency": "KRW",
+    "time": "2026-08-07T02:08:13.707Z"
+   },
+   "012450": {
+    "symbol": "012450",
+    "name": "한화에어로스페이스",
+    "price": 1077000,
+    "prevClose": 1054000,
+    "change": 23000,
+    "changePct": 2.18,
+    "currency": "KRW",
+    "time": "2026-08-07T02:08:13.705Z"
+   },
+   "005380": {
+    "symbol": "005380",
+    "name": "현대차",
+    "price": 391500,
+    "prevClose": 400000,
+    "change": -8500,
+    "changePct": -2.13,
+    "currency": "KRW",
+    "time": "2026-08-07T02:08:13.847Z"
+   },
+   "068270": {
+    "symbol": "068270",
+    "name": "셀트리온",
+    "price": 197600,
+    "prevClose": 195000,
+    "change": 2600,
+    "changePct": 1.33,
+    "currency": "KRW",
+    "time": "2026-08-07T02:08:13.984Z"
+   },
+   "030200": {
+    "symbol": "030200",
+    "name": "KT",
+    "price": 53400,
+    "prevClose": 53500,
+    "change": -100,
+    "changePct": -0.19,
+    "currency": "KRW",
+    "time": "2026-08-07T02:08:13.991Z"
+   }
+  },
+  "macro": {
+   "usdkrw": {
+    "symbol": "KRW=X",
+    "name": "원/달러 환율",
+    "price": 1418.84,
+    "prevClose": 1421.1600341796875,
+    "change": -2.320034179687582,
+    "changePct": -0.16324932617646656,
+    "currency": "KRW",
+    "time": "2026-08-07T02:08:09.000Z"
+   },
+   "kospi": {
+    "symbol": "^KS11",
+    "name": "코스피",
+    "price": 6183.7,
+    "prevClose": 6296.3798828125,
+    "change": -112.67988281250018,
+    "changePct": -1.7895979103816038,
+    "currency": "KRW",
+    "time": "2026-08-07T01:48:00.000Z"
+   },
+   "nasdaq": {
+    "symbol": "^IXIC",
+    "name": "나스닥",
+    "price": 26348.352,
+    "prevClose": 26363.439453125,
+    "change": -15.087453125001048,
+    "changePct": -0.057228697916396676,
+    "currency": "USD",
+    "time": "2026-08-06T21:15:59.000Z"
+   },
+   "sox": {
+    "symbol": "^SOX",
+    "name": "필라델피아 반도체",
+    "price": 12048.693,
+    "prevClose": 12008.8798828125,
+    "change": 39.8131171874993,
+    "changePct": 0.33153064712122843,
+    "currency": "USD",
+    "time": "2026-08-06T21:15:59.000Z"
+   },
+   "nikkei": {
+    "symbol": "^N225",
+    "name": "니케이225",
+    "price": 64822.28,
+    "prevClose": 65683.2578125,
+    "change": -860.9778125000012,
+    "changePct": -1.3108025411251005,
+    "currency": "JPY",
+    "time": "2026-08-07T01:53:10.000Z"
+   },
+   "shanghai": {
+    "symbol": "000001.SS",
+    "name": "상해종합",
+    "price": 3898.4336,
+    "prevClose": 3900.35205078125,
+    "change": -1.9184507812501579,
+    "changePct": -0.049186605626173864,
+    "currency": "CNY",
+    "time": "2026-08-07T01:53:10.000Z"
+   },
+   "vix": {
+    "symbol": "^VIX",
+    "name": "변동성지수(VIX)",
+    "price": 15.15,
+    "prevClose": 15.8100004196167,
+    "change": -0.6600004196166989,
+    "changePct": -4.174575598352198,
+    "currency": "USD",
+    "time": "2026-08-06T20:15:01.000Z"
+   },
+   "spFutures": {
+    "symbol": "ES=F",
+    "name": "S&P500 선물",
+    "price": 7733,
+    "prevClose": 7749.5,
+    "change": -16.5,
+    "changePct": -0.21291696238466998,
+    "currency": "USD",
+    "time": "2026-08-07T01:58:10.000Z"
+   },
+   "nasdaqFutures": {
+    "symbol": "NQ=F",
+    "name": "나스닥100 선물",
+    "price": 29532.75,
+    "prevClose": 29615,
+    "change": -82.25,
+    "changePct": -0.27773087962181325,
+    "currency": "USD",
+    "time": "2026-08-07T01:58:10.000Z"
+   },
+   "fearGreed": {
+    "value": 60,
+    "ratingKo": "탐욕",
+    "ratingRaw": "greed",
+    "source": "CNN Fear & Greed Index (미국 시장 기준)"
+   },
+   "oil": {
+    "symbol": "CL=F",
+    "name": "WTI 원유",
+    "price": 77.9,
+    "prevClose": 80.34,
+    "change": -2.4399999999999977,
+    "changePct": -3.037092357480704,
+    "currency": "USD",
+    "time": "2026-08-07T01:58:03.000Z"
+   },
+   "us10y": {
+    "symbol": "^TNX",
+    "name": "^TNX",
+    "price": 4.67,
+    "prevClose": 4.617000102996826,
+    "change": 0.05299989700317376,
+    "changePct": 1.1479293008629632,
+    "currency": "USD",
+    "time": "2026-08-06T18:59:55.000Z"
+   }
+  },
+  "news": [
+   {
+    "title": "소프트뱅크 14조엔 자산 급감 속 마이클 버리의 엔비디아 숏 포지션 유지",
+    "summary": "소프트뱅크 자산이 한 달 새 14조엔 급감하고 마이클 버리는 엔비디아 숏을 고수했다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "큰손동향",
+    "source": "글로벌이코노믹",
+    "publishedAt": "2시간 전",
+    "isBreaking": true
+   },
+   {
+    "title": "국제유가 급등 및 고용지표 경계에 미 국채금리·달러 동반 상승",
+    "summary": "유가 급등과 고용 경계감 속 미 국채금리와 달러화가 동반 상승 압력을 받았다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "매크로",
+    "source": "뉴스핌",
+    "publishedAt": "3시간 전",
+    "isBreaking": true
+   },
+   {
+    "title": "특구재단, UKC 2026서 글로벌 딥테크 미국 진출 전략 모색",
+    "summary": "특구재단이 미국 플로리다에서 K-딥테크 기업의 현지 시장 안착 전략을 논의했다.",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "반도체업황",
+    "source": "전자신문",
+    "publishedAt": "1시간 전",
+    "isBreaking": true
+   },
+   {
+    "title": "TSMC, AI 수요 폭증에 올해 4분기 3나노 월 18만장 증산 가속화",
+    "summary": "TSMC가 엔비디아 주문 폭증에 대응해 4분기 3나노 생산량을 18만장으로 확대한다.",
+    "sentiment": "긍정",
+    "impact": "높음",
+    "relatedTo": "반도체업황",
+    "source": "포커스온경제",
+    "publishedAt": "21시간 전",
+    "isBreaking": false
+   },
+   {
+    "title": "메모리 3사 낙폭 25%로 비메모리 압도…레버리지 해소 과정 진단",
+    "summary": "최근 조정에서 메모리 3사 낙폭이 비메모리의 3배에 달하며 수급 조정이 진행됐다.",
+    "sentiment": "중립",
+    "impact": "높음",
+    "relatedTo": "반도체업황",
+    "source": "EBN",
+    "publishedAt": "23시간 전",
+    "isBreaking": false
+   },
+   {
+    "title": "뉴욕증시, 호르무즈 해협 불확실성 속 다우 사상 최고가·나스닥 하락",
+    "summary": "뉴욕증시는 호르무즈 리스크와 실적 종목별 차별화로 다우는 오르고 나스닥은 내렸다.",
+    "sentiment": "중립",
+    "impact": "높음",
+    "relatedTo": "지수",
+    "source": "연합인포맥스",
+    "publishedAt": "1일 전",
+    "isBreaking": false
+   },
+   {
+    "title": "DB하이텍, 2분기 영업이익 1052억원 기록하며 전년비 43% 급증",
+    "summary": "DB하이텍은 전력반도체 수요 확대에 힘입어 2분기 호실적을 달성했다.",
+    "sentiment": "긍정",
+    "impact": "중간",
+    "relatedTo": "DB하이텍",
+    "source": "EBN",
+    "publishedAt": "2일 전",
+    "isBreaking": false
+   },
+   {
+    "title": "코스피, 미 반도체 훈풍과 지정학적 리스크 완화 기대 속 등락 반복",
+    "summary": "국내 증시는 글로벌 반도체 밸류체인 수급 변동성과 해협 재개방 기대를 소화했다.",
+    "sentiment": "중립",
+    "impact": "높음",
+    "relatedTo": "지수",
+    "source": "인포스탁데일리",
+    "publishedAt": "17시간 전",
+    "isBreaking": false
+   },
+   {
+    "title": "CXMT 등 중국 메모리 저가 공세 우려 속 국내 밸류체인 분산 필요",
+    "summary": "중국 메모리 상장과 쏠림 현상에 대응해 반도체 포트폴리오 다변화가 제기된다.",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "중국반도체",
+    "source": "데일리안",
+    "publishedAt": "19시간 전",
+    "isBreaking": false
+   },
+   {
+    "title": "달러/원 환율, 중동 정세와 미 고용지표 대기하며 하단 탐색 지속",
+    "summary": "달러/원 환율은 수급 우위 속 고용 경계감을 반영하며 1424원대에서 움직였다.",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "매크로",
+    "source": "KB의 생각",
+    "publishedAt": "4일 전",
+    "isBreaking": false
+   }
+  ],
+  "signals": [
+   {
+    "ticker": "005930",
+    "name": "삼성전자",
+    "action": "관망",
+    "score": 4,
+    "confidence": "높음",
+    "reasons": [
+     "추세 강도(ADX 27) 높음 — 추세추종 신호 우선, 역추세 저점매수는 신중히",
+     "국제 유가(WTI) -3.0%"
+    ],
+    "warnings": [
+     "변동성 극단 — 지금 이 종목은 하루에 평균 ±6.6%(연율 104%) 움직이고 있고, 이는 평소의 2.9배입니다. 신호가 아직 충분히 강하지 않아(점수 4) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+     "VWAP(234,531원) 아래 -0.65% — 당일 매도세 우위",
+     "갭상승(+1.95%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행, 상승 실패 신호",
+     "오프닝레인지 하단(233,250원) 이탈 — 하락 전환 시그널",
+     "주가가 20일선 아래 (단기 추세 약세)",
+     "악재 주의: 국제유가 급등 및 고용지표 경계에 미 국채금리·달러 동반 상승",
+     "손절선이 너무 가깝습니다 — 손절까지 3.4%인데 이 종목은 하루 평균 ±6.6% 움직입니다. 방향을 맞혀도 장중 흔들림만으로 손절에 걸릴 가능성이 높으니, 손절선을 더 넓히거나(그만큼 수량을 줄여서) 진입 자체를 미루세요."
+    ],
+    "targetPrice": 249000,
+    "stopPrice": 225000,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 233000,
+    "indicators": {
+     "ma5": 237200,
+     "ma20": 247900,
+     "ma60": 292808.3333333333,
+     "ma20SlopePct": -5.5798895448486,
+     "rsi14": 42.55156406753175,
+     "macd": -16393.793650063453,
+     "macdSignal": -17202.43022262397,
+     "macdHist": 808.6365725605174,
+     "macdHistPrev": 824.246977216113,
+     "bollingerUpper": 289128.1457259479,
+     "bollingerLower": 206671.85427405205,
+     "percentB": 0.2829152914251224,
+     "atr14": 24083.239298895387,
+     "volumeZ": -1.7706046351554752,
+     "lastVolume": 9002468,
+     "avgVolume20": 31345466.05,
+     "high52w": 374500,
+     "low52w": 65500,
+     "stochK": 53.34101382488479,
+     "stochD": 55.318962029519525,
+     "pivotPP": 232833.33333333334,
+     "pivotR1": 236666.6666666667,
+     "pivotS1": 226166.6666666667,
+     "pivotR2": 243333.33333333334,
+     "pivotS2": 222333.33333333334,
+     "adx14": 26.62447603113635,
+     "bullishDivergence": false,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "volatilityRatio": 1.3449314574960194
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-08-07",
+     "isToday": true,
+     "todayOpen": 235000,
+     "todayHigh": 239500,
+     "todayLow": 229000,
+     "current": 233000,
+     "vwap": 234530.55353129853,
+     "distanceFromVwapPct": -0.6526030439331544,
+     "gapPct": 1.9522776572668112,
+     "gapType": "갭상승",
+     "rangePositionPct": 38.095238095238095,
+     "openingRangeHigh": 239500,
+     "openingRangeLow": 233250,
+     "orbStatus": "하단이탈",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "장중",
+     "kstTime": "11:08",
+     "note": "정규 매매 시간대입니다. 오프닝레인지·VWAP 기준으로 판단하세요."
+    },
+    "entryTriggers": [
+     "VWAP(234,531원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(239,500원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(226,167원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(236,667원) 돌파 시 추세 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(233,250원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [],
+    "scaledExit": [],
+    "watchOrderNote": null,
+    "relativeStrengthNote": "국내 반도체 10종목 중 5위(+1.08%)",
+    "estimatedRoundTripCostWon": null,
+    "entryBlocked": false,
+    "breakEvenPrice": null,
+    "priceLimits": null,
+    "backtest": {
+     "periodStart": "2021-07-16",
+     "periodEnd": "2026-07-31",
+     "sampleSignals": 319,
+     "winRate5d": 48.6,
+     "avgReturn5d": 0.88,
+     "winRate10d": 55.8,
+     "avgReturn10d": 2.06
+    },
+    "buyStrength": 0,
+    "sellStrength": null,
+    "actionSummary": "관망 강도(매수 아님) 0/10 — 아직 근거 부족",
+    "verdict": "⚪ 지금은 매수하지 마세요 — 변동성 극단 — 지금 이 종목은 하루에 평균 ±6.6%(연율 104%) 움직이고 있고, 이는 평소의 2.9배입니다. 신호가 아직 충분히 강하지 않아(점수 4) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+    "macroScore": 0,
+    "disclosures": [],
+    "investorFlow": [],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 6.577898022297021,
+     "annualizedPct": 104.42089389924914,
+     "range90": {
+      "lowPct": -10.56040787340439,
+      "highPct": 12.78567590384859
+     },
+     "range98": {
+      "lowPct": -16.110385137547304,
+      "highPct": 20.481082553456456
+     },
+     "zQuantiles": {
+      "q05": -1.6054380651095386,
+      "q25": -0.5484587075902976,
+      "q75": 0.6655586558980826,
+      "q95": 1.9437327639481699
+     },
+     "regime": "극단",
+     "regimePercentile": 98.55072463768117,
+     "regimeRatio": 2.9255115252974453,
+     "skew": "상방",
+     "drivers": [
+      "현재 변동성이 과거 2년 중 가장 심한 상위 1% 구간 — 평소의 2.9배"
+     ]
+    },
+    "forecastPath": null,
+    "upRate": {
+     "regime": "고변동/붕괴/단기급락",
+     "upRatePct": 57,
+     "sampleN": 149,
+     "overallPct": 48.5,
+     "distinguishable": false,
+     "headline": "지금은 \"고변동/붕괴/단기급락\" 국면입니다. 과거 같은 국면 149일 중 57%가 상승 마감했지만, 전체 평균 48.5%와 통계적으로 구분되지 않습니다 — 즉 오늘의 방향은 사실상 동전던지기입니다. 방향에 베팅하지 말고 \"얼마에 사고, 얼마나 사고, 어디서 자를지\"로 판단하세요."
+    },
+    "suggestedEntryPrice": null,
+    "entryPriceBasis": null
+   },
+   {
+    "ticker": "000660",
+    "name": "SK하이닉스",
+    "action": "관망",
+    "score": 0,
+    "confidence": "높음",
+    "reasons": [
+     "추세 강도(ADX 32) 높음 — 추세추종 신호 우선, 역추세 저점매수는 신중히",
+     "국제 유가(WTI) -3.0%"
+    ],
+    "warnings": [
+     "변동성 극단 — 지금 이 종목은 하루에 평균 ±8.1%(연율 128%) 움직이고 있고, 이는 평소의 2.2배입니다. 신호가 아직 충분히 강하지 않아(점수 0) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+     "VWAP(1,467,091원) 아래 -2.39% — 당일 매도세 우위",
+     "갭상승(+1.74%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행, 상승 실패 신호",
+     "오프닝레인지 하단(1,477,000원) 이탈 — 하락 전환 시그널",
+     "주가가 20일선 아래 (단기 추세 약세)",
+     "악재 주의: 국제유가 급등 및 고용지표 경계에 미 국채금리·달러 동반 상승",
+     "손절선이 너무 가깝습니다 — 손절까지 5.9%인데 이 종목은 하루 평균 ±8.1% 움직입니다. 방향을 맞혀도 장중 흔들림만으로 손절에 걸릴 가능성이 높으니, 손절선을 더 넓히거나(그만큼 수량을 줄여서) 진입 자체를 미루세요."
+    ],
+    "targetPrice": 1601000,
+    "stopPrice": 1348000,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 1432000,
+    "indicators": {
+     "ma5": 1545000,
+     "ma20": 1725100,
+     "ma60": 2091533.3333333333,
+     "ma20SlopePct": -9.22437381603873,
+     "rsi14": 38.911548994590866,
+     "macd": -181139.7670261797,
+     "macdSignal": -169757.94345849988,
+     "macdHist": -11381.823567679821,
+     "macdHistPrev": -8542.929422087444,
+     "bollingerUpper": 2164456.7570892703,
+     "bollingerLower": 1285743.2429107297,
+     "percentB": 0.15051180499131123,
+     "atr14": 205893.65135748804,
+     "volumeZ": -1.7379300019395068,
+     "lastVolume": 2345316,
+     "avgVolume20": 6524808.65,
+     "high52w": 2987000,
+     "low52w": 245000,
+     "stochK": 36.973684210526315,
+     "stochD": 40.11190137505927,
+     "pivotPP": 1456333.3333333333,
+     "pivotR1": 1503666.6666666665,
+     "pivotS1": 1370666.6666666665,
+     "pivotR2": 1589333.3333333333,
+     "pivotS2": 1323333.3333333333,
+     "adx14": 32.02899439307155,
+     "bullishDivergence": false,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "volatilityRatio": 1.4867309421968629
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-08-07",
+     "isToday": true,
+     "todayOpen": 1521000,
+     "todayHigh": 1542000,
+     "todayLow": 1409000,
+     "current": 1432000,
+     "vwap": 1467090.9244953326,
+     "distanceFromVwapPct": -2.3918711450964523,
+     "gapPct": 1.7391304347826086,
+     "gapType": "갭상승",
+     "rangePositionPct": 17.293233082706767,
+     "openingRangeHigh": 1542000,
+     "openingRangeLow": 1477000,
+     "orbStatus": "하단이탈",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "장중",
+     "kstTime": "11:08",
+     "note": "정규 매매 시간대입니다. 오프닝레인지·VWAP 기준으로 판단하세요."
+    },
+    "entryTriggers": [
+     "VWAP(1,467,091원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(1,542,000원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(1,370,667원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(1,503,667원) 돌파 시 추세 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(1,477,000원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [],
+    "scaledExit": [],
+    "watchOrderNote": null,
+    "relativeStrengthNote": "국내 반도체 10종목 중 8위(-4.21%)",
+    "estimatedRoundTripCostWon": null,
+    "entryBlocked": false,
+    "breakEvenPrice": null,
+    "priceLimits": null,
+    "backtest": {
+     "periodStart": "2021-07-16",
+     "periodEnd": "2026-07-31",
+     "sampleSignals": 356,
+     "winRate5d": 54.2,
+     "avgReturn5d": 1.97,
+     "winRate10d": 57.9,
+     "avgReturn10d": 3.24
+    },
+    "buyStrength": 0,
+    "sellStrength": null,
+    "actionSummary": "관망 강도(매수 아님) 0/10 — 아직 근거 부족",
+    "verdict": "⚪ 지금은 매수하지 마세요 — 변동성 극단 — 지금 이 종목은 하루에 평균 ±8.1%(연율 128%) 움직이고 있고, 이는 평소의 2.2배입니다. 신호가 아직 충분히 강하지 않아(점수 0) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+    "macroScore": 0,
+    "disclosures": [],
+    "investorFlow": [],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 8.059298056231912,
+     "annualizedPct": 127.93739039121533,
+     "range90": {
+      "lowPct": -12.790880632293486,
+      "highPct": 15.35201353377164
+     },
+     "range98": {
+      "lowPct": -19.795809584150337,
+      "highPct": 21.499349011371695
+     },
+     "zQuantiles": {
+      "q05": -1.5870961147047842,
+      "q25": -0.5096631292452639,
+      "q75": 0.7814188280517148,
+      "q95": 1.9048822151329399
+     },
+     "regime": "극단",
+     "regimePercentile": 98.75776397515527,
+     "regimeRatio": 2.202266229185838,
+     "skew": "상방",
+     "drivers": [
+      "현재 변동성이 과거 2년 중 가장 심한 상위 1% 구간 — 평소의 2.2배"
+     ]
+    },
+    "forecastPath": null,
+    "upRate": {
+     "regime": "고변동/붕괴/단기급락",
+     "upRatePct": 57,
+     "sampleN": 149,
+     "overallPct": 48.5,
+     "distinguishable": false,
+     "headline": "지금은 \"고변동/붕괴/단기급락\" 국면입니다. 과거 같은 국면 149일 중 57%가 상승 마감했지만, 전체 평균 48.5%와 통계적으로 구분되지 않습니다 — 즉 오늘의 방향은 사실상 동전던지기입니다. 방향에 베팅하지 말고 \"얼마에 사고, 얼마나 사고, 어디서 자를지\"로 판단하세요."
+    },
+    "suggestedEntryPrice": null,
+    "entryPriceBasis": null
+   },
+   {
+    "ticker": "042700",
+    "name": "한미반도체",
+    "action": "관망",
+    "score": 12,
+    "confidence": "높음",
+    "reasons": [
+     "스토캐스틱 %K가 %D 위 — 단기 모멘텀 양호",
+     "추세 강도(ADX 11) 낮음(횡보 장세) — 저점매수·되돌림 신호에 더 무게",
+     "국제 유가(WTI) -3.0%"
+    ],
+    "warnings": [
+     "변동성 극단 — 지금 이 종목은 하루에 평균 ±7.5%(연율 120%) 움직이고 있고, 이는 평소의 1.8배입니다. 신호가 아직 충분히 강하지 않아(점수 12) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+     "VWAP(195,670원) 아래 -2.03% — 당일 매도세 우위",
+     "갭상승(+0.50%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행, 상승 실패 신호",
+     "오프닝레인지 하단(197,200원) 이탈 — 하락 전환 시그널",
+     "주가가 20일선 아래 (단기 추세 약세)",
+     "OBV(누적거래량) 다이버전스 — 최근 가격 추세가 거래량 뒷받침 없이 약하게 진행 중일 수 있음",
+     "악재 주의: 국제유가 급등 및 고용지표 경계에 미 국채금리·달러 동반 상승",
+     "손절선이 너무 가깝습니다 — 손절까지 4.9%인데 이 종목은 하루 평균 ±7.5% 움직입니다. 방향을 맞혀도 장중 흔들림만으로 손절에 걸릴 가능성이 높으니, 손절선을 더 넓히거나(그만큼 수량을 줄여서) 진입 자체를 미루세요."
+    ],
+    "targetPrice": 210500,
+    "stopPrice": 182300,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 191700,
+    "indicators": {
+     "ma5": 201140,
+     "ma20": 208170,
+     "ma60": 262468.3333333333,
+     "ma20SlopePct": -1.8505858223909095,
+     "rsi14": 42.466258168665654,
+     "macd": -14836.156773887255,
+     "macdSignal": -17408.775684721862,
+     "macdHist": 2572.618910834608,
+     "macdHistPrev": 3107.685536419762,
+     "bollingerUpper": 253659.08000828332,
+     "bollingerLower": 162680.91999171668,
+     "percentB": 0.30797589227108124,
+     "atr14": 23094.573382332364,
+     "volumeZ": -1.3308771697645878,
+     "lastVolume": 337529,
+     "avgVolume20": 1027055.75,
+     "high52w": 426000,
+     "low52w": 81400,
+     "stochK": 48.73904155768869,
+     "stochD": 47.029479089601864,
+     "pivotPP": 194833.33333333334,
+     "pivotR1": 200366.6666666667,
+     "pivotS1": 185166.6666666667,
+     "pivotR2": 210033.33333333334,
+     "pivotS2": 179633.33333333334,
+     "adx14": 10.636864127463795,
+     "bullishDivergence": false,
+     "bearishDivergence": false,
+     "obvDivergence": true,
+     "hammerReversal": false,
+     "volatilityRatio": 0.9108788186951138
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-08-07",
+     "isToday": true,
+     "todayOpen": 201500,
+     "todayHigh": 204500,
+     "todayLow": 189300,
+     "current": 191700,
+     "vwap": 195670.28204760602,
+     "distanceFromVwapPct": -2.0290674731281153,
+     "gapPct": 0.4987531172069825,
+     "gapType": "갭상승",
+     "rangePositionPct": 15.789473684210526,
+     "openingRangeHigh": 204500,
+     "openingRangeLow": 197200,
+     "orbStatus": "하단이탈",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "장중",
+     "kstTime": "11:08",
+     "note": "정규 매매 시간대입니다. 오프닝레인지·VWAP 기준으로 판단하세요."
+    },
+    "entryTriggers": [
+     "VWAP(195,670원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(204,500원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(185,167원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(200,367원) 돌파 시 추세 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(197,200원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [],
+    "scaledExit": [],
+    "watchOrderNote": null,
+    "relativeStrengthNote": "국내 반도체 10종목 중 9위(-4.39%)",
+    "estimatedRoundTripCostWon": null,
+    "entryBlocked": false,
+    "breakEvenPrice": null,
+    "priceLimits": null,
+    "backtest": {
+     "periodStart": "2021-07-16",
+     "periodEnd": "2026-07-31",
+     "sampleSignals": 433,
+     "winRate5d": 54.5,
+     "avgReturn5d": 2.85,
+     "winRate10d": 56.8,
+     "avgReturn10d": 6.04
+    },
+    "buyStrength": 0,
+    "sellStrength": null,
+    "actionSummary": "관망 강도(매수 아님) 0/10 — 아직 근거 부족",
+    "verdict": "⚪ 지금은 매수하지 마세요 — 변동성 극단 — 지금 이 종목은 하루에 평균 ±7.5%(연율 120%) 움직이고 있고, 이는 평소의 1.8배입니다. 신호가 아직 충분히 강하지 않아(점수 12) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+    "macroScore": 0,
+    "disclosures": [],
+    "investorFlow": [],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 7.530340276414825,
+     "annualizedPct": 119.5404459545221,
+     "range90": {
+      "lowPct": -11.91793400895992,
+      "highPct": 14.8979390497585
+     },
+     "range98": {
+      "lowPct": -18.69105892526794,
+      "highPct": 27.9204433596527
+     },
+     "zQuantiles": {
+      "q05": -1.5826554407225295,
+      "q25": -0.5615238471542836,
+      "q75": 0.49492005657393323,
+      "q95": 1.978388559202184
+     },
+     "regime": "극단",
+     "regimePercentile": 90.89026915113871,
+     "regimeRatio": 1.7785297087500662,
+     "skew": "상방",
+     "drivers": [
+      "현재 변동성이 과거 2년 중 가장 심한 상위 9% 구간 — 평소의 1.8배"
+     ]
+    },
+    "forecastPath": null,
+    "upRate": {
+     "regime": "고변동/붕괴/단기급락",
+     "upRatePct": 57,
+     "sampleN": 149,
+     "overallPct": 48.5,
+     "distinguishable": false,
+     "headline": "지금은 \"고변동/붕괴/단기급락\" 국면입니다. 과거 같은 국면 149일 중 57%가 상승 마감했지만, 전체 평균 48.5%와 통계적으로 구분되지 않습니다 — 즉 오늘의 방향은 사실상 동전던지기입니다. 방향에 베팅하지 말고 \"얼마에 사고, 얼마나 사고, 어디서 자를지\"로 판단하세요."
+    },
+    "suggestedEntryPrice": null,
+    "entryPriceBasis": null
+   },
+   {
+    "ticker": "009150",
+    "name": "삼성전기",
+    "action": "관망",
+    "score": 28,
+    "confidence": "높음",
+    "reasons": [
+     "RSI 45 — 과열 아닌 건전한 모멘텀",
+     "스토캐스틱 %K가 %D 위 — 단기 모멘텀 양호",
+     "MACD 상승 전환 유지",
+     "추세 강도(ADX 31) 높음 — 추세추종 신호 우선, 역추세 저점매수는 신중히",
+     "국제 유가(WTI) -3.0%"
+    ],
+    "warnings": [
+     "변동성 극단 — 지금 이 종목은 하루에 평균 ±8.9%(연율 141%) 움직이고 있고, 이는 평소의 3.4배입니다. 신호가 아직 충분히 강하지 않아(점수 28) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+     "VWAP(1,265,809원) 아래 -1.01% — 당일 매도세 우위",
+     "갭상승(+2.44%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행, 상승 실패 신호",
+     "주가가 20일선 아래 (단기 추세 약세)",
+     "악재 주의: 국제유가 급등 및 고용지표 경계에 미 국채금리·달러 동반 상승",
+     "손절선이 너무 가깝습니다 — 손절까지 4.4%인데 이 종목은 하루 평균 ±8.9% 움직입니다. 방향을 맞혀도 장중 흔들림만으로 손절에 걸릴 가능성이 높으니, 손절선을 더 넓히거나(그만큼 수량을 줄여서) 진입 자체를 미루세요."
+    ],
+    "targetPrice": 1364000,
+    "stopPrice": 1198000,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 1253000,
+    "indicators": {
+     "ma5": 1238400,
+     "ma20": 1260400,
+     "ma60": 1580533.3333333333,
+     "ma20SlopePct": -8.177612647069537,
+     "rsi14": 45.425856520748226,
+     "macd": -116461.5280649995,
+     "macdSignal": -135705.26072397345,
+     "macdHist": 19243.732658973953,
+     "macdHistPrev": 14574.778179313114,
+     "bollingerUpper": 1556897.1500706205,
+     "bollingerLower": 963902.8499293795,
+     "percentB": 0.46728467711177113,
+     "atr14": 175195.62714866173,
+     "volumeZ": -1.7942362988580736,
+     "lastVolume": 451559,
+     "avgVolume20": 961188.65,
+     "high52w": 2417000,
+     "low52w": 134300,
+     "stochK": 66.82953311617807,
+     "stochD": 63.93412956930873,
+     "pivotPP": 1259333.3333333333,
+     "pivotR1": 1285666.6666666665,
+     "pivotS1": 1214666.6666666665,
+     "pivotR2": 1330333.3333333333,
+     "pivotS2": 1188333.3333333333,
+     "adx14": 30.727372865098907,
+     "bullishDivergence": false,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "volatilityRatio": 1.5129972658166932
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-08-07",
+     "isToday": true,
+     "todayOpen": 1259000,
+     "todayHigh": 1304000,
+     "todayLow": 1233000,
+     "current": 1253000,
+     "vwap": 1265809.0070347018,
+     "distanceFromVwapPct": -1.0119225699545529,
+     "gapPct": 2.4410089503661516,
+     "gapType": "갭상승",
+     "rangePositionPct": 28.169014084507044,
+     "openingRangeHigh": 1279000,
+     "openingRangeLow": 1236000,
+     "orbStatus": "레인지내",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "장중",
+     "kstTime": "11:08",
+     "note": "정규 매매 시간대입니다. 오프닝레인지·VWAP 기준으로 판단하세요."
+    },
+    "entryTriggers": [
+     "VWAP(1,265,809원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(1,279,000원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(1,214,667원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(1,285,667원) 돌파 시 추세 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(1,236,000원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [],
+    "scaledExit": [],
+    "watchOrderNote": null,
+    "relativeStrengthNote": "국내 반도체 10종목 중 3위(+1.95%)",
+    "estimatedRoundTripCostWon": null,
+    "entryBlocked": false,
+    "breakEvenPrice": null,
+    "priceLimits": null,
+    "backtest": {
+     "periodStart": "2021-07-16",
+     "periodEnd": "2026-07-31",
+     "sampleSignals": 376,
+     "winRate5d": 52.4,
+     "avgReturn5d": 1.67,
+     "winRate10d": 54,
+     "avgReturn10d": 2.84
+    },
+    "buyStrength": 0,
+    "sellStrength": null,
+    "actionSummary": "관망 강도(매수 아님) 0/10 — 아직 근거 부족",
+    "verdict": "⚪ 지금은 매수하지 마세요 — 변동성 극단 — 지금 이 종목은 하루에 평균 ±8.9%(연율 141%) 움직이고 있고, 이는 평소의 3.4배입니다. 신호가 아직 충분히 강하지 않아(점수 28) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+    "macroScore": 0,
+    "disclosures": [],
+    "investorFlow": [],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 8.87293582099302,
+     "annualizedPct": 140.8534894883055,
+     "range90": {
+      "lowPct": -13.78506293993055,
+      "highPct": 16.99341820646866
+     },
+     "range98": {
+      "lowPct": -21.468118266715557,
+      "highPct": 29.666768410820023
+     },
+     "zQuantiles": {
+      "q05": -1.5536078720772024,
+      "q25": -0.5155376477040432,
+      "q75": 0.6731705099564608,
+      "q95": 1.9151967904763716
+     },
+     "regime": "극단",
+     "regimePercentile": 98.75776397515527,
+     "regimeRatio": 3.407707389328088,
+     "skew": "상방",
+     "drivers": [
+      "현재 변동성이 과거 2년 중 가장 심한 상위 1% 구간 — 평소의 3.4배"
+     ]
+    },
+    "forecastPath": null,
+    "upRate": {
+     "regime": "고변동/붕괴/횡보",
+     "upRatePct": 45.2,
+     "sampleN": 104,
+     "overallPct": 48.5,
+     "distinguishable": false,
+     "headline": "지금은 \"고변동/붕괴/횡보\" 국면입니다. 과거 같은 국면 104일 중 45.2%가 상승 마감했지만, 전체 평균 48.5%와 통계적으로 구분되지 않습니다 — 즉 오늘의 방향은 사실상 동전던지기입니다. 방향에 베팅하지 말고 \"얼마에 사고, 얼마나 사고, 어디서 자를지\"로 판단하세요."
+    },
+    "suggestedEntryPrice": null,
+    "entryPriceBasis": null
+   },
+   {
+    "ticker": "000990",
+    "name": "DB하이텍",
+    "action": "관망",
+    "score": 15,
+    "confidence": "높음",
+    "reasons": [
+     "스토캐스틱 %K가 %D 위 — 단기 모멘텀 양호",
+     "MACD 상승 전환 유지",
+     "추세 강도(ADX 28) 높음 — 추세추종 신호 우선, 역추세 저점매수는 신중히",
+     "국제 유가(WTI) -3.0%"
+    ],
+    "warnings": [
+     "변동성 높음 — 지금 이 종목은 하루에 평균 ±6.4%(연율 102%) 움직이고 있고, 이는 평소의 2.0배입니다. 신호가 아직 충분히 강하지 않아(점수 15) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+     "VWAP(86,333원) 아래 -3.28% — 당일 매도세 우위",
+     "갭상승(+2.03%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행, 상승 실패 신호",
+     "오프닝레인지 하단(86,500원) 이탈 — 하락 전환 시그널",
+     "주가가 20일선 아래 (단기 추세 약세)",
+     "악재 주의: 국제유가 급등 및 고용지표 경계에 미 국채금리·달러 동반 상승"
+    ],
+    "targetPrice": 96700,
+    "stopPrice": 76900,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 83500,
+    "indicators": {
+     "ma5": 85500,
+     "ma20": 96970,
+     "ma60": 138895,
+     "ma20SlopePct": -7.018889634672548,
+     "rsi14": 37.25413251620132,
+     "macd": -13147.22426158862,
+     "macdSignal": -14213.143933292271,
+     "macdHist": 1065.9196717036502,
+     "macdHistPrev": 938.125039800123,
+     "bollingerUpper": 126523.34837205423,
+     "bollingerLower": 67416.65162794577,
+     "percentB": 0.2636477629517931,
+     "atr14": 10478.307488727465,
+     "volumeZ": -1.4326153686380065,
+     "lastVolume": 172072,
+     "avgVolume20": 437126,
+     "high52w": 230500,
+     "low52w": 42450,
+     "stochK": 39.67272727272727,
+     "stochD": 36.65460706883997,
+     "pivotPP": 85866.66666666667,
+     "pivotR1": 88733.33333333334,
+     "pivotS1": 80133.33333333334,
+     "pivotR2": 94466.66666666667,
+     "pivotS2": 77266.66666666667,
+     "adx14": 27.699400917183972,
+     "bullishDivergence": false,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "volatilityRatio": 0.9264981016448408
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-08-07",
+     "isToday": true,
+     "todayOpen": 90400,
+     "todayHigh": 91600,
+     "todayLow": 83000,
+     "current": 83500,
+     "vwap": 86332.53821710321,
+     "distanceFromVwapPct": -3.280962514944407,
+     "gapPct": 2.0316027088036117,
+     "gapType": "갭상승",
+     "rangePositionPct": 5.813953488372093,
+     "openingRangeHigh": 91600,
+     "openingRangeLow": 86500,
+     "orbStatus": "하단이탈",
+     "momentum": "하락"
+    },
+    "marketPhase": {
+     "phase": "장중",
+     "kstTime": "11:08",
+     "note": "정규 매매 시간대입니다. 오프닝레인지·VWAP 기준으로 판단하세요."
+    },
+    "entryTriggers": [
+     "VWAP(86,333원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(91,600원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(80,133원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(88,733원) 돌파 시 추세 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(86,500원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [],
+    "scaledExit": [],
+    "watchOrderNote": null,
+    "relativeStrengthNote": "국내 반도체 10종목 중 등락률 최하위(-5.76%) — 상대적으로 약세, 진입 시 더 보수적으로 접근",
+    "estimatedRoundTripCostWon": null,
+    "entryBlocked": false,
+    "breakEvenPrice": null,
+    "priceLimits": null,
+    "backtest": {
+     "periodStart": "2021-07-16",
+     "periodEnd": "2026-07-31",
+     "sampleSignals": 362,
+     "winRate5d": 48.6,
+     "avgReturn5d": 0.71,
+     "winRate10d": 51.4,
+     "avgReturn10d": 2.01
+    },
+    "buyStrength": 0,
+    "sellStrength": null,
+    "actionSummary": "관망 강도(매수 아님) 0/10 — 아직 근거 부족",
+    "verdict": "⚪ 지금은 매수하지 마세요 — 변동성 높음 — 지금 이 종목은 하루에 평균 ±6.4%(연율 102%) 움직이고 있고, 이는 평소의 2.0배입니다. 신호가 아직 충분히 강하지 않아(점수 15) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+    "macroScore": 0,
+    "disclosures": [],
+    "investorFlow": [],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 6.413488731778557,
+     "annualizedPct": 101.81097732360658,
+     "range90": {
+      "lowPct": -10.870743561331226,
+      "highPct": 12.55622088374822
+     },
+     "range98": {
+      "lowPct": -16.13294704303387,
+      "highPct": 22.8662391467206
+     },
+     "zQuantiles": {
+      "q05": -1.6949813145327857,
+      "q25": -0.5573617021142168,
+      "q75": 0.5616215409703471,
+      "q95": 1.9577832610093617
+     },
+     "regime": "높음",
+     "regimePercentile": 86.5424430641822,
+     "regimeRatio": 1.9518287667184435,
+     "skew": "상방",
+     "drivers": [
+      "변동성이 평소의 2.0배로 확대된 상태"
+     ]
+    },
+    "forecastPath": null,
+    "upRate": {
+     "regime": "고변동/붕괴/횡보",
+     "upRatePct": 45.2,
+     "sampleN": 104,
+     "overallPct": 48.5,
+     "distinguishable": false,
+     "headline": "지금은 \"고변동/붕괴/횡보\" 국면입니다. 과거 같은 국면 104일 중 45.2%가 상승 마감했지만, 전체 평균 48.5%와 통계적으로 구분되지 않습니다 — 즉 오늘의 방향은 사실상 동전던지기입니다. 방향에 베팅하지 말고 \"얼마에 사고, 얼마나 사고, 어디서 자를지\"로 판단하세요."
+    },
+    "suggestedEntryPrice": null,
+    "entryPriceBasis": null
+   },
+   {
+    "ticker": "012450",
+    "name": "한화에어로스페이스",
+    "action": "신규매수",
+    "score": 80,
+    "confidence": "높음",
+    "reasons": [
+     "진입 신호 충족 (점수 80) — 분할 매수 권장, 진입 즉시 손절가 설정",
+     "VWAP(1,070,336원) 위 +0.62% — 당일 매수세 우위",
+     "갭하락(-0.95%) 출발했지만 시가 위로 반등 — 낙폭과대 반발매수 유입",
+     "주가가 20일선 위 (단기 상승 추세)",
+     "RSI 58 — 과열 아닌 건전한 모멘텀",
+     "RSI 강세 다이버전스 — 가격은 이전 저점보다 낮은데 RSI는 더 높음 (하락 모멘텀 약화, 저점매수 확인 신호)",
+     "MACD 상승 전환 유지",
+     "추세 강도(ADX 15) 낮음(횡보 장세) — 저점매수·되돌림 신호에 더 무게",
+     "국제 유가(WTI) -3.0%"
+    ],
+    "warnings": [
+     "스토캐스틱 %K 91 — 과매수 구간, RSI와 과열 신호 중첩",
+     "볼린저 상단 돌파 — 변동성 확대 구간",
+     "피벗 저항선 R1(1,086,667원) 근접 — 돌파 실패 시 되돌림 유의",
+     "악재 주의: 국제유가 급등 및 고용지표 경계에 미 국채금리·달러 동반 상승",
+     "변동성 높음 — 지금 이 종목은 하루에 평균 ±4.7%(연율 74%) 움직이고 있고, 이는 평소의 1.3배입니다. 내일 하루 등락 범위는 10번 중 9번꼴로 -85,338원 ~ +90,964원 안에 들어갑니다(주가 대비 -7.9% ~ +8.4%). 그만큼 진입 예산을 축소했습니다. 손절선을 이 범위 밖에 두어야 노이즈에 털리지 않습니다.",
+     "손절선이 너무 가깝습니다 — 손절까지 4.5%인데 이 종목은 하루 평균 ±4.7% 움직입니다. 방향을 맞혀도 장중 흔들림만으로 손절에 걸릴 가능성이 높으니, 손절선을 더 넓히거나(그만큼 수량을 줄여서) 진입 자체를 미루세요."
+    ],
+    "targetPrice": 1175000,
+    "stopPrice": 1028000,
+    "suggestedBudget": 3052226,
+    "suggestedQty": 2,
+    "pnlPct": null,
+    "price": 1077000,
+    "indicators": {
+     "ma5": 1011000,
+     "ma20": 933500,
+     "ma60": 1065550,
+     "ma20SlopePct": -2.071859428271702,
+     "rsi14": 58.30761922017249,
+     "macd": -8424.66561824514,
+     "macdSignal": -35567.50481106426,
+     "macdHist": 27142.83919281912,
+     "macdHistPrev": 23353.94636288459,
+     "bollingerUpper": 1062301.3975079462,
+     "bollingerLower": 804698.6024920536,
+     "percentB": 1.0337675004322726,
+     "atr14": 73591.00094638589,
+     "volumeZ": -2.5394617298214746,
+     "lastVolume": 55801,
+     "avgVolume20": 231764.8,
+     "high52w": 1655000,
+     "low52w": 783000,
+     "stochK": 91.43770130596943,
+     "stochD": 83.55900474459173,
+     "pivotPP": 1064333.3333333333,
+     "pivotR1": 1086666.6666666665,
+     "pivotS1": 1048666.6666666665,
+     "pivotR2": 1102333.3333333333,
+     "pivotS2": 1026333.3333333333,
+     "adx14": 15.071387579066561,
+     "bullishDivergence": true,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "volatilityRatio": 0.8991416905326383
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-08-07",
+     "isToday": true,
+     "todayOpen": 1044000,
+     "todayHigh": 1080000,
+     "todayLow": 1042000,
+     "current": 1077000,
+     "vwap": 1070336.3885759385,
+     "distanceFromVwapPct": 0.6225716975695158,
+     "gapPct": -0.9487666034155597,
+     "gapType": "갭하락",
+     "rangePositionPct": 92.10526315789474,
+     "openingRangeHigh": 1080000,
+     "openingRangeLow": 1042000,
+     "orbStatus": "레인지내",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "장중",
+     "kstTime": "11:08",
+     "note": "정규 매매 시간대입니다. 오프닝레인지·VWAP 기준으로 판단하세요."
+    },
+    "entryTriggers": [
+     "VWAP(1,070,336원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(1,080,000원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(1,048,667원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(1,086,667원) 돌파 시 추세 진입",
+     "당일 저가(1,042,000원) 지지 확인(이탈 없이 반등) 시 반발매수 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(1,042,000원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [
+     {
+      "price": 1077000,
+      "qty": 2,
+      "note": "1차 진입 (60%) — 진입 트리거 충족 즉시"
+     },
+     {
+      "price": 1061000,
+      "qty": 0,
+      "note": "2차 진입 (40%) — 추가 눌림 시 (물타기 아닌 사전 계획된 분할매수)"
+     }
+    ],
+    "scaledExit": [
+     {
+      "price": 1126000,
+      "qty": 1,
+      "note": "1차 익절 (50%) — 손익비 1:1 도달 시 우선 실현"
+     },
+     {
+      "price": 1175000,
+      "qty": 1,
+      "note": "2차 익절 (나머지) — 목표가 도달 또는 트레일링 스탑으로 관리"
+     }
+    ],
+    "watchOrderNote": "내일까지 차트를 못 볼 것 같으면 증권사 앱에서 손절 감시주문을 1,028,000원(현재가 대비 -4.5%)에 미리 걸어두세요. 5년 실측상 하루 이상 방치하면 최악의 손실이 -34%까지 갔지만, 예약을 걸어두면 -20%에서 끊겼습니다(-10% 넘는 손실 비율도 4.8%→2.4%). 익절 예약은 1,175,000원에 절반만 걸어두세요(나머지는 추세를 따라가게). 다만 당일 안에 다시 확인할 수 있다면 예약이 오히려 불리했습니다 — 잠깐 스치고 되돌아오는 날에 기계적으로 털리기 때문입니다.",
+    "relativeStrengthNote": "국내 반도체 10종목 중 2위(+2.18%)",
+    "estimatedRoundTripCostWon": 5494,
+    "entryBlocked": false,
+    "breakEvenPrice": 1079000,
+    "priceLimits": null,
+    "backtest": {
+     "periodStart": "2021-08-02",
+     "periodEnd": "2026-07-31",
+     "sampleSignals": 426,
+     "winRate5d": 56.8,
+     "avgReturn5d": 1.87,
+     "winRate10d": 52.6,
+     "avgReturn10d": 3.39
+    },
+    "buyStrength": 8,
+    "sellStrength": null,
+    "actionSummary": "지금 매수 강도 8/10 — 엔진 기준 진입 신호 충족",
+    "verdict": "🟢 지금 사도 좋아요 — 진입 신호 충족 (점수 80) — 분할 매수 권장, 진입 즉시 손절가 설정",
+    "macroScore": 0,
+    "disclosures": [],
+    "investorFlow": [],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 4.663728530332442,
+     "annualizedPct": 74.03439524145837,
+     "range90": {
+      "lowPct": -7.923663051055426,
+      "highPct": 8.446045954472853
+     },
+     "range98": {
+      "lowPct": -10.26284654942937,
+      "highPct": 12.836165950072488
+     },
+     "zQuantiles": {
+      "q05": -1.6989974865648125,
+      "q25": -0.5280861982971143,
+      "q75": 0.6165357799800594,
+      "q95": 1.811007201542839
+     },
+     "regime": "높음",
+     "regimePercentile": 82.40165631469979,
+     "regimeRatio": 1.2762486893412703,
+     "skew": "대칭",
+     "drivers": [
+      "변동성이 평소의 1.3배로 확대된 상태"
+     ]
+    },
+    "forecastPath": null,
+    "upRate": null,
+    "suggestedEntryPrice": 1077000,
+    "entryPriceBasis": "현재가 기준 즉시 진입 (분할매수 1차 라인 참고)"
+   },
+   {
+    "ticker": "005380",
+    "name": "현대차",
+    "action": "관망",
+    "score": 19,
+    "confidence": "높음",
+    "reasons": [
+     "스토캐스틱 %K가 %D 위 — 단기 모멘텀 양호",
+     "추세 강도(ADX 34) 높음 — 추세추종 신호 우선, 역추세 저점매수는 신중히",
+     "국제 유가(WTI) -3.0%"
+    ],
+    "warnings": [
+     "변동성 높음 — 지금 이 종목은 하루에 평균 ±4.1%(연율 65%) 움직이고 있고, 이는 평소의 1.8배입니다. 신호가 아직 충분히 강하지 않아(점수 19) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+     "VWAP(393,259원) 아래 -0.45% — 당일 매도세 우위",
+     "주가가 20일선 아래 (단기 추세 약세)",
+     "악재 주의: 국제유가 급등 및 고용지표 경계에 미 국채금리·달러 동반 상승"
+    ],
+    "targetPrice": 431500,
+    "stopPrice": 371500,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 391500,
+    "indicators": {
+     "ma5": 395600,
+     "ma20": 403575,
+     "ma60": 535883.3333333334,
+     "ma20SlopePct": -4.761061946902655,
+     "rsi14": 38.81375921198117,
+     "macd": -30570.615710599,
+     "macdSignal": -37431.57212985344,
+     "macdHist": 6860.956419254442,
+     "macdHistPrev": 6985.734568026346,
+     "bollingerUpper": 458348.419648585,
+     "bollingerLower": 348801.580351415,
+     "percentB": 0.35782337400215297,
+     "atr14": 30201.75651213257,
+     "volumeZ": -2.684053360397596,
+     "lastVolume": 213502,
+     "avgVolume20": 893141.8,
+     "high52w": 783000,
+     "low52w": 207000,
+     "stochK": 62.43386243386243,
+     "stochD": 61.439397908044775,
+     "pivotPP": 393666.6666666667,
+     "pivotR1": 400333.3333333334,
+     "pivotS1": 381333.3333333334,
+     "pivotR2": 412666.6666666667,
+     "pivotS2": 374666.6666666667,
+     "adx14": 33.98208880264493,
+     "bullishDivergence": false,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "volatilityRatio": 0.813059064824657
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-08-07",
+     "isToday": true,
+     "todayOpen": 401000,
+     "todayHigh": 406000,
+     "todayLow": 387000,
+     "current": 391500,
+     "vwap": 393258.99105155596,
+     "distanceFromVwapPct": -0.4472856543858035,
+     "gapPct": 0.25,
+     "gapType": "보합",
+     "rangePositionPct": 23.684210526315788,
+     "openingRangeHigh": 406000,
+     "openingRangeLow": 390500,
+     "orbStatus": "레인지내",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "장중",
+     "kstTime": "11:08",
+     "note": "정규 매매 시간대입니다. 오프닝레인지·VWAP 기준으로 판단하세요."
+    },
+    "entryTriggers": [
+     "VWAP(393,259원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(406,000원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(381,333원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(400,333원) 돌파 시 추세 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(390,500원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [],
+    "scaledExit": [],
+    "watchOrderNote": null,
+    "relativeStrengthNote": "국내 반도체 10종목 중 7위(-2.13%)",
+    "estimatedRoundTripCostWon": null,
+    "entryBlocked": false,
+    "breakEvenPrice": null,
+    "priceLimits": null,
+    "backtest": {
+     "periodStart": "2021-08-02",
+     "periodEnd": "2026-07-31",
+     "sampleSignals": 388,
+     "winRate5d": 50.3,
+     "avgReturn5d": 0.74,
+     "winRate10d": 50.3,
+     "avgReturn10d": 1.13
+    },
+    "buyStrength": 0,
+    "sellStrength": null,
+    "actionSummary": "관망 강도(매수 아님) 0/10 — 아직 근거 부족",
+    "verdict": "⚪ 지금은 매수하지 마세요 — 변동성 높음 — 지금 이 종목은 하루에 평균 ±4.1%(연율 65%) 움직이고 있고, 이는 평소의 1.8배입니다. 신호가 아직 충분히 강하지 않아(점수 19) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+    "macroScore": 0,
+    "disclosures": [],
+    "investorFlow": [],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 4.086636647877563,
+     "annualizedPct": 64.8733456138,
+     "range90": {
+      "lowPct": -6.512125706292068,
+      "highPct": 8.518165319375136
+     },
+     "range98": {
+      "lowPct": -9.971464462102267,
+      "highPct": 14.355423792068772
+     },
+     "zQuantiles": {
+      "q05": -1.593517179873138,
+      "q25": -0.5480433635461359,
+      "q75": 0.557093839966768,
+      "q95": 2.084395079214868
+     },
+     "regime": "높음",
+     "regimePercentile": 73.70600414078675,
+     "regimeRatio": 1.7527701966306244,
+     "skew": "상방",
+     "drivers": [
+      "변동성이 평소의 1.8배로 확대된 상태"
+     ]
+    },
+    "forecastPath": null,
+    "upRate": null,
+    "suggestedEntryPrice": null,
+    "entryPriceBasis": null
+   },
+   {
+    "ticker": "105560",
+    "name": "KB금융",
+    "action": "신규매수",
+    "score": 76,
+    "confidence": "높음",
+    "reasons": [
+     "진입 신호 충족 (점수 76) — 분할 매수 권장, 진입 즉시 손절가 설정",
+     "VWAP(173,933원) 위 +0.84% — 당일 매수세 우위",
+     "갭하락(-1.34%) 출발했지만 시가 위로 반등 — 낙폭과대 반발매수 유입",
+     "오프닝레인지 상단(173,400원) 돌파 — 상승 전환 시그널",
+     "주가가 20일선 위 (단기 상승 추세)",
+     "RSI 56 — 과열 아닌 건전한 모멘텀",
+     "스토캐스틱 %K가 %D 위 — 단기 모멘텀 양호",
+     "추세 강도(ADX 16) 낮음(횡보 장세) — 저점매수·되돌림 신호에 더 무게",
+     "국제 유가(WTI) -3.0%"
+    ],
+    "warnings": [
+     "악재 주의: 국제유가 급등 및 고용지표 경계에 미 국채금리·달러 동반 상승"
+    ],
+    "targetPrice": 186300,
+    "stopPrice": 170000,
+    "suggestedBudget": 5000000,
+    "suggestedQty": 28,
+    "pnlPct": null,
+    "price": 175400,
+    "indicators": {
+     "ma5": 171100,
+     "ma20": 173415,
+     "ma60": 163626.66666666666,
+     "ma20SlopePct": -0.03170577045022194,
+     "rsi14": 56.28443787776688,
+     "macd": 1115.0700182898727,
+     "macdSignal": 1437.3510166808621,
+     "macdHist": -322.28099839098945,
+     "macdHistPrev": -738.1937120064474,
+     "bollingerUpper": 186422.4248027809,
+     "bollingerLower": 160407.5751972191,
+     "percentB": 0.5609267408434734,
+     "atr14": 8429.164452612224,
+     "volumeZ": -1.900165184510443,
+     "lastVolume": 348563,
+     "avgVolume20": 1416425.35,
+     "high52w": 194500,
+     "low52w": 105800,
+     "stochK": 63.27339787920701,
+     "stochD": 52.02360057204637,
+     "pivotPP": 173700,
+     "pivotR1": 178200,
+     "pivotS1": 170500,
+     "pivotR2": 181400,
+     "pivotS2": 166000,
+     "adx14": 16.219582640903436,
+     "bullishDivergence": false,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "volatilityRatio": 1.1264544064964273
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-08-07",
+     "isToday": true,
+     "todayOpen": 169200,
+     "todayHigh": 176900,
+     "todayLow": 169200,
+     "current": 175400,
+     "vwap": 173932.9549970956,
+     "distanceFromVwapPct": 0.843454308546013,
+     "gapPct": -1.3411078717201166,
+     "gapType": "갭하락",
+     "rangePositionPct": 80.51948051948052,
+     "openingRangeHigh": 173400,
+     "openingRangeLow": 169200,
+     "orbStatus": "상단돌파",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "장중",
+     "kstTime": "11:08",
+     "note": "정규 매매 시간대입니다. 오프닝레인지·VWAP 기준으로 판단하세요."
+    },
+    "entryTriggers": [
+     "VWAP(173,933원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(173,400원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(170,500원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(178,200원) 돌파 시 추세 진입",
+     "당일 저가(169,200원) 지지 확인(이탈 없이 반등) 시 반발매수 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(169,200원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [
+     {
+      "price": 175400,
+      "qty": 17,
+      "note": "1차 진입 (60%) — 진입 트리거 충족 즉시"
+     },
+     {
+      "price": 172800,
+      "qty": 11,
+      "note": "2차 진입 (40%) — 추가 눌림 시 (물타기 아닌 사전 계획된 분할매수)"
+     }
+    ],
+    "scaledExit": [
+     {
+      "price": 180800,
+      "qty": 14,
+      "note": "1차 익절 (50%) — 손익비 1:1 도달 시 우선 실현"
+     },
+     {
+      "price": 186300,
+      "qty": 14,
+      "note": "2차 익절 (나머지) — 목표가 도달 또는 트레일링 스탑으로 관리"
+     }
+    ],
+    "watchOrderNote": "내일까지 차트를 못 볼 것 같으면 증권사 앱에서 손절 감시주문을 170,000원(현재가 대비 -3.1%)에 미리 걸어두세요. 5년 실측상 하루 이상 방치하면 최악의 손실이 -34%까지 갔지만, 예약을 걸어두면 -20%에서 끊겼습니다(-10% 넘는 손실 비율도 4.8%→2.4%). 익절 예약은 186,300원에 절반만 걸어두세요(나머지는 추세를 따라가게). 다만 당일 안에 다시 확인할 수 있다면 예약이 오히려 불리했습니다 — 잠깐 스치고 되돌아오는 날에 기계적으로 털리기 때문입니다.",
+    "relativeStrengthNote": "국내 반도체 10종목 중 등락률 1위(+2.27%) — 오늘 가장 강한 종목, 단타 우선순위 상위",
+    "estimatedRoundTripCostWon": 9000,
+    "entryBlocked": false,
+    "breakEvenPrice": 175800,
+    "priceLimits": null,
+    "backtest": {
+     "periodStart": "2021-08-02",
+     "periodEnd": "2026-07-31",
+     "sampleSignals": 407,
+     "winRate5d": 44.2,
+     "avgReturn5d": -0.22,
+     "winRate10d": 45,
+     "avgReturn10d": -0.25
+    },
+    "buyStrength": 8,
+    "sellStrength": null,
+    "actionSummary": "지금 매수 강도 8/10 — 엔진 기준 진입 신호 충족",
+    "verdict": "🟢 지금 사도 좋아요 — 진입 신호 충족 (점수 76) — 분할 매수 권장, 진입 즉시 손절가 설정",
+    "macroScore": 0,
+    "disclosures": [],
+    "investorFlow": [],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 2.5541983639841095,
+     "annualizedPct": 40.546642021379945,
+     "range90": {
+      "lowPct": -4.12955208002498,
+      "highPct": 4.7386404509013325
+     },
+     "range98": {
+      "lowPct": -8.562379162048678,
+      "highPct": 7.4788236102293695
+     },
+     "zQuantiles": {
+      "q05": -1.616770309720029,
+      "q25": -0.4660522462097558,
+      "q75": 0.5842814349546439,
+      "q95": 1.8552358805483964
+     },
+     "regime": "보통",
+     "regimePercentile": 64.59627329192547,
+     "regimeRatio": 1.096405134702221,
+     "skew": "대칭",
+     "drivers": []
+    },
+    "forecastPath": null,
+    "upRate": null,
+    "suggestedEntryPrice": 175400,
+    "entryPriceBasis": "현재가 기준 즉시 진입 (분할매수 1차 라인 참고)"
+   },
+   {
+    "ticker": "068270",
+    "name": "셀트리온",
+    "action": "신규매수",
+    "score": 75,
+    "confidence": "높음",
+    "reasons": [
+     "진입 신호 충족 (점수 75) — 분할 매수 권장, 진입 즉시 손절가 설정",
+     "VWAP(196,506원) 위 +0.56% — 당일 매수세 우위",
+     "갭하락(-0.92%) 출발했지만 시가 위로 반등 — 낙폭과대 반발매수 유입",
+     "주가가 20일선 위 (단기 상승 추세)",
+     "20일선 기울기 상승 중",
+     "MACD 상승 전환 유지",
+     "국제 유가(WTI) -3.0%"
+    ],
+    "warnings": [
+     "스토캐스틱 %K 92 — 과매수 구간, RSI와 과열 신호 중첩",
+     "볼린저 상단 돌파 — 변동성 확대 구간",
+     "피벗 저항선 R1(198,933원) 근접 — 돌파 실패 시 되돌림 유의",
+     "악재 주의: 국제유가 급등 및 고용지표 경계에 미 국채금리·달러 동반 상승"
+    ],
+    "targetPrice": 209500,
+    "stopPrice": 191700,
+    "suggestedBudget": 5000000,
+    "suggestedQty": 25,
+    "pnlPct": null,
+    "price": 197600,
+    "indicators": {
+     "ma5": 189920,
+     "ma20": 180055,
+     "ma60": 176965.7140625,
+     "ma20SlopePct": 1.751857816959114,
+     "rsi14": 66.39768211603611,
+     "macd": 4586.245341458794,
+     "macdSignal": 2575.6050986270884,
+     "macdHist": 2010.640242831706,
+     "macdHistPrev": 1836.317520446777,
+     "bollingerUpper": 195633.76439259545,
+     "bollingerLower": 164476.23560740455,
+     "percentB": 1.0213828128667641,
+     "atr14": 7609.708381546052,
+     "volumeZ": -1.0380748312523111,
+     "lastVolume": 307145,
+     "avgVolume20": 738632.35,
+     "high52w": 239047.625,
+     "low52w": 158500,
+     "stochK": 92.20590541573904,
+     "stochD": 84.39765447854629,
+     "pivotPP": 196066.66666666666,
+     "pivotR1": 198933.3333333333,
+     "pivotS1": 193433.3333333333,
+     "pivotR2": 201566.66666666666,
+     "pivotS2": 190566.66666666666,
+     "adx14": 20.36980538136513,
+     "bullishDivergence": false,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "volatilityRatio": 0.9662148510152331
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-08-07",
+     "isToday": true,
+     "todayOpen": 193200,
+     "todayHigh": 198700,
+     "todayLow": 193200,
+     "current": 197600,
+     "vwap": 196506.2006325795,
+     "distanceFromVwapPct": 0.5566233349886195,
+     "gapPct": -0.9230769230769231,
+     "gapType": "갭하락",
+     "rangePositionPct": 80,
+     "openingRangeHigh": 197800,
+     "openingRangeLow": 193200,
+     "orbStatus": "레인지내",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "장중",
+     "kstTime": "11:08",
+     "note": "정규 매매 시간대입니다. 오프닝레인지·VWAP 기준으로 판단하세요."
+    },
+    "entryTriggers": [
+     "VWAP(196,506원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(197,800원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(193,433원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(198,933원) 돌파 시 추세 진입",
+     "당일 저가(193,200원) 지지 확인(이탈 없이 반등) 시 반발매수 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(193,200원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [
+     {
+      "price": 197600,
+      "qty": 15,
+      "note": "1차 진입 (60%) — 진입 트리거 충족 즉시"
+     },
+     {
+      "price": 194600,
+      "qty": 10,
+      "note": "2차 진입 (40%) — 추가 눌림 시 (물타기 아닌 사전 계획된 분할매수)"
+     }
+    ],
+    "scaledExit": [
+     {
+      "price": 203500,
+      "qty": 13,
+      "note": "1차 익절 (50%) — 손익비 1:1 도달 시 우선 실현"
+     },
+     {
+      "price": 209500,
+      "qty": 12,
+      "note": "2차 익절 (나머지) — 목표가 도달 또는 트레일링 스탑으로 관리"
+     }
+    ],
+    "watchOrderNote": "내일까지 차트를 못 볼 것 같으면 증권사 앱에서 손절 감시주문을 191,700원(현재가 대비 -3.0%)에 미리 걸어두세요. 5년 실측상 하루 이상 방치하면 최악의 손실이 -34%까지 갔지만, 예약을 걸어두면 -20%에서 끊겼습니다(-10% 넘는 손실 비율도 4.8%→2.4%). 익절 예약은 209,500원에 절반만 걸어두세요(나머지는 추세를 따라가게). 다만 당일 안에 다시 확인할 수 있다면 예약이 오히려 불리했습니다 — 잠깐 스치고 되돌아오는 날에 기계적으로 털리기 때문입니다.",
+    "relativeStrengthNote": "국내 반도체 10종목 중 4위(+1.33%)",
+    "estimatedRoundTripCostWon": 9000,
+    "entryBlocked": false,
+    "breakEvenPrice": 198000,
+    "priceLimits": null,
+    "backtest": {
+     "periodStart": "2021-08-02",
+     "periodEnd": "2026-07-31",
+     "sampleSignals": 331,
+     "winRate5d": 46.2,
+     "avgReturn5d": -0.19,
+     "winRate10d": 42,
+     "avgReturn10d": -0.86
+    },
+    "buyStrength": 8,
+    "sellStrength": null,
+    "actionSummary": "지금 매수 강도 8/10 — 엔진 기준 진입 신호 충족",
+    "verdict": "🟢 지금 사도 좋아요 — 진입 신호 충족 (점수 75) — 분할 매수 권장, 진입 즉시 손절가 설정",
+    "macroScore": 0,
+    "disclosures": [],
+    "investorFlow": [],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 2.372483840792797,
+     "annualizedPct": 37.662013393542594,
+     "range90": {
+      "lowPct": -3.7657129648795924,
+      "highPct": 4.0049453529275505
+     },
+     "range98": {
+      "lowPct": -6.107896479698097,
+      "highPct": 7.806799088472685
+     },
+     "zQuantiles": {
+      "q05": -1.5872449371968027,
+      "q25": -0.5247624143707407,
+      "q75": 0.5025900706676779,
+      "q95": 1.6880811932481887
+     },
+     "regime": "보통",
+     "regimePercentile": 65.42443064182196,
+     "regimeRatio": 1.155303688105388,
+     "skew": "대칭",
+     "drivers": []
+    },
+    "forecastPath": null,
+    "upRate": null,
+    "suggestedEntryPrice": 197600,
+    "entryPriceBasis": "현재가 기준 즉시 진입 (분할매수 1차 라인 참고)"
+   },
+   {
+    "ticker": "030200",
+    "name": "KT",
+    "action": "관망",
+    "score": 62,
+    "confidence": "중간",
+    "reasons": [
+     "매수 근접 구간 — 아래 진입 트리거 충족 시까지 대기",
+     "갭하락(-0.93%) 출발했지만 시가 위로 반등 — 낙폭과대 반발매수 유입",
+     "주가가 20일선 위 (단기 상승 추세)",
+     "RSI 50 — 과열 아닌 건전한 모멘텀",
+     "스토캐스틱 %K가 %D 위 — 단기 모멘텀 양호",
+     "MACD 상승 전환 유지",
+     "추세 강도(ADX 10) 낮음(횡보 장세) — 저점매수·되돌림 신호에 더 무게",
+     "국제 유가(WTI) -3.0%"
+    ],
+    "warnings": [
+     "피벗 저항선 R1(53,767원) 근접 — 돌파 실패 시 되돌림 유의",
+     "악재 주의: 국제유가 급등 및 고용지표 경계에 미 국채금리·달러 동반 상승",
+     "손절선이 너무 가깝습니다 — 손절까지 1.7%인데 이 종목은 하루 평균 ±1.8% 움직입니다. 방향을 맞혀도 장중 흔들림만으로 손절에 걸릴 가능성이 높으니, 손절선을 더 넓히거나(그만큼 수량을 줄여서) 진입 자체를 미루세요."
+    ],
+    "targetPrice": 55200,
+    "stopPrice": 52500,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 53400,
+    "indicators": {
+     "ma5": 52780,
+     "ma20": 52945,
+     "ma60": 54178.333333333336,
+     "ma20SlopePct": -1.2312284301837515,
+     "rsi14": 50.1891959110556,
+     "macd": -306.4328801543743,
+     "macdSignal": -379.7963970567613,
+     "macdHist": 73.363516902387,
+     "macdHistPrev": 29.441786271103865,
+     "bollingerUpper": 54580.2064089894,
+     "bollingerLower": 51309.7935910106,
+     "percentB": 0.6391261670388152,
+     "atr14": 1648.8373626402774,
+     "volumeZ": -1.9773772832968461,
+     "lastVolume": 82751,
+     "avgVolume20": 490426.6,
+     "high52w": 69400,
+     "low52w": 48100,
+     "stochK": 50.925925925925924,
+     "stochD": 40.123456790123456,
+     "pivotPP": 53233.333333333336,
+     "pivotR1": 53766.66666666667,
+     "pivotS1": 52866.66666666667,
+     "pivotR2": 54133.333333333336,
+     "pivotS2": 52333.333333333336,
+     "adx14": 9.995015754878901,
+     "bullishDivergence": false,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "volatilityRatio": 0.8054568838462581
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-08-07",
+     "isToday": true,
+     "todayOpen": 53000,
+     "todayHigh": 53600,
+     "todayLow": 52700,
+     "current": 53400,
+     "vwap": 53341.385593090425,
+     "distanceFromVwapPct": 0.10988542246860561,
+     "gapPct": -0.9345794392523363,
+     "gapType": "갭하락",
+     "rangePositionPct": 77.77777777777779,
+     "openingRangeHigh": 53400,
+     "openingRangeLow": 52700,
+     "orbStatus": "레인지내",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "장중",
+     "kstTime": "11:08",
+     "note": "정규 매매 시간대입니다. 오프닝레인지·VWAP 기준으로 판단하세요."
+    },
+    "entryTriggers": [
+     "VWAP(53,341원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(53,400원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(52,867원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(53,767원) 돌파 시 추세 진입",
+     "당일 저가(52,700원) 지지 확인(이탈 없이 반등) 시 반발매수 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(52,700원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [],
+    "scaledExit": [],
+    "watchOrderNote": null,
+    "relativeStrengthNote": "국내 반도체 10종목 중 6위(-0.19%)",
+    "estimatedRoundTripCostWon": null,
+    "entryBlocked": false,
+    "breakEvenPrice": null,
+    "priceLimits": null,
+    "backtest": {
+     "periodStart": "2021-08-02",
+     "periodEnd": "2026-07-31",
+     "sampleSignals": 407,
+     "winRate5d": 49.4,
+     "avgReturn5d": 0.02,
+     "winRate10d": 49.1,
+     "avgReturn10d": 0.31
+    },
+    "buyStrength": 4,
+    "sellStrength": null,
+    "actionSummary": "매수 대기 강도 4/10 — 53,400원 부근, 트리거 확인 필요",
+    "verdict": "⚪ 조건이 갖춰지면 매수를 고려하세요 — 피벗 저항선 R1(53,767원) 근접 — 돌파 실패 시 되돌림 유의",
+    "macroScore": 0,
+    "disclosures": [],
+    "investorFlow": [],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 1.784914125491993,
+     "annualizedPct": 28.334633325948886,
+     "range90": {
+      "lowPct": -2.7468288508221423,
+      "highPct": 3.2319363745375553
+     },
+     "range98": {
+      "lowPct": -4.392931895581775,
+      "highPct": 4.864253837607987
+     },
+     "zQuantiles": {
+      "q05": -1.538913727888734,
+      "q25": -0.5647786228256719,
+      "q75": 0.6140479741235485,
+      "q95": 1.8106957238890726
+     },
+     "regime": "보통",
+     "regimePercentile": 63.975155279503106,
+     "regimeRatio": 1.1075674237244884,
+     "skew": "상방",
+     "drivers": []
+    },
+    "forecastPath": null,
+    "upRate": null,
+    "suggestedEntryPrice": null,
+    "entryPriceBasis": null
+   }
+  ],
+  "aiSummary": "🚨 **국내 단타 브리핑** | 11:08 KST\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**📊 반도체 (5종목)**\n\n🔴 한화에어로스페이스 | 매수강도 8/10 | 1,077,000원 진입 ⚡ VWAP(1,070,336원) 상향 돌파 + 거래량 증가 시 분할진입 → 손절: 1,028,000원 | 점수 80 신호 충족, 스토캐스틱 91 과매수 주의\n\n🔴 KB금융 | 매수강도 8/10 | 175,400원 진입 ⚡ VWAP(173,933원) 상향 돌파 + 거래량 증가 시 분할진입 → 손절: 170,000원 | 점수 76 신호 충족, 미 국채금리 상승 악재 모니터링\n\n🔴 셀트리온 | 매수강도 8/10 | 197,600원 진입 ⚡ VWAP(196,506원) 상향 돌파 + 거래량 증가 시 분할진입 → 손절: 191,700원 | 점수 75 신호 충족, 스토캐스틱 92 과매수 경고\n\n🟡 KT | 매수강도 4/10 | VWAP(53,341원) 상향 돌파 대기 + 오프닝레인지 상단(53,400원) 재돌파 후 눌림목 진입 → 손절: 52,500원 | 점수 62 근접, R1 저항선(53,767원) 주의\n\n⚪ 삼성전자 · SK하이닉스 · 한미반도체 · 삼성전기 · DB하이텍 | 모두 관망 → 변동성 극단 상태(2~3배), 점수 미충족, VWAP 하향 매도세 우위 → 낙폭 안정화 후 진입 신호 기다리기\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n**⚙️ 비반도체 (5종목)**\n\n현대차 | 관망 → 점수 19, VWAP(393,259원) 하향 -0.45%, ADX 34 강추세지만 신호 미충족\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n⚠️ **매크로 경계** | VIX 15.2 & 공포탐욕지수 60(탐욕) — 저변동성 기간이지만 미 국채금리·달러 동반 상승 & WTI -3.0% 유가 부진이 금융·자동차 악재화 중\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🔹 **주요 뉴스/리스크** | 소프트뱅크 손실, 마이클 버리의 엔비디아 숏 포지션 유지, TSMC 3나노 18만장 증산(긍정), 호르무즈 해협 지정학적 불확실성, 메모리 3사 낙폭 25% 레버리지 해소 진행 중",
+  "masterScore": {
+   "attractivenessPct": 37,
+   "label": "방어적(매도 우위)",
+   "tone": "sell",
+   "headline": "10종목 중 3종목이 매수 신호권 — 가장 강한 종목은 한화에어로스페이스(80점)",
+   "buyCount": 3,
+   "sellCount": 6,
+   "strongestTicker": "012450",
+   "strongestName": "한화에어로스페이스"
+  }
  }
 ]
