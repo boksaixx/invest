@@ -202,6 +202,11 @@ export interface EngineSignal {
   // 방향 예측 모델은 3번 시도해 3번 다 기저율을 못 넘었으므로(lib/upRate.ts 주석 참고)
   // 확률을 만들어내지 않고 과거 실측 비율만 그대로 보여준다.
   upRate: UpRateSummary | null;
+  // 이 종목에 지금 영향을 주는 이슈(자사주·중국·미국·전쟁 등)를 업종 민감도로 번역한 목록.
+  // 뉴스 감성 점수(±15 범위)는 이 목록의 합이다 — 화면과 점수가 같은 계산을 쓴다.
+  issueImpacts: IssueImpact[];
+  // 이벤트·쇼크 리스크 오버레이 — 방향이 아니라 포지션 크기를 줄이는 규칙. 없으면 null.
+  riskOverlay: RiskOverlay | null;
 }
 
 export interface UpRateSummary {
@@ -376,15 +381,56 @@ export interface InvestorFlowDay {
   pensionNet?: number; // 연기금 순매수(주) — KRX 상세(투자자별) 응답에서만 채워짐. 연기금은 장기 자금이라 순매수가 이어지면 하방 지지 신호로 해석
 }
 
+// 뉴스가 건드리는 "대외변수 축". relatedTo(어느 종목/시장에 관한 기사인지)와 별개로,
+// 같은 기사라도 어느 축이냐에 따라 업종마다 방향이 달라진다(전쟁 뉴스 = 코스피 악재, 방산 호재).
+// 업종별 민감도·방향 표는 lib/issueMap.ts 에 있다.
+export type NewsTopic =
+  | "자사주" // 자사주 매입·소각·취득신탁, 밸류업 주주환원
+  | "중국" // 중국 경기·부양책·수출통제·희토류·중국 업체 경쟁(CXMT/SMIC/BYD)
+  | "미국정책" // 백악관·트럼프 발언, 반도체법, 수출규제, FDA, 對한국 정책
+  | "관세" // 관세 부과·유예·협상
+  | "전쟁지정학" // 중동·이란·우크라이나·대만해협·북한, 휴전/종전
+  | "금리환율" // 연준·FOMC·CPI·고용·국채금리·환율·한은
+  | "실적" // 실적·가이던스·컨센서스·목표가
+  | "업황" // D램·낸드·HBM·현물가·CAPEX
+  | "수급" // 외국인·기관·연기금·공매도·13F
+  | "지수" // 코스피·나스닥·SOX·선물·VIX 자체의 등락
+  | "예정이벤트" // 아직 안 일어난 일정(FOMC·CPI·실적발표·관세 발효일 등)
+  | "기타";
+
 export interface NewsItem {
   title: string;
   summary: string;
-  sentiment: "긍정" | "부정" | "중립";
+  sentiment: "긍정" | "부정" | "중립"; // 항상 "코스피 전체" 기준. 업종별 반대 해석은 엔진(issueMap)이 한다
   impact: "높음" | "중간" | "낮음";
-  relatedTo: string; // 삼성전자 | SK하이닉스 | 매크로 | 반도체업황 등
+  relatedTo: string; // 삼성전자 | SK하이닉스 | 매크로 | 반도체업황 | 예정이벤트 등
   source?: string;
   publishedAt?: string;
   isBreaking?: boolean; // 최근 몇 시간 내 발생한 속보성 뉴스인지
+  topic?: NewsTopic; // 수집기가 붙인 축. 없으면(구버전 스냅샷) issueMap이 제목으로 추정한다
+  eventAt?: string; // topic이 예정이벤트일 때 — "오늘 21:30", "내일 03:00(KST)" 같은 사람이 읽는 시각
+  eventInHours?: number; // 예정이벤트까지 남은 시간(대략). 30시간 이내면 엔진이 "이벤트 전 축소" 오버레이를 켠다
+}
+
+// 이 종목에 "지금" 영향을 주는 이슈 하나 — 뉴스 한 건을 업종 민감도로 번역한 결과
+export interface IssueImpact {
+  topic: NewsTopic;
+  title: string;
+  direction: "호재" | "악재" | "중립"; // 이 종목 기준 (코스피 기준과 반대일 수 있음)
+  strength: 1 | 2 | 3; // 이 종목 점수에 준 영향 크기 (3=크다)
+  why: string; // 왜 이 종목에 이 방향인지 (예: "전쟁 긴장 → 방산 수주 기대")
+  isBreaking: boolean;
+  flipped: boolean; // 코스피 기준 방향을 업종 특성으로 뒤집었는지 (전쟁→방산 호재 등)
+}
+
+// 대외변수·이벤트로 인한 "포지션 축소" 오버레이. 방향 신호가 아니라 크기 조절 규칙이다.
+// 정직한 한계: 이벤트 전 축소가 수익을 개선한다는 실측은 없다(과거 뉴스 라벨이 없다).
+// "큰 발표 앞에서 절반만" 은 손실 꼬리를 줄이려는 설계 규칙이며, 그 사실을 화면에도 밝힌다.
+export interface RiskOverlay {
+  eventRisk: boolean; // 30시간 내 고영향 예정 이벤트
+  shockRisk: boolean; // 3시간 내 고영향 악재 속보(전쟁·관세·미국정책·중국)
+  sizeMultiplier: number; // 신규·추가 매수 예산에 곱한다 (0.5~1.0)
+  notes: string[]; // 화면·Claude에 그대로 보여줄 근거 문장
 }
 
 // 분석 버튼을 누를 때마다 새로 생성되는 종합 인사이트 리포트 — 여러 지표/분석 결과를

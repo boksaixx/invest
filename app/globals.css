@@ -1698,6 +1698,29 @@ details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
 /* 지정가 대기 — "사세요"(즉시)와 구분되는 "이 가격에 걸어두세요". 매수 계열이라 파란 톤이되 연하게 */
 .doit-limit { background: #eef4ff; }
 .doit-limit .doit-verb { color: #2f6fd6; }
+
+/* 오늘의 대외변수 보드 — 축별 건수·방향 칩 + 예정 이벤트 한 줄 */
+.issue-board { background: var(--card-bg, #fff); border: 1px solid var(--border, #e5e7eb); border-radius: 14px; padding: 12px 14px; margin: 10px 0; }
+.issue-board-title { font-weight: 800; font-size: 0.95em; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: baseline; }
+.issue-board-title small { font-weight: 400; color: var(--text-weak); font-size: 0.8em; }
+.issue-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.issue-chip { border-radius: 999px; padding: 4px 10px; font-size: 0.82em; font-weight: 700; background: var(--gray-weak); color: var(--text-weak); white-space: nowrap; }
+.issue-chip.neg { background: var(--red-weak); color: #c9353f; }
+.issue-chip.pos { background: var(--blue-weak); color: #1b64da; }
+.issue-chip.breaking { box-shadow: inset 0 0 0 1.5px #c9353f; }
+.issue-upcoming { margin-top: 8px; font-size: 0.85em; color: var(--text-weak); line-height: 1.5; }
+.issue-upcoming b { color: var(--text, #111); }
+.issue-note { margin-top: 6px; font-size: 0.78em; color: var(--text-weak); }
+
+/* 종목 카드 — 이 종목에 영향 주는 이슈 목록 */
+.impact-list { margin: 8px 0; display: grid; gap: 4px; }
+.impact-item { display: grid; grid-template-columns: auto auto 1fr; gap: 6px; align-items: baseline; font-size: 0.86em; line-height: 1.4; }
+.impact-dir { font-weight: 800; }
+.impact-dir.pos { color: #1b64da; }
+.impact-dir.neg { color: #c9353f; }
+.impact-dir.flat { color: var(--text-weak); }
+.impact-topic { font-size: 0.78em; background: var(--gray-weak); color: var(--text-weak); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+.impact-why { color: var(--text-weak); font-size: 0.92em; }
 /* 미보유 + 매도신호 = "사지 마세요". 파란 계열이지만 매수(doit-buy)와 헷갈리지 않게 톤을 낮춘다 */
 .doit-avoid { background: var(--gray-weak); }
 .doit-avoid .doit-verb { color: #8a5a5f; }

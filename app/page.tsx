@@ -8,6 +8,9 @@ import ForecastChart from "./ForecastChart";
 // 뉴스 집계 — Claude에게 보내는 것과 "똑같은" 계산을 화면에도 쓴다.
 // 사람이 보는 요약과 AI가 받는 요약이 다르면, 왜 그런 판단이 나왔는지 검증할 방법이 없어진다.
 import { computeNewsSignal } from "@/lib/newsSignal";
+// 대외변수 보드 — 자사주·중국·미국·전쟁·금리환율 축별 건수/방향과 예정 이벤트. 엔진의 종목별
+// 이슈영향(issueImpacts)과 같은 topic 추정을 쓴다.
+import { computeTopicBoard, topicLabel } from "@/lib/issueMap";
 // 매매일지 — 이 앱의 추천이 실제로 맞았는지 기록하고 채점한다(브라우저에만 저장).
 import { loadJournal, recordAndScore, saveJournal, summarize, type JournalEntry } from "@/lib/journal";
 // 문서 탭이 인용하는 검증 수치는 반드시 실측 파일에서 읽는다.
@@ -610,6 +613,7 @@ export default function Home() {
   // 뉴스 집계 — 개별 기사를 하나씩 읽고 인상으로 판단하면 오판한다.
   // 몇 건이 어느 축(업황/지정학/중국/실적/큰손/매크로/지수)에 몰려 있는지를 먼저 본다.
   const newsSignal = useMemo(() => computeNewsSignal(result?.news ?? []), [result]);
+  const issueBoard = useMemo(() => computeTopicBoard(result?.news ?? []), [result]);
 
   // 추적종목 전체 중 "지금 뭘 해야 하나"를 강도순으로 정렬한 요약 — 화면 맨 위에서 바로 판단할 수 있게
   const summaryRows = useMemo(() => {
@@ -856,6 +860,41 @@ export default function Home() {
               </>
             );
           })()}
+        </div>
+      )}
+
+      {/* 오늘의 대외변수 — 자사주·중국·미국·전쟁·금리환율 축별로 "몇 건이 어느 방향인지"와 예정 이벤트.
+          요즘처럼 이슈가 많은 장에서 "지금 무엇이 시장을 움직이나"를 한 줄로 보여준다.
+          방향 칩은 코스피 기준이고, 종목별 반대 해석(전쟁→방산 호재)은 각 종목 카드의 이슈 목록에 있다. */}
+      {result && (issueBoard.topics.length > 0 || issueBoard.upcoming.length > 0) && (
+        <div className="issue-board">
+          <div className="issue-board-title">
+            <span>📡 오늘의 대외변수</span>
+            <small>코스피 기준 · 종목별 방향은 종목 탭</small>
+          </div>
+          <div className="issue-chips">
+            {issueBoard.topics.slice(0, 8).map((t) => (
+              <span
+                key={t.topic}
+                className={`issue-chip ${t.pressure <= -1 ? "neg" : t.pressure >= 1 ? "pos" : ""} ${t.breaking > 0 ? "breaking" : ""}`}
+                title={`호재 ${t.positive} · 악재 ${t.negative} · 속보 ${t.breaking}`}
+              >
+                {t.label} {t.pressure <= -1 ? "▼" : t.pressure >= 1 ? "▲" : "•"}{t.total}
+                {t.breaking > 0 ? " 속보" : ""}
+              </span>
+            ))}
+          </div>
+          {issueBoard.upcoming.length > 0 && (
+            <div className="issue-upcoming">
+              ⏰ 예정: {issueBoard.upcoming.map((u, i) => (
+                <Fragment key={i}>{i > 0 ? " · " : ""}<b>{u.title}</b> ({u.when}{u.impact === "높음" ? ", 고영향" : ""})</Fragment>
+              ))}
+              {issueBoard.upcoming.some((u) => u.impact === "높음") && " — 고영향 발표 30시간 안이면 엔진이 신규 매수 예산을 70%로 줄입니다"}
+            </div>
+          )}
+          {result.signals.some((s) => s.riskOverlay?.shockRisk) && (
+            <div className="issue-note">🔴 3시간 내 고영향 악재 속보(전쟁·관세·미국정책·중국) — 신규 진입 예산 70%, VWAP 위 안착 확인 후</div>
+          )}
         </div>
       )}
 
@@ -1899,6 +1938,25 @@ export default function Home() {
                   </div>
                 )}
 
+                {/* 이 종목에 지금 영향 주는 이슈 — 대외변수를 업종 기준 방향으로 번역한 목록.
+                    (반전) 표시는 코스피 기준과 반대라는 뜻(전쟁 긴장 → 방산 호재). 예전 캐시 결과엔 이 필드가 없을 수 있다. */}
+                {(sig.issueImpacts ?? []).length > 0 && (
+                  <div className="impact-list">
+                    <div className="exit-plan-title">📰 이 종목에 지금 영향 주는 이슈</div>
+                    {(sig.issueImpacts ?? []).slice(0, 4).map((it, i) => (
+                      <div className="impact-item" key={i}>
+                        <span className={`impact-dir ${it.direction === "호재" ? "pos" : it.direction === "악재" ? "neg" : "flat"}`}>
+                          {it.direction === "호재" ? "▲" : it.direction === "악재" ? "▼" : "•"}{"".padEnd(it.strength, "●")}
+                        </span>
+                        <span className="impact-topic">{topicLabel(it.topic)}{it.flipped ? " 반전" : ""}{it.isBreaking ? " 속보" : ""}</span>
+                        <span>
+                          {it.title}
+                          <div className="impact-why">{it.why}</div>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {ai && (
                   <div className="reason-list">
                     <div className="reason" style={{ background: "var(--blue-weak)", color: "#1b64da", fontWeight: 700 }}>

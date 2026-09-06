@@ -36,6 +36,7 @@ import { buildForecastPath, driftFromScenario, kstMinutesNow } from "./forecastP
 import { computeScenarioOutlook, type ScenarioTable } from "./scenario";
 import { computePriceLimits } from "./priceLimits";
 import { computeHoldEdge } from "./genius";
+import { computeIssueImpacts, computeRiskOverlay } from "./issueMap";
 
 const MAX_POSITION_WEIGHT = 0.5; // 한 종목 최대 비중 (총자산 대비)
 const ENTRY_FRACTION = 0.25; // 1회 매수 시 현금 대비 최대 비율
@@ -76,25 +77,15 @@ export const SELL_TAX_PCT = 0.0015;
 export const BROKER_FEE_PCT = 0.00015;
 const ROUND_TRIP_COST_PCT = SELL_TAX_PCT + BROKER_FEE_PCT * 2; // 0.18%
 
+// 뉴스 감성 점수(±15) — 2026-09부터 lib/issueMap.ts 의 업종별 민감도 표로 계산한다.
+// 예전 구현은 relatedTo가 종목명·"반도체"·"매크로"·"파생시장"일 때만 세어서 지정학·관세·중국·실적
+// 기사가 어느 종목 점수에도 들어가지 않았고, 전쟁 뉴스가 방산주에도 악재로 더해졌다.
+// (이름을 유지하는 이유: 외부 스크립트 호환. 실제 로직은 issueMap 한 곳에만 둔다.)
 export function newsSentimentScore(news: NewsItem[], stockName: string): { score: number; notes: string[] } {
-  let score = 0;
-  const notes: string[] = [];
-  for (const n of news) {
-    const related =
-      n.relatedTo.includes(stockName) ||
-      n.relatedTo.includes("반도체") ||
-      n.relatedTo.includes("AI") ||
-      n.relatedTo.includes("매크로") ||
-      n.relatedTo.includes("파생시장");
-    if (!related) continue;
-    const w = n.impact === "높음" ? 5 : n.impact === "중간" ? 3 : 1;
-    if (n.sentiment === "긍정") score += w;
-    else if (n.sentiment === "부정") {
-      score -= w;
-      if (n.impact === "높음") notes.push(`악재 주의: ${n.title}`);
-    }
-  }
-  return { score: Math.max(-15, Math.min(15, score)), notes };
+  const ticker = (Object.keys(STOCKS) as StockTicker[]).find((t) => STOCKS[t].name === stockName);
+  if (!ticker) return { score: 0, notes: [] };
+  const r = computeIssueImpacts(news, ticker);
+  return { score: r.score, notes: r.warnings };
 }
 
 // DART 전자공시는 기업이 법적 의무로 직접 올리는 원천 정보라 뉴스보다 신뢰도가 높다 —
@@ -855,7 +846,12 @@ export function runEngine(params: {
 
   const tech = technicalScore(ind, price);
   const mac = macroScore(macro, marketPhase);
-  const sent = newsSentimentScore(news, name);
+  // 대외변수(자사주·중국·미국·전쟁·관세·금리환율…)를 업종별 방향·강도로 번역한 뉴스 점수(±15)
+  const issues = computeIssueImpacts(news, ticker);
+  const sent = { score: issues.score, notes: issues.warnings };
+  // 이벤트·쇼크 오버레이 — 방향이 아니라 신규 진입 "크기"만 줄인다
+  const riskOverlay = computeRiskOverlay(news, macro, ticker);
+  const overlayMultiplier = riskOverlay?.sizeMultiplier ?? 1;
   const intra = intradayScore(intraday);
   const disc = disclosureScore(params.disclosures);
   const flow = investorFlowScore(params.investorFlow, ind.avgVolume20);
@@ -870,8 +866,9 @@ export function runEngine(params: {
     0,
     Math.min(100, 50 + (tech.score - 50 + mac.score + sent.score + intra.score + disc.score + flow.score) * phaseDampener),
   );
-  const reasons = [...intra.reasons, ...tech.reasons, ...mac.notes, ...disc.notes, ...flow.notes];
+  const reasons = [...intra.reasons, ...tech.reasons, ...mac.notes, ...issues.notes, ...disc.notes, ...flow.notes];
   const warnings = [...intra.warnings, ...tech.warnings, ...mac.warnings, ...sent.notes, ...disc.warnings, ...flow.warnings];
+  if (riskOverlay) warnings.push(...riskOverlay.notes);
   if (phaseDampener < 1) {
     warnings.push(`현재 시간대(${marketPhase.phase})는 신호 신뢰도가 평소보다 낮습니다 — ${marketPhase.note}`);
   }
@@ -1059,7 +1056,9 @@ export function runEngine(params: {
     ) {
       action = "추가매수";
       const budget =
-        Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist) * volatilitySizeMultiplier;
+        Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist) *
+        volatilitySizeMultiplier *
+        overlayMultiplier;
       const capped = applyCorrelationCap(budget, price, params.correlationHeadroom, warnings);
       suggestedBudget = capped.budget;
       suggestedQty = capped.qty;
@@ -1128,7 +1127,9 @@ export function runEngine(params: {
       );
     } else if (score >= 68 && stockCash > price) {
       const budget =
-        Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist) * volatilitySizeMultiplier;
+        Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist) *
+        volatilitySizeMultiplier *
+        overlayMultiplier;
       const capped = applyCorrelationCap(budget, price, params.correlationHeadroom, warnings);
       if (capped.qty === 0) {
         // 상관 한도에 걸려 살 수 없으면 "사라"고 말하면 안 된다
@@ -1357,6 +1358,8 @@ export function runEngine(params: {
       : null,
     suggestedEntryPrice: safeEntry,
     entryPriceBasis: safeEntry == null ? null : (suggestedEntryPrice?.basis ?? null),
+    issueImpacts: issues.impacts,
+    riskOverlay,
   };
 }
 

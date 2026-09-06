@@ -50,5 +50,19 @@ check("120건 응답 (상한 80)", over.length, over.length === 80);
 const dirty = parseNewsJson(JSON.stringify([{ title: "제목만 있음" }, mk(1)]));
 check("불완전 항목 제외", dirty.length, dirty.length === 1);
 
+// 대외변수 축(topic)·예정 이벤트 필드 — 유효한 값만 남기고 엉뚱한 값은 버린다(제목 추정으로 넘어감)
+const topical = parseNewsJson(
+  JSON.stringify([
+    { ...mk(1), topic: "전쟁지정학" },
+    { ...mk(2), topic: "없는축" },
+    { ...mk(3), relatedTo: "예정이벤트", topic: "예정이벤트", eventAt: "내일 03:00", eventInHours: 14 },
+    { ...mk(4), topic: "예정이벤트", eventInHours: "열네시간" },
+  ]),
+);
+check("topic 유효값 유지", topical.length, topical[0]?.topic === "전쟁지정학");
+check("topic 엉뚱한 값 제거", topical.length, topical[1]?.topic === undefined);
+check("예정 이벤트 시각·남은시간 유지", topical.length, topical[2]?.eventAt === "내일 03:00" && topical[2]?.eventInHours === 14);
+check("eventInHours 숫자 아니면 제거", topical.length, topical[3]?.eventInHours === undefined);
+
 console.log(fail === 0 ? "\n전체 통과" : `\n실패 ${fail}건`);
 process.exit(fail === 0 ? 0 : 1);

@@ -12,7 +12,7 @@
     "backtest": "tsx scripts/backtest.ts",
     "scorecard": "tsx scripts/validate-live-signals.ts",
     "validate:chase": "tsx scripts/validate-chase-rule.ts",
-    "validate:rules": "tsx scripts/validate-consistency.ts && tsx scripts/validate-safety.ts && tsx scripts/validate-trading-rules.ts"
+    "validate:rules": "tsx scripts/validate-consistency.ts && tsx scripts/validate-safety.ts && tsx scripts/validate-trading-rules.ts && tsx scripts/validate-issue-map.ts && tsx scripts/validate-news-parse.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",
