@@ -7,7 +7,7 @@
 // 이제 종목을 추가하면 자동으로 백필 대상이 되고, hasMissingHistory()가 그 사실을 알린다.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { dropInProgressCandle, fetchDailyCandles } from "../lib/market";
+import { dropInProgressCandle, fetchDailyCandles, fetchUpbitDaily } from "../lib/market";
 import type { Candle } from "../lib/types";
 import { STOCKS, TICKER_LIST } from "../lib/types";
 
@@ -58,6 +58,22 @@ async function main() {
   }
   for (const { symbol, name } of SYMBOLS) {
     const existing = out[symbol]?.candles ?? [];
+    // 가상자산(업비트 마켓 코드 KRW-*)은 업비트에서 받는다 — 5년치는 200개씩 약 10회 페이지네이션
+    const cryptoTicker = TICKER_LIST.find((t) => STOCKS[t].yahoo === symbol && STOCKS[t].market === "CRYPTO");
+    if (cryptoTicker) {
+      const fresh = dropInProgressCandle(await fetchUpbitDaily(cryptoTicker, existing.length > 100 ? 400 : 1900), new Date(), "CRYPTO");
+      const byDate = new Map(existing.map((c) => [c.date, c]));
+      let added = 0;
+      for (const c of fresh) {
+        if (!byDate.has(c.date)) added++;
+        byDate.set(c.date, c);
+      }
+      const merged = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+      out[symbol] = { name, candles: merged };
+      console.log(`${name} (${symbol}, 업비트): +${added}개 (총 ${merged.length}개, ${merged[0]?.date} ~ ${merged[merged.length - 1]?.date})`);
+      await new Promise((r) => setTimeout(r, 500));
+      continue;
+    }
     if (existing.length > 100) {
       // 2026-09 감사: 예전에는 "이미 있음"이면 건너뛰어 히스토리가 2026-07-31에서 영영 멈췄고,
       // 매주 일요일 "재생성"되는 국면통계·도달확률·백테스트가 전부 낡은 데이터로 돌면서

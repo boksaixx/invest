@@ -2,8 +2,8 @@
 
 // 토스 스타일 대시보드: 현금/보유 입력 → 실시간 시세 → AI 매매 조언
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AiAdvice, EngineSignal, MasterScore, NewsItem, Portfolio, Quote } from "@/lib/types";
-import { STOCKS, TICKER_LIST } from "@/lib/types";
+import type { AiAdvice, EngineSignal, MasterScore, NewsItem, Portfolio, Quote, StockTicker } from "@/lib/types";
+import { CRYPTO_TICKERS, fmtQty, isCrypto, STOCK_TICKERS, STOCKS, TICKER_LIST, unitOf } from "@/lib/types";
 import ForecastChart from "./ForecastChart";
 // 뉴스 집계 — Claude에게 보내는 것과 "똑같은" 계산을 화면에도 쓴다.
 // 사람이 보는 요약과 AI가 받는 요약이 다르면, 왜 그런 판단이 나왔는지 검증할 방법이 없어진다.
@@ -29,6 +29,28 @@ import probStats from "@/data/probability-stats.json";
 import powerStats from "@/data/power-stats.json";
 
 const TICKERS = TICKER_LIST.map((ticker) => ({ ticker, name: STOCKS[ticker].name }));
+// 화면 탭 분리 — "내 종목"(주식)과 "코인"(가상자산)은 지갑·시간대·수량 단위가 달라 따로 보여준다
+const STOCK_ROWS = STOCK_TICKERS.map((ticker) => ({ ticker, name: STOCKS[ticker].name }));
+const CRYPTO_ROWS = CRYPTO_TICKERS.map((ticker) => ({ ticker, name: STOCKS[ticker].name }));
+
+// 테마 — 시스템 설정을 따르되 사용자가 고정할 수 있다. 실제 적용은 <html data-theme="dark">로만 한다(CSS는 이 속성만 본다).
+type ThemePref = "system" | "light" | "dark";
+const THEME_KEY = "theme-v1";
+function loadThemePref(): ThemePref {
+  if (typeof window === "undefined") return "system";
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    return v === "light" || v === "dark" ? v : "system";
+  } catch {
+    return "system";
+  }
+}
+function applyTheme(pref: ThemePref) {
+  if (typeof document === "undefined") return;
+  const dark = pref === "dark" || (pref === "system" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0f1216" : "#3182f6");
+}
 
 interface MarketData {
   quotes: Record<string, Quote | null>;
@@ -120,7 +142,7 @@ interface AdviceResponse {
   error?: string;
 }
 
-const DEFAULT_PORTFOLIO: Portfolio = { cash: 20_000_000, cashUSD: 0, holdings: [] };
+const DEFAULT_PORTFOLIO: Portfolio = { cash: 20_000_000, cashUSD: 0, cashCrypto: 0, holdings: [] };
 const PORTFOLIO_COOKIE = "portfolio-v1-backup";
 
 function readPortfolioCookie(): Portfolio | null {
@@ -140,7 +162,7 @@ function readPortfolioCookie(): Portfolio | null {
 // 저장된 데이터 호환을 위해 필드는 남겨두고 기본값 0으로 보정한다.
 function normalizePortfolio(p: Partial<Portfolio> | null | undefined): Portfolio {
   if (!p) return DEFAULT_PORTFOLIO;
-  return { cash: p.cash ?? 0, cashUSD: p.cashUSD ?? 0, holdings: p.holdings ?? [] };
+  return { cash: p.cash ?? 0, cashUSD: p.cashUSD ?? 0, cashCrypto: p.cashCrypto ?? 0, holdings: p.holdings ?? [] };
 }
 
 function loadPortfolio(): Portfolio {
@@ -382,7 +404,8 @@ function loadFontScaleIndex(): number {
 export default function Home() {
   const [portfolio, setPortfolio] = useState<Portfolio>(DEFAULT_PORTFOLIO);
   // 화면 탭 — 스크롤 지옥을 없애기 위해 3개 탭으로 분리 (오늘 할 일 / 종목 / 뉴스·시장정보)
-  const [tab, setTab] = useState<"오늘" | "종목" | "정보" | "분석방식">("오늘");
+  const [tab, setTab] = useState<"오늘" | "종목" | "코인" | "정보" | "분석방식">("오늘");
+  const [themePref, setThemePref] = useState<ThemePref>("system");
   // 작전 카드에서 트레이드별 "왜 이 판단인가"(검증 통계) 펼침 상태
   const [openWhy, setOpenWhy] = useState<Record<string, boolean>>({});
   // 종목 카드 펼침 — 5개 카드를 전부 펼쳐두면 종목 탭이 1만 픽셀을 넘어 스크롤 지옥이 된다.
@@ -399,6 +422,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
+  // 코인 수량 입력 중인 문자열(소수점 입력 보존용) — 저장값은 portfolio.holdings에 숫자로 들어간다
+  const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newsNotice, setNewsNotice] = useState<string | null>(null);
@@ -447,6 +472,24 @@ export default function Home() {
       return next;
     });
   }
+
+  // 테마 — 저장된 선호를 적용하고, "시스템"일 때는 OS 다크 모드 전환을 따라간다
+  useEffect(() => {
+    const pref = loadThemePref();
+    setThemePref(pref);
+    applyTheme(pref);
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const onChange = () => applyTheme(loadThemePref());
+    mq?.addEventListener?.("change", onChange);
+    return () => mq?.removeEventListener?.("change", onChange);
+  }, []);
+  const chooseTheme = (pref: ThemePref) => {
+    setThemePref(pref);
+    try {
+      localStorage.setItem(THEME_KEY, pref);
+    } catch {}
+    applyTheme(pref);
+  };
 
   // 초기 로드
   useEffect(() => {
@@ -639,7 +682,7 @@ export default function Home() {
 
   const holdingsValue = holdingsValueKRW + toKrw(holdingsValueUSD); // 원화 환산 합계 (총 자산 카드 전용)
   const investedCost = investedCostKRW + toKrw(investedCostUSD);
-  const totalAsset = portfolio.cash + toKrw(portfolio.cashUSD) + holdingsValue;
+  const totalAsset = portfolio.cash + toKrw(portfolio.cashUSD) + (portfolio.cashCrypto ?? 0) + holdingsValue;
   const totalPnl = holdingsValue - investedCost;
   const totalPnlPct = investedCost > 0 ? (totalPnl / investedCost) * 100 : 0;
 
@@ -723,6 +766,8 @@ export default function Home() {
     [nowTick, livePhase, doitRows, result, market, portfolio, totalAsset],
   );
   const firstTime = !result && !portfolio.holdings.some((h) => isHeld(h));
+  // 종목 카드 목록 — "내 종목" 탭은 주식, "코인" 탭은 가상자산 (카드 렌더링은 같은 코드)
+  const cardList = tab === "코인" ? CRYPTO_ROWS : STOCK_ROWS;
   const openStock = (ticker: string) => {
     setTab("종목");
     setCardOpen((p) => ({ ...p, [ticker]: true }));
@@ -768,6 +813,17 @@ export default function Home() {
           <button className="set-row" onClick={() => { void runDiagnosis(); setSettingsOpen(false); }}>
             <span>🔍 연결 상태 확인</span><span className="set-arrow">›</span>
           </button>
+          {/* 테마 — 시스템/밝게/어둡게. 밤에 코인 시세를 보는 사용자가 많아 다크 모드는 선택이 아니라 기본 기능이다. */}
+          <div className="set-row set-row-static">
+            <span>🌙 화면 테마</span>
+            <span className="seg">
+              {(["system", "light", "dark"] as ThemePref[]).map((p) => (
+                <button key={p} className={`seg-btn${themePref === p ? " on" : ""}`} onClick={() => chooseTheme(p)}>
+                  {p === "system" ? "시스템" : p === "light" ? "밝게" : "어둡게"}
+                </button>
+              ))}
+            </span>
+          </div>
           <button
             className="set-row"
             onClick={async () => {
@@ -778,7 +834,7 @@ export default function Home() {
             <span>🚪 로그아웃</span><span className="set-arrow">›</span>
           </button>
           <div className="set-meta">
-            추적 종목 10개 (반도체 5 + 비반도체 5){hostname ? ` · ${hostname}` : ""}
+            추적 종목 13개 (반도체 5 + 비반도체 5 + 코인 3){hostname ? ` · ${hostname}` : ""}
           </div>
         </div>
       )}
@@ -1006,7 +1062,7 @@ export default function Home() {
               )}
               {t.suggestedQty != null && (
                 <div className="plan-qty">
-                  수량 {t.suggestedQty.toLocaleString()}주
+                  수량 {fmtQty(t.ticker as StockTicker, t.suggestedQty)}
                   {t.suggestedBudget != null && ` (약 ${manwon(t.suggestedBudget)})`}
                 </div>
               )}
@@ -1053,7 +1109,7 @@ export default function Home() {
       </div>{/* ===== /탭: 오늘 1구간 ===== */}
 
       {/* ===== 탭: 종목 ===== */}
-      <div style={{ display: tab === "종목" ? undefined : "none" }}>
+      <div style={{ display: tab === "종목" || tab === "코인" ? undefined : "none" }}>
       {/* 총 자산 — 원화+달러 보유를 실시간 환율로 환산해 하나의 숫자로 합산 */}
       <div className="card asset-card">
         <div className="asset-label">내 자산</div>
@@ -1066,7 +1122,8 @@ export default function Home() {
         {/* 세부 내역은 접어둔다 — 큰 숫자 하나가 먼저 눈에 들어와야 한다 */}
         <details className="asset-more">
           <summary>내역</summary>
-          <div className="asset-more-row"><span>현금</span><b>{won(portfolio.cash)}원{portfolio.cashUSD > 0 && ` + $${won(portfolio.cashUSD)}`}</b></div>
+          <div className="asset-more-row"><span>현금(증권사)</span><b>{won(portfolio.cash)}원{portfolio.cashUSD > 0 && ` + $${won(portfolio.cashUSD)}`}</b></div>
+          {(portfolio.cashCrypto ?? 0) > 0 && <div className="asset-more-row"><span>거래소 예수금</span><b>{won(portfolio.cashCrypto)}원</b></div>}
           <div className="asset-more-row"><span>주식</span><b>{won(holdingsValueKRW)}원{holdingsValueUSD > 0 && ` + $${won(holdingsValueUSD)}`}</b></div>
           {investedCost > 0 && <div className="asset-more-row"><span>산 가격 합계</span><b>{won(investedCost)}원</b></div>}
         </details>
@@ -1198,8 +1255,24 @@ export default function Home() {
                   <span className="input-suffix">$</span>
                 </div>
               )}
+              {/* 거래소(업비트) 예수금 — 증권사 현금과 다른 지갑이라 따로 센다. 코인 매수 수량은 이 금액으로 계산된다. */}
+              <div className="input-row">
+                <label>거래소 예수금 (코인)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0 (코인 안 하면 비워두세요)"
+                  value={(portfolio.cashCrypto ?? 0) > 0 ? (portfolio.cashCrypto ?? 0).toLocaleString("ko-KR") : ""}
+                  onChange={(e) => {
+                    const v = Number(e.target.value.replace(/[^0-9]/g, ""));
+                    savePortfolio((prev) => ({ ...prev, cashCrypto: isNaN(v) ? 0 : v }));
+                  }}
+                />
+                <span className="input-suffix">원</span>
+              </div>
               {TICKERS.map(({ ticker, name }) => {
                 const currency = STOCKS[ticker].currency;
+                const crypto = isCrypto(ticker);
                 const h = portfolio.holdings.find((x) => x.ticker === ticker);
                 const update = (avgPrice: number, qty: number) => {
                   savePortfolio((prev) => {
@@ -1212,16 +1285,16 @@ export default function Home() {
                 };
                 return (
                   <div key={ticker} style={{ marginTop: 18 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{name}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{name}{crypto && <span className="held-tag" style={{ marginLeft: 6 }}>코인</span>}</div>
                     <div className="input-row">
                       <label>매수 평단가</label>
                       <input
                         type="text"
-                        inputMode={currency === "USD" ? "decimal" : "numeric"}
+                        inputMode={currency === "USD" || crypto ? "decimal" : "numeric"}
                         placeholder="0"
-                        value={h ? h.avgPrice.toLocaleString(currency === "USD" ? "en-US" : "ko-KR") : ""}
+                        value={h ? h.avgPrice.toLocaleString(currency === "USD" ? "en-US" : "ko-KR", { maximumFractionDigits: 4 }) : ""}
                         onChange={(e) => {
-                          const v = Number(e.target.value.replace(currency === "USD" ? /[^0-9.]/g : /[^0-9]/g, ""));
+                          const v = Number(e.target.value.replace(currency === "USD" || crypto ? /[^0-9.]/g : /[^0-9]/g, ""));
                           update(isNaN(v) ? 0 : v, h?.qty ?? 0);
                         }}
                       />
@@ -1229,17 +1302,26 @@ export default function Home() {
                     </div>
                     <div className="input-row">
                       <label>보유 수량</label>
+                      {/* 코인은 소수점 수량(0.0123). 컨트롤드 입력에서 "0."을 치는 순간 숫자로 바꾸면 점이 사라지므로
+                          코인은 문자열 그대로 두고 저장할 때만 숫자로 바꾼다 */}
                       <input
                         type="text"
-                        inputMode="numeric"
-                        placeholder="0 (없으면 비워두세요)"
-                        value={h ? h.qty.toLocaleString("ko-KR") : ""}
+                        inputMode={crypto ? "decimal" : "numeric"}
+                        placeholder={crypto ? "0.0000 (없으면 비워두세요)" : "0 (없으면 비워두세요)"}
+                        value={crypto ? (qtyDraft[ticker] ?? (h && h.qty > 0 ? String(h.qty) : "")) : h ? h.qty.toLocaleString("ko-KR") : ""}
                         onChange={(e) => {
+                          if (crypto) {
+                            const raw = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+                            setQtyDraft((d) => ({ ...d, [ticker]: raw }));
+                            const v = Number(raw);
+                            update(h?.avgPrice ?? 0, isNaN(v) ? 0 : Math.floor(v * 1e8) / 1e8);
+                            return;
+                          }
                           const v = Number(e.target.value.replace(/[^0-9]/g, ""));
                           update(h?.avgPrice ?? 0, isNaN(v) ? 0 : v);
                         }}
                       />
-                      <span className="input-suffix">주</span>
+                      <span className="input-suffix">{unitOf(ticker)}</span>
                     </div>
                   </div>
                 );
@@ -1574,11 +1656,16 @@ export default function Home() {
       </div>
       </div>{/* ===== /탭: 정보 2구간 ===== */}
 
-      <div style={{ display: tab === "종목" ? undefined : "none" }}>
+      <div style={{ display: tab === "종목" || tab === "코인" ? undefined : "none" }}>
       {/* 종목을 "내가 가진 것"과 "지켜보는 것"으로 나눈다.
           섞여 있으면 10개를 하나씩 확인해야 내 포지션을 파악할 수 있다. */}
-      {portfolio.holdings.some((x) => isHeld(x)) && <div className="sec-h">내가 가진 종목</div>}
-      {[...TICKERS]
+      {cardList.some(({ ticker }) => portfolio.holdings.some((x) => x.ticker === ticker && isHeld(x))) && <div className="sec-h">내가 가진 {tab === "코인" ? "코인" : "종목"}</div>}
+      {tab === "코인" && (
+        <div className="hint" style={{ margin: "0 4px 10px" }}>
+          업비트 원화마켓 기준 · 24시간 거래 · 수량은 소수점(개) · 수수료 0.05%×2 · 상하한가 없음. 밤사이 급변동은 예고 없이 오니 손절 예약은 잠들기 전에.
+        </div>
+      )}
+      {[...cardList]
         .sort((a, b) => {
           const ha = portfolio.holdings.some((x) => x.ticker === a.ticker && isHeld(x)) ? 0 : 1;
           const hb = portfolio.holdings.some((x) => x.ticker === b.ticker && isHeld(x)) ? 0 : 1;
@@ -1604,7 +1691,7 @@ export default function Home() {
         // 배지(행동)와 어긋나면 안 된다: "손절" 배지 옆에 "매수 검토" 문구가 붙으면 초보자는 혼란만 겪는다.
         const sellish = action === "손절" || action === "전량매도" || action === "부분매도";
         const oneLine = held && h
-          ? `${h.qty}주 보유${livePnl != null ? ` · ${livePnl >= 0 ? "+" : ""}${livePnl.toFixed(2)}%` : ""}`
+          ? `${fmtQty(ticker, h.qty)} 보유${livePnl != null ? ` · ${livePnl >= 0 ? "+" : ""}${livePnl.toFixed(2)}%` : ""}`
           : sellish
             ? "지금 새로 살 자리는 아니에요"
             : sig?.forecastPath?.orderLevels
@@ -1654,7 +1741,7 @@ export default function Home() {
                   </div>
                   <div className="hv-why">{hv.why}</div>
                   <div className="hv-pos">
-                    {h!.qty}주 · 평단 {fmt(h!.avgPrice, currency)}
+                    {fmtQty(ticker, h!.qty)} · 평단 {fmt(h!.avgPrice, currency)}
                     {livePnl != null && (
                       <span className={pctClass(livePnl)}> · {livePnl >= 0 ? "+" : ""}{livePnl.toFixed(2)}%</span>
                     )}
@@ -1736,7 +1823,7 @@ export default function Home() {
                 {sig.suggestedQty != null && (action === "신규매수" || action === "추가매수") && (
                   <div className="kv-row">
                     <span className="k">{held ? "제안 추가매수 규모" : "제안 매수 규모"}</span>
-                    <span className="v">약 {sig.suggestedQty}주 ({fmt(sig.suggestedBudget, currency)})</span>
+                    <span className="v">약 {fmtQty(ticker, sig.suggestedQty)} ({fmt(sig.suggestedBudget, currency)})</span>
                   </div>
                 )}
                 {held && sig.scaledExit.length > 0 && (
@@ -1745,7 +1832,7 @@ export default function Home() {
                     {sig.scaledExit.map((o, i) => (
                       <div className="exit-plan-item" key={i}>
                         <span className="exit-plan-price">{fmt(o.price, currency)}</span>
-                        <span className="exit-plan-qty">{o.qty}주</span>
+                        <span className="exit-plan-qty">{fmtQty(ticker, o.qty)}</span>
                         <span className="exit-plan-note">{o.note}</span>
                       </div>
                     ))}
@@ -1921,7 +2008,7 @@ export default function Home() {
                         <div className="plan-block-title">분할 매수 라인</div>
                         {sig.scaledEntry.map((o, i) => (
                           <div className="plan-item" key={i}>
-                            ▸ {fmt(o.price, currency)} · {o.qty}주 — {o.note}
+                            ▸ {fmt(o.price, currency)} · {fmtQty(ticker, o.qty)} — {o.note}
                           </div>
                         ))}
                       </div>
@@ -1932,7 +2019,7 @@ export default function Home() {
                         <div className="plan-block-title">분할 매도(익절) 라인 — 신규 매수 시 참고</div>
                         {sig.scaledExit.map((o, i) => (
                           <div className="plan-item" key={i}>
-                            ▸ {fmt(o.price, currency)} · {o.qty}주 — {o.note}
+                            ▸ {fmt(o.price, currency)} · {fmtQty(ticker, o.qty)} — {o.note}
                           </div>
                         ))}
                       </div>
@@ -2471,6 +2558,9 @@ export default function Home() {
         </button>
         <button className={tab === "종목" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("종목")}>
           <span className="tabbar-icon">📈</span>내 종목
+        </button>
+        <button className={tab === "코인" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("코인")}>
+          <span className="tabbar-icon">🪙</span>코인
         </button>
         <button className={tab === "정보" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("정보")}>
           <span className="tabbar-icon">📰</span>시장·뉴스

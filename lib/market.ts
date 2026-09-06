@@ -332,9 +332,109 @@ export async function fetchNaverIntraday(ticker: StockTicker): Promise<RawIntrad
   }
 }
 
+// ---- 업비트 (가상자산 원화마켓, 키 없는 공개 API) ----
+// 시세·5년 일봉·5분봉 전부 여기서 받는다. 일봉은 09:00 KST에 시작하고, 마지막 일봉은 항상 "진행 중"이다.
+
+const UPBIT = "https://api.upbit.com/v1";
+
+interface UpbitTicker {
+  market: string;
+  trade_price: number;
+  prev_closing_price: number;
+  signed_change_price: number;
+  signed_change_rate: number;
+  trade_timestamp: number;
+}
+interface UpbitCandle {
+  candle_date_time_utc: string;
+  candle_date_time_kst: string;
+  opening_price: number;
+  high_price: number;
+  low_price: number;
+  trade_price: number;
+  candle_acc_trade_volume: number;
+  timestamp: number;
+}
+
+async function upbitGet<T>(path: string, timeoutMs = 8000): Promise<T | null> {
+  try {
+    const res = await fetch(`${UPBIT}${path}`, { headers: { Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchUpbitQuote(ticker: StockTicker): Promise<Quote | null> {
+  const arr = await upbitGet<UpbitTicker[]>(`/ticker?markets=${STOCKS[ticker].yahoo}`);
+  const d = arr?.[0];
+  if (!d || !Number.isFinite(d.trade_price) || d.trade_price <= 0) return null;
+  return {
+    symbol: ticker,
+    name: STOCKS[ticker].name,
+    price: d.trade_price,
+    prevClose: d.prev_closing_price, // 업비트 "전일"은 직전 09:00 KST 일봉의 종가
+    change: d.signed_change_price,
+    changePct: d.signed_change_rate * 100,
+    currency: "KRW",
+    time: new Date(d.trade_timestamp).toISOString(),
+  };
+}
+
+/**
+ * 업비트 일봉 — 한 번에 200개까지라 `to`로 거슬러 올라가며 이어 붙인다. days=1900이면 5년치 ≈ 10회 호출.
+ * date는 candle_date_time_kst 의 날짜(09:00 시작 세션의 날짜). 오름차순으로 돌려준다.
+ */
+export async function fetchUpbitDaily(ticker: StockTicker, days = 400): Promise<Candle[]> {
+  const market = STOCKS[ticker].yahoo;
+  const out = new Map<string, Candle>();
+  let to: string | null = null;
+  let remaining = days;
+  while (remaining > 0) {
+    const count = Math.min(200, remaining);
+    const toParam: string = to ? `&to=${encodeURIComponent(to)}` : "";
+    const arr: UpbitCandle[] | null = await upbitGet<UpbitCandle[]>(`/candles/days?market=${market}&count=${count}${toParam}`, 10_000);
+    if (!arr || arr.length === 0) break;
+    for (const c of arr) {
+      if (![c.opening_price, c.high_price, c.low_price, c.trade_price].every((v) => Number.isFinite(v) && v > 0)) continue;
+      out.set(c.candle_date_time_kst.slice(0, 10), {
+        date: c.candle_date_time_kst.slice(0, 10),
+        open: c.opening_price,
+        high: c.high_price,
+        low: c.low_price,
+        close: c.trade_price,
+        volume: c.candle_acc_trade_volume ?? 0,
+      });
+    }
+    remaining -= arr.length;
+    if (arr.length < count) break;
+    to = `${arr[arr.length - 1].candle_date_time_utc}Z`; // 가장 오래된 캔들 시각 이전으로
+    await new Promise((r) => setTimeout(r, 150)); // 초당 10회 제한 배려
+  }
+  return [...out.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** 업비트 5분봉 — 최근 200개(약 16시간). 세션(09:00 시작) 기준 VWAP·오프닝레인지 계산에 충분하다. */
+export async function fetchUpbitIntraday(ticker: StockTicker, count = 200): Promise<RawIntradayCandle[]> {
+  const arr = await upbitGet<UpbitCandle[]>(`/candles/minutes/5?market=${STOCKS[ticker].yahoo}&count=${count}`);
+  if (!arr) return [];
+  return arr
+    .filter((c) => [c.opening_price, c.high_price, c.low_price, c.trade_price].every((v) => Number.isFinite(v) && v > 0))
+    .map((c) => ({ time: `${c.candle_date_time_utc}Z`, open: c.opening_price, high: c.high_price, low: c.low_price, close: c.trade_price, volume: c.candle_acc_trade_volume ?? 0 }))
+    .reverse();
+}
+
 // ---- 통합 진입점 ----
 
 export async function getStockQuote(ticker: StockTicker): Promise<Quote | null> {
+  if (STOCKS[ticker].market === "CRYPTO") {
+    const u = await fetchUpbitQuote(ticker);
+    if (u) return u;
+    // 폴백: 야후 BTC-KRW 같은 원화 환산 심볼 (전일 기준이 UTC 00:00이라 등락률이 업비트와 다를 수 있다)
+    const y = await fetchQuote(STOCKS[ticker].yahoo.replace(/^KRW-(\w+)$/, "$1-KRW"), STOCKS[ticker].name);
+    return y ? { ...y, symbol: ticker } : null;
+  }
   // 네이버 실시간 시세(polling.finance.naver.com)는 국내 종목 한정으로 야후보다 지연이 훨씬 짧다
   // (야후는 KRX 데이터 라이선스 특성상 15~20분 이상 지연되는 경우가 흔함) — 국내 종목은
   // 네이버를 우선 시도하고, 실패할 때만(응답 오류·형식 이상 등) 야후로 폴백한다.
@@ -357,9 +457,14 @@ export async function getStockQuote(ticker: StockTicker): Promise<Quote | null> 
  * 부분 봉 수익률과 작은 거래량 때문에 약 9% 과소평가됐다(10:09 σ 4.51% vs 16:20 4.97%, 09-04 로그).
  * 검증 스크립트는 전부 완성 봉으로 돌렸으므로 엔진도 완성 봉만 봐야 한다. "오늘"은 분봉(intraday)이 맡는다.
  */
-export function dropInProgressCandle(candles: Candle[], now: Date = new Date()): Candle[] {
+export function dropInProgressCandle(candles: Candle[], now: Date = new Date(), market: "KR" | "US" | "CRYPTO" = "KR"): Candle[] {
   if (candles.length === 0) return candles;
   const last = candles[candles.length - 1];
+  if (market === "CRYPTO") {
+    // 업비트 일봉은 09:00 KST에 시작해 다음 09:00까지 진행 중이다 — 오늘 세션 날짜의 봉은 항상 미완성
+    const sessionDay = new Date(now.getTime() + 9 * 3600_000 - 9 * 3600_000).toISOString().slice(0, 10);
+    return last.date === sessionDay ? candles.slice(0, -1) : candles;
+  }
   if (last.date !== kstToday(now)) return candles;
   const phase = getMarketPhase(now).phase;
   // 정규장 마감(15:30) 이후에만 오늘 봉이 완성된 것이다. 휴장일에는 오늘 날짜 봉이 있을 수 없으니 그대로 둔다.
@@ -368,12 +473,23 @@ export function dropInProgressCandle(candles: Candle[], now: Date = new Date()):
 }
 
 export async function getStockCandles(ticker: StockTicker): Promise<Candle[]> {
+  if (STOCKS[ticker].market === "CRYPTO") {
+    const u = await fetchUpbitDaily(ticker, 400);
+    if (u.length > 100) return dropInProgressCandle(u, new Date(), "CRYPTO");
+    const y = await fetchDailyCandles(STOCKS[ticker].yahoo.replace(/^KRW-(\w+)$/, "$1-KRW"), "2y");
+    return dropInProgressCandle(y, new Date(), "CRYPTO");
+  }
   const y = await fetchDailyCandles(STOCKS[ticker].yahoo, "2y");
   if (y.length > 100) return dropInProgressCandle(y);
   return dropInProgressCandle(await fetchNaverDaily(ticker));
 }
 
 export async function getStockIntradayCandles(ticker: StockTicker): Promise<RawIntradayCandle[]> {
+  if (STOCKS[ticker].market === "CRYPTO") {
+    const u = await fetchUpbitIntraday(ticker);
+    if (u.length >= 3) return u;
+    return fetchIntradayCandles(STOCKS[ticker].yahoo.replace(/^KRW-(\w+)$/, "$1-KRW"), "5d", "5m");
+  }
   // 국내 종목은 네이버 1분봉(→5분봉 재구성)을 우선한다 — 2026-09 실측: 야후 KRX 5분봉은 15:00에서 끝나
   // 마감 동시호가(15:20~15:30) 거래량이 빠지고 지연도 크다. 네이버는 15:30 마감 봉까지 온다
   // (검증: 2026-09-04 마지막 봉 15:30 KST, 거래량 1,533,513주 = 동시호가 체결분).

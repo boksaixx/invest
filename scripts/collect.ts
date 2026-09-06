@@ -13,11 +13,11 @@ import { getMarketPhaseForMarket } from "../lib/marketPhase";
 import { generateShortSummary } from "../lib/claude";
 import { fetchBacktestSnapshot } from "../lib/backtest";
 import type { CollectedSnapshot, EngineSignal, Portfolio } from "../lib/types";
-import { STOCKS, TICKER_LIST } from "../lib/types";
+import { isCrypto, isSemiconductor, STOCKS, TICKER_LIST } from "../lib/types";
 
 const DATA_DIR = join(process.cwd(), "data");
 // 자동 수집은 보유정보 없이 시장 관점 신호를 생성한다 (보유 반영 분석은 웹앱에서 실시간 수행)
-const NEUTRAL_PORTFOLIO: Portfolio = { cash: 20_000_000, cashUSD: 15_000, holdings: [] };
+const NEUTRAL_PORTFOLIO: Portfolio = { cash: 20_000_000, cashUSD: 15_000, cashCrypto: 5_000_000, holdings: [] };
 
 function kstNow(): Date {
   return new Date(Date.now() + 9 * 3600_000);
@@ -84,18 +84,24 @@ async function main() {
   console.log("미국 장 상태:", marketPhaseUS.phase, marketPhaseUS.kstTime);
 
   const withQuote = stockData.filter((sd): sd is typeof sd & { quote: NonNullable<typeof sd.quote> } => sd.quote != null);
-  const rsKR = computeRelativeStrength(
-    withQuote.filter((sd) => STOCKS[sd.ticker].market === "KR").map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
-    "국내 반도체",
+  // 상대강도는 "같이 움직이는 것들끼리" — 반도체 / 비반도체 / 가상자산 세 그룹
+  const rsSemi = computeRelativeStrength(
+    withQuote.filter((sd) => isSemiconductor(sd.ticker)).map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
+    "반도체",
   );
-  const rsUS = computeRelativeStrength(
-    withQuote.filter((sd) => STOCKS[sd.ticker].market === "US").map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
-    "해외 반도체",
+  const rsOther = computeRelativeStrength(
+    withQuote.filter((sd) => !isSemiconductor(sd.ticker) && !isCrypto(sd.ticker)).map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
+    "비반도체",
   );
-  console.log(rsKR.summary);
-  console.log(rsUS.summary);
+  const rsCrypto = computeRelativeStrength(
+    withQuote.filter((sd) => isCrypto(sd.ticker)).map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
+    "가상자산",
+  );
+  console.log(rsSemi.summary);
+  console.log(rsOther.summary);
+  console.log(rsCrypto.summary);
   const noteFor = (ticker: (typeof TICKER_LIST)[number]) =>
-    STOCKS[ticker].market === "KR" ? rsKR.noteFor(ticker) : rsUS.noteFor(ticker);
+    isCrypto(ticker) ? rsCrypto.noteFor(ticker) : isSemiconductor(ticker) ? rsSemi.noteFor(ticker) : rsOther.noteFor(ticker);
 
   const signals: EngineSignal[] = [];
   for (const sd of stockData) {
@@ -114,7 +120,7 @@ async function main() {
         news,
         portfolio: NEUTRAL_PORTFOLIO,
         intraday,
-        marketPhase: market === "KR" ? marketPhaseKR : marketPhaseUS,
+        marketPhase: market === "KR" ? marketPhaseKR : market === "US" ? marketPhaseUS : getMarketPhaseForMarket("CRYPTO"),
         relativeStrengthNote: noteFor(sd.ticker),
         backtest: backtest?.perTicker[sd.ticker] ?? null,
         changePct: sd.quote.changePct,

@@ -14,7 +14,7 @@ import { computeIntradayInsight } from "@/lib/intraday";
 import { getMarketPhaseForMarket } from "@/lib/marketPhase";
 import { generateAdvice } from "@/lib/claude";
 import type { EngineSignal, NewsItem, Portfolio } from "@/lib/types";
-import { isSemiconductor, STOCKS, TICKER_LIST } from "@/lib/types";
+import { isCrypto, isSemiconductor, STOCKS, TICKER_LIST } from "@/lib/types";
 import { fetchLatestSnapshot } from "@/lib/snapshot";
 import { fetchBacktestSnapshot } from "@/lib/backtest";
 import eventsData from "@/data/events.json";
@@ -48,7 +48,10 @@ function normalizePortfolio(raw: unknown): { portfolio: Portfolio; normalized: s
     .filter((h) => typeof h.ticker === "string" && (h.ticker as string) in STOCKS)
     .map((h) => ({
       ticker: h.ticker as Portfolio["holdings"][number]["ticker"],
-      qty: Math.floor(num(h.qty, 0, "보유 수량")),
+      // 가상자산은 소수점 수량(0.0123 BTC) — 주식만 정수로 내린다
+      qty: (h.ticker as string) in STOCKS && STOCKS[h.ticker as Portfolio["holdings"][number]["ticker"]].market === "CRYPTO"
+        ? Math.floor(num(h.qty, 0, "보유 수량") * 1e8) / 1e8
+        : Math.floor(num(h.qty, 0, "보유 수량")),
       avgPrice: num(h.avgPrice, 0, "평단가"),
     }));
   // 수량은 있는데 평단가가 0인 항목은 "보유"로 계산할 수 없다(손익·손절선 근거가 없다) — 버리되 알린다.
@@ -56,7 +59,12 @@ function normalizePortfolio(raw: unknown): { portfolio: Portfolio; normalized: s
   if (incomplete.length) notes.push(`${incomplete.join("·")}: 평단가가 없어 미보유로 계산 — "내 자산 입력"에서 평단가를 넣으세요`);
   const cash = num(src.cash, 20_000_000, "현금");
   return {
-    portfolio: { cash, cashUSD: num(src.cashUSD, 0, "달러현금"), holdings: holdings.filter((h) => h.qty > 0 && h.avgPrice > 0) },
+    portfolio: {
+      cash,
+      cashUSD: num(src.cashUSD, 0, "달러현금"),
+      cashCrypto: num(src.cashCrypto, 0, "거래소 예수금"),
+      holdings: holdings.filter((h) => h.qty > 0 && h.avgPrice > 0),
+    },
     normalized: notes.length ? notes.join(" / ") : null,
   };
 }
@@ -133,12 +141,16 @@ export async function POST(req: Request) {
       "반도체",
     );
     const rsUS = computeRelativeStrength(
-      withQuote.filter((sd) => !isSemiconductor(sd.ticker)).map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
+      withQuote.filter((sd) => !isSemiconductor(sd.ticker) && !isCrypto(sd.ticker)).map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
       "비반도체",
     );
-    const relativeStrengthSummary = [rsKR.summary, rsUS.summary].filter(Boolean).join("\n") || null;
+    const rsCrypto = computeRelativeStrength(
+      withQuote.filter((sd) => isCrypto(sd.ticker)).map((sd) => ({ ticker: sd.ticker, changePct: sd.quote.changePct })),
+      "가상자산",
+    );
+    const relativeStrengthSummary = [rsKR.summary, rsUS.summary, rsCrypto.summary].filter(Boolean).join("\n") || null;
     const noteFor = (ticker: (typeof TICKER_LIST)[number]) =>
-      isSemiconductor(ticker) ? rsKR.noteFor(ticker) : rsUS.noteFor(ticker);
+      isCrypto(ticker) ? rsCrypto.noteFor(ticker) : isSemiconductor(ticker) ? rsKR.noteFor(ticker) : rsUS.noteFor(ticker);
 
     // 섹터 집중도 (국내 반도체 + 해외 반도체(엔비디아) — 결국 같은 반도체 섹터라 분산투자 착시 방지).
     // 통화가 섞여 있으므로 원/달러 환율로 원화 환산해 비교한다.
@@ -149,7 +161,7 @@ export async function POST(req: Request) {
       const price = quotesMap[h.ticker]?.price ?? h.avgPrice;
       return a + toKrw(h.qty * price, STOCKS[h.ticker].currency);
     }, 0);
-    const totalAssetKrw = portfolio.cash + toKrw(portfolio.cashUSD, "USD") + holdingsValueKrw;
+    const totalAssetKrw = portfolio.cash + toKrw(portfolio.cashUSD, "USD") + (portfolio.cashCrypto ?? 0) + holdingsValueKrw;
     const concentration = computeSectorConcentration(portfolio.holdings, quotesMap, totalAssetKrw, usdKrwRate);
 
     // 같은 통화(같은 시장) 기준 총자산 — 포지션 비중/예산 계산은 환율 변환 없이 같은 단위로 비교해야 하므로
@@ -162,20 +174,26 @@ export async function POST(req: Request) {
       .reduce((a, h) => a + h.qty * (quotesMap[h.ticker]?.price ?? h.avgPrice), 0);
     const totalAssetKR = portfolio.cash + krHoldingsValue;
     const totalAssetUS = portfolio.cashUSD + usHoldingsValue;
+    // 가상자산은 거래소 지갑(예수금 + 코인 평가금) — 증권사 현금과 섞어 비중을 재면 틀린다
+    const cryptoHoldingsValue = portfolio.holdings
+      .filter((h) => STOCKS[h.ticker].market === "CRYPTO")
+      .reduce((a, h) => a + h.qty * (quotesMap[h.ticker]?.price ?? h.avgPrice), 0);
+    const totalAssetCrypto = (portfolio.cashCrypto ?? 0) + cryptoHoldingsValue;
 
     // 상관이 높은 종목 쌍의 합산 비중 한도 — 종목당 50% 규칙만으로는
     // "삼성전자 50% + SK하이닉스 50% = 100%"가 분산으로 통과되는 구멍이 있다.
-    // 평가금 0인 종목도 넘겨야 신규매수 한도가 계산된다.
-    const corrCap = computeCorrelationCap(
+    // 평가금 0인 종목도 넘겨야 신규매수 한도가 계산된다. 지갑이 다른 가상자산은 따로 잰다(BTC·ETH 상관 0.8+).
+    const capInput = (market: "KR" | "CRYPTO") =>
       stockData
+        .filter((sd) => STOCKS[sd.ticker].market === market)
         .map((sd) => ({
           ticker: sd.ticker,
           name: STOCKS[sd.ticker].name,
           value: (portfolio.holdings.find((h) => h.ticker === sd.ticker)?.qty ?? 0) * (sd.quote?.price ?? 0),
           candles: sd.candles,
-        })),
-      totalAssetKR,
-    );
+        }));
+    const corrCap = computeCorrelationCap(capInput("KR"), totalAssetKR);
+    const corrCapCrypto = computeCorrelationCap(capInput("CRYPTO"), totalAssetCrypto);
 
     // 하루 손실 한도 — 종목별 1% 규칙만으로는 "여러 종목이 같은 날 무너지는" 상황을 못 막는다.
     // 반도체 5종목 상관이 0.89라 사실상 한 종목이며, 실측상 -3%에서 멈추면 최대낙폭이
@@ -196,17 +214,18 @@ export async function POST(req: Request) {
           news,
           portfolio,
           intraday,
-          marketPhase: market === "KR" ? marketPhaseKR : marketPhaseUS,
+          marketPhase: market === "KR" ? marketPhaseKR : market === "US" ? marketPhaseUS : getMarketPhaseForMarket("CRYPTO"),
           relativeStrengthNote: noteFor(sd.ticker),
           backtest: backtest?.perTicker[sd.ticker] ?? null,
-          portfolioTotalAsset: market === "KR" ? totalAssetKR : totalAssetUS,
+          portfolioTotalAsset: market === "KR" ? totalAssetKR : market === "US" ? totalAssetUS : totalAssetCrypto,
           changePct: sd.quote.changePct,
           // 장전·휴일에는 마지막 체결이 전 거래일이라 quote.prevClose가 "그저께 종가"다 — 상한가·VI 기준은 현재가(=전일 종가)
           prevClose: sessionPrevClose(sd.quote),
           dailyStopTriggered: dailyRisk.stopTriggered,
           creditTrend,
           scenarioTable: scenarioData as unknown as import("@/lib/scenario").ScenarioTable,
-          correlationHeadroom: market === "KR" ? corrCap.headroom[sd.ticker] ?? null : null,
+          correlationHeadroom:
+            market === "KR" ? corrCap.headroom[sd.ticker] ?? null : market === "CRYPTO" ? corrCapCrypto.headroom[sd.ticker] ?? null : null,
           // DART/KRX 라이브 호출이 비었으면(키 미설정/일시 오류) 자동수집 스냅샷의 직전 값으로 대체
           disclosures:
             disclosureResult.data[sd.ticker] ??

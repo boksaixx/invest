@@ -1,16 +1,26 @@
 // 장중(인트라데이) 데이터 가공: VWAP, 갭, 오프닝레인지 브레이크아웃, 당일 모멘텀.
 // 일봉 지표만으로는 "오늘 지금" 사야 할지 알 수 없다 — 단타 판단의 핵심은 이 파일이 계산한다.
+//
+// "세션"의 정의: 09:00 KST에 시작하는 하루. 국내 주식(09:00~15:30)에서는 KST 날짜와 같지만,
+// 24시간 도는 가상자산은 새벽 03:00 캔들이 "전날 09:00에 시작한 세션"에 속한다(업비트 일봉 기준과 동일).
+// 그래서 날짜를 자를 때 9시간을 빼고 자른다 — 주식에는 아무 영향이 없고, 가상자산에서만 의미가 생긴다.
 import type { IntradayInsight } from "./types";
 import type { RawIntradayCandle } from "./market";
 
-function kstDateOf(iso: string): string {
-  return new Date(new Date(iso).getTime() + 9 * 3600_000).toISOString().slice(0, 10);
+const SESSION_START_HOUR_KST = 9;
+
+/** 이 시각이 속한 세션의 날짜 (YYYY-MM-DD, KST 09:00 시작 기준) */
+export function sessionDateOf(iso: string | Date): string {
+  const t = typeof iso === "string" ? new Date(iso).getTime() : iso.getTime();
+  return new Date(t + 9 * 3600_000 - SESSION_START_HOUR_KST * 3600_000).toISOString().slice(0, 10);
 }
 
-// 09:00 KST(정규장 개장) 기준 경과 분
-function kstMinutesSinceOpen(iso: string): number {
-  const kst = new Date(new Date(iso).getTime() + 9 * 3600_000);
-  return (kst.getUTCHours() - 9) * 60 + kst.getUTCMinutes();
+/** 세션 시작(그 날 09:00 KST) 이후 경과 분 */
+function minutesSinceSessionOpen(iso: string): number {
+  const t = new Date(iso).getTime();
+  const sessionDay = sessionDateOf(iso);
+  const openMs = Date.UTC(Number(sessionDay.slice(0, 4)), Number(sessionDay.slice(5, 7)) - 1, Number(sessionDay.slice(8, 10)), SESSION_START_HOUR_KST) - 9 * 3600_000;
+  return Math.round((t - openMs) / 60_000);
 }
 
 function emptyInsight(): IntradayInsight {
@@ -42,9 +52,9 @@ export function computeIntradayInsight(
 ): IntradayInsight {
   if (rawCandles.length === 0) return emptyInsight();
 
-  // 가장 최근 날짜(오늘 or 최근 거래일)의 캔들만 사용
-  const lastDate = kstDateOf(rawCandles[rawCandles.length - 1].time);
-  const todays = rawCandles.filter((c) => kstDateOf(c.time) === lastDate);
+  // 가장 최근 세션(오늘 or 최근 거래일)의 캔들만 사용
+  const lastDate = sessionDateOf(rawCandles[rawCandles.length - 1].time);
+  const todays = rawCandles.filter((c) => sessionDateOf(c.time) === lastDate);
   if (todays.length === 0) return emptyInsight();
 
   const todayOpen = todays[0].open;
@@ -67,9 +77,9 @@ export function computeIntradayInsight(
   const range = todayHigh - todayLow;
   const rangePositionPct = range > 0 ? Math.max(0, Math.min(100, ((currentPrice - todayLow) / range) * 100)) : 50;
 
-  // 오프닝레인지: 개장(09:00 KST) 이후 첫 30분 캔들들의 고가/저가
+  // 오프닝레인지: 세션 시작(09:00 KST) 이후 첫 30분 캔들들의 고가/저가
   const orCandles = todays.filter((c) => {
-    const m = kstMinutesSinceOpen(c.time);
+    const m = minutesSinceSessionOpen(c.time);
     return m >= 0 && m < 30;
   });
   const openingRangeHigh = orCandles.length ? Math.max(...orCandles.map((c) => c.high)) : null;
@@ -94,12 +104,10 @@ export function computeIntradayInsight(
   else if (netScore <= -0.6) momentum = "강한하락";
   else if (netScore <= -0.2) momentum = "하락";
 
-  const todayKst = new Date(now.getTime() + 9 * 3600_000).toISOString().slice(0, 10);
-
   return {
     available: true,
     sessionDate: lastDate,
-    isToday: lastDate === todayKst,
+    isToday: lastDate === sessionDateOf(now),
     todayOpen,
     todayHigh,
     todayLow,

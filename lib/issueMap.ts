@@ -78,6 +78,15 @@ export const SECTOR_SENSITIVITY: Record<string, Partial<Record<NewsTopic, { w: n
     실적: { w: 0.2, why: "요금·배당 정책" },
     수급: { w: 0.2, why: "배당 수급" },
   },
+  크립토: {
+    금리환율: { w: 1.0, why: "달러 유동성·연준 금리에 가장 민감한 위험자산" },
+    미국정책: { w: 1.0, why: "SEC 규제·현물 ETF 승인/자금·스테이블코인 법안이 방향을 좌우" },
+    전쟁지정학: { w: 0.6, why: "리스크오프 때 나스닥과 함께 빠지는 경향(디지털 금 서사는 약함)" },
+    관세: { w: 0.4, why: "관세 쇼크 → 위험자산 동반 매도" },
+    중국: { w: 0.3, why: "중국 채굴·거래 규제, 위안화 자본 이탈 경유" },
+    수급: { w: 0.6, why: "ETF 자금 유출입·고래 지갑·거래소 유입량" },
+    실적: { w: 0.2, why: "직접 실적은 없음 — 코인베이스·마이크로스트래티지 경유" },
+  },
 };
 
 const TOPIC_LABEL: Record<NewsTopic, string> = {
@@ -129,6 +138,9 @@ export function inferTopic(n: NewsItem): NewsTopic {
   }
   // 2) 종목명 태그(또는 알 수 없는 태그)면 제목으로 추정한다
   const text = `${n.relatedTo} ${title}`;
+  // 가상자산 규제·ETF·자금 흐름은 미국정책/수급 축으로 — 코인 기사가 "기타"로 빠져 점수에서 사라지지 않게
+  if (/SEC|현물 ETF|ETF 승인|스테이블코인|가상자산 법|디지털자산/i.test(text)) return "미국정책";
+  if (/ETF 자금|ETF 유입|ETF 유출|고래|거래소 유입|김치프리미엄|청산/.test(text) && /비트코인|이더리움|리플|코인|가상자산/.test(text)) return "수급";
   if (/발표 앞두고|앞둔|예정된|D-\d|만기일/.test(text)) return "예정이벤트";
   if (/자사주|자기주식|소각|주주환원|밸류업/.test(text)) return "자사주";
   if (/관세|tariff|상호관세/i.test(text)) return "관세";
@@ -152,6 +164,7 @@ const SECTOR_SCOPE: { sector: string; match: RegExp }[] = [
   { sector: "바이오", match: /바이오|제약|FDA|임상|약가|바이오시밀러/ },
   { sector: "금융", match: /은행|금융주|예대마진|밸류업 금융/ },
   { sector: "방산", match: /방산|무기|국방예산|K-방산/ },
+  { sector: "크립토", match: /비트코인|이더리움|리플|가상자산|암호화폐|스테이블코인|코인베이스|BTC|ETH|XRP|업비트|빗썸/i },
 ];
 function scopedToOtherSector(topic: NewsTopic, title: string, sector: string): boolean {
   if (!["중국", "실적", "미국정책", "관세", "업황"].includes(topic)) return false;
@@ -173,6 +186,9 @@ function mentionsStock(n: NewsItem, ticker: StockTicker): boolean {
     KB금융: ["KB금융", "KB국민"],
     셀트리온: ["셀트리온"],
     KT: ["KT"],
+    비트코인: ["비트코인", "BTC", "Bitcoin"],
+    이더리움: ["이더리움", "ETH", "Ethereum"],
+    리플: ["리플", "XRP", "Ripple"],
   };
   const keys = aliases[name] ?? [name];
   if (keys.includes(n.relatedTo)) return true;

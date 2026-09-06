@@ -22,11 +22,26 @@ const KRX_TICKS: [number, number][] = [
   [Infinity, 1_000],
 ];
 
-/** 해당 가격대의 호가단위 */
-export function tickSize(price: number, currency: "KRW" | "USD"): number {
+// 업비트 원화마켓 호가단위 (2024-10 개정 기준). 1원 미만 단위는 소수점 호가.
+const UPBIT_TICKS: [number, number][] = [
+  [1, 0.0001],
+  [10, 0.001],
+  [100, 0.01],
+  [1_000, 0.1],
+  [10_000, 1],
+  [100_000, 10],
+  [500_000, 50],
+  [1_000_000, 100],
+  [2_000_000, 500],
+  [Infinity, 1_000],
+];
+
+/** 해당 가격대의 호가단위. market이 CRYPTO면 업비트 표를 쓴다(주식 KRW 표는 리플 3,000원대에 5원 단위를 내놓는다). */
+export function tickSize(price: number, currency: "KRW" | "USD", market: "KR" | "US" | "CRYPTO" = "KR"): number {
   if (currency === "USD") return 0.01;
   const p = Math.abs(price);
-  return KRX_TICKS.find(([limit]) => p < limit)![1];
+  const table = market === "CRYPTO" ? UPBIT_TICKS : KRX_TICKS;
+  return table.find(([limit]) => p < limit)![1];
 }
 
 /**
@@ -38,18 +53,29 @@ export function tickSize(price: number, currency: "KRW" | "USD"): number {
  *  - "nearest": 매수·매도 지정가 후보. 호가 한 칸은 가격의 0.2% 미만이라 어느 쪽으로 붙여도
  *               모델 오차(σ 단위)에 비해 무시할 수준이므로 가장 가까운 유효 호가를 쓴다.
  */
-export function roundToTick(price: number, currency: "KRW" | "USD", mode: "nearest" | "up" | "down" = "nearest"): number {
+export function roundToTick(
+  price: number,
+  currency: "KRW" | "USD",
+  mode: "nearest" | "up" | "down" = "nearest",
+  market: "KR" | "US" | "CRYPTO" = "KR",
+): number {
   if (!isFinite(price) || price <= 0) return price;
-  const t = tickSize(price, currency);
+  const t = tickSize(price, currency, market);
   const q = price / t;
   const n = mode === "up" ? Math.ceil(q) : mode === "down" ? Math.floor(q) : Math.round(q);
   const out = n * t;
-  // 부동소수 오차 제거 (USD 0.01 단위에서 189.99999999 같은 값이 나오는 것을 막는다)
-  return currency === "USD" ? Math.round(out * 100) / 100 : Math.round(out);
+  // 부동소수 오차 제거 (USD 0.01 단위에서 189.99999999 같은 값이 나오는 것을 막는다).
+  // 1원 미만 호가(리플 0.1원 등)는 그 자릿수만큼만 남긴다.
+  if (currency === "USD") return Math.round(out * 100) / 100;
+  if (t < 1) {
+    const digits = Math.round(-Math.log10(t));
+    return Number(out.toFixed(digits));
+  }
+  return Math.round(out);
 }
 
 /** 호가단위를 사람이 읽는 문자열로 (안내 문구용) */
-export function tickLabel(price: number, currency: "KRW" | "USD"): string {
-  const t = tickSize(price, currency);
+export function tickLabel(price: number, currency: "KRW" | "USD", market: "KR" | "US" | "CRYPTO" = "KR"): string {
+  const t = tickSize(price, currency, market);
   return currency === "USD" ? `$${t.toFixed(2)}` : `${t.toLocaleString()}원`;
 }

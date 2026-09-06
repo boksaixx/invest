@@ -2567,3 +2567,127 @@ details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
 
 /* 섹션 소제목 — 카드 사이 위계를 만든다 */
 .sec-h { font-size: calc(13px * var(--font-scale)); font-weight: 800; color: var(--text-weak); margin: 6px 4px 8px; letter-spacing: 0.2px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   다크 모드 — <html data-theme="dark"> 일 때만 적용. "시스템" 설정은 JS(applyTheme)가 OS 값을 읽어
+   이 속성으로 바꾸므로 CSS는 속성 하나만 본다. 토큰을 먼저 바꾸고, 밝은색이 하드코딩된 규칙만 덮어쓴다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1216;
+  --card: #171b21;
+  --card-bg: #171b21;
+  --text: #e8ecf1;
+  --text-sub: #b3bcc7;
+  --text-weak: #7f8a97;
+  --blue: #4c8ff7;
+  --blue-weak: #16294a;
+  --red: #ff5f6d;
+  --red-weak: #3a1b21;
+  --green: #22c55e;
+  --gray-weak: #222831;
+  --border: #2a313b;
+  --muted: #7f8a97;
+  --bg-weak: #1c2128;
+}
+:root[data-theme="dark"] body { background: var(--bg); color: var(--text); }
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .doit,
+:root[data-theme="dark"] .issue-board,
+:root[data-theme="dark"] .onboard,
+:root[data-theme="dark"] .macro-chip,
+:root[data-theme="dark"] .hd-icon,
+:root[data-theme="dark"] .font-size-row { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45); }
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select { background: #222831; color: var(--text); border-color: var(--border); }
+/* 검정 배경(#191f28)으로 "위험"을 표현하던 요소들 — 다크에서는 회색으로 올려야 배경과 구분된다 */
+:root[data-theme="dark"] .badge-danger,
+:root[data-theme="dark"] .phase-tag,
+:root[data-theme="dark"] .doc-code,
+:root[data-theme="dark"] .score-bar-fill.danger,
+:root[data-theme="dark"] .summary-score-badge.danger,
+:root[data-theme="dark"] .score-band.danger,
+:root[data-theme="dark"] .ss-seg.on.danger,
+:root[data-theme="dark"] .ss-pin.danger { background: #3a3f4a; }
+/* 옅은 회색 구분선 */
+:root[data-theme="dark"] .kv-row,
+:root[data-theme="dark"] .news-item,
+:root[data-theme="dark"] .summary-row,
+:root[data-theme="dark"] .asset-more-row,
+:root[data-theme="dark"] .rep-row,
+:root[data-theme="dark"] .intraday-box,
+:root[data-theme="dark"] .insight-section,
+:root[data-theme="dark"] .nsig-axis,
+:root[data-theme="dark"] .jn-row,
+:root[data-theme="dark"] .set-row + .set-row,
+:root[data-theme="dark"] .set-meta { border-color: var(--border); }
+/* 노란 경고 계열 */
+:root[data-theme="dark"] .storage-warning { background: #332a14; border-color: #7a5a10; }
+:root[data-theme="dark"] .storage-warning-title,
+:root[data-theme="dark"] .storage-warning-body,
+:root[data-theme="dark"] .storage-warning-list li { color: #f2c14e; }
+:root[data-theme="dark"] .plan-badge-급등과열,
+:root[data-theme="dark"] .plan-badge-변동성확대,
+:root[data-theme="dark"] .vol-높음 { background: #332a14; color: #f2c14e; }
+:root[data-theme="dark"] .plan-box { background: #2a2416; border-color: #5a4a1a; }
+:root[data-theme="dark"] .nsig-thin,
+:root[data-theme="dark"] .dstop-warn,
+:root[data-theme="dark"] .jn-caution,
+:root[data-theme="dark"] .warn-chip,
+:root[data-theme="dark"] .score-conflict { background: #332a14; }
+:root[data-theme="dark"] .dstop-warn .dstop-h { color: #f2c14e; }
+:root[data-theme="dark"] .dstop-hit { background: #3a1b21; border-color: #8a3a44; }
+:root[data-theme="dark"] .dstop-hit .dstop-h { color: #ff8a94; }
+:root[data-theme="dark"] .doc-pipe-sec { background: linear-gradient(180deg, #16294a 0%, var(--card) 60%); }
+:root[data-theme="dark"] .time-horizon-tag { background: rgba(255, 255, 255, 0.12); }
+/* 행동 카드 */
+:root[data-theme="dark"] .doit-hold { background: #2f2a16; }
+:root[data-theme="dark"] .doit-hold .doit-verb { color: #f2c14e; }
+:root[data-theme="dark"] .doit-limit { background: #16294a; }
+:root[data-theme="dark"] .doit-limit .doit-verb,
+:root[data-theme="dark"] .doit-buy .doit-verb,
+:root[data-theme="dark"] .impact-dir.pos,
+:root[data-theme="dark"] .issue-chip.pos,
+:root[data-theme="dark"] .tabbar-btn.active,
+:root[data-theme="dark"] .sec-mood,
+:root[data-theme="dark"] .doit-more > summary { color: #8fb8ff; }
+:root[data-theme="dark"] .tabbar-btn.active::after { background: #8fb8ff; }
+:root[data-theme="dark"] .doit-sell .doit-verb,
+:root[data-theme="dark"] .impact-dir.neg,
+:root[data-theme="dark"] .issue-chip.neg,
+:root[data-theme="dark"] .hd-chip-stale { color: #ff8a94; }
+:root[data-theme="dark"] .issue-chip.neg { background: #3a1b21; }
+:root[data-theme="dark"] .issue-chip.pos { background: #16294a; }
+:root[data-theme="dark"] .issue-chip.breaking { box-shadow: inset 0 0 0 1.5px #ff8a94; }
+:root[data-theme="dark"] .hd-chip-stale { background: #3a1b21; }
+/* 비서 카드 */
+:root[data-theme="dark"] .sec-card { background: linear-gradient(160deg, #171b21 0%, #15202f 100%); border-color: #253248; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); }
+:root[data-theme="dark"] .sec-card.mood-alert { background: linear-gradient(160deg, #171b21 0%, #2a2416 100%); border-color: #5a4a1a; }
+:root[data-theme="dark"] .sec-card.mood-danger { background: linear-gradient(160deg, #171b21 0%, #2f1a1f 100%); border-color: #6a2a33; }
+:root[data-theme="dark"] .sec-alert { background: rgba(255, 255, 255, 0.05); }
+:root[data-theme="dark"] .sec-alert-warn { background: #332a14; }
+:root[data-theme="dark"] .sec-alert-danger { background: #3a1b21; }
+:root[data-theme="dark"] .sec-alert-info { background: #222831; }
+:root[data-theme="dark"] .sec-mood-alert { background: #332a14; color: #f2c14e; }
+:root[data-theme="dark"] .sec-mood-danger { background: #3a1b21; color: #ff8a94; }
+:root[data-theme="dark"] .onboard-step { background: #222831; }
+:root[data-theme="dark"] .actionbar { background: linear-gradient(180deg, rgba(15, 18, 22, 0) 0%, var(--bg) 35%); }
+:root[data-theme="dark"] .master-score-buy { background: linear-gradient(180deg, #3a1b21 0%, var(--card) 60%); border-color: #3a1b21; }
+:root[data-theme="dark"] .master-score-sell { background: linear-gradient(180deg, #16294a 0%, var(--card) 60%); border-color: #16294a; }
+
+/* 설정 시트 — 테마 세그먼트 */
+.set-row-static { cursor: default; }
+.seg { display: inline-flex; gap: 3px; background: var(--gray-weak); border-radius: 10px; padding: 3px; }
+.seg-btn {
+  border: none;
+  background: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: calc(12.5px * var(--font-scale));
+  color: var(--text-weak);
+  cursor: pointer;
+  font-family: inherit;
+}
+.seg-btn.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }

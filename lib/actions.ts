@@ -1,7 +1,7 @@
 // 화면이 따를 "최종 행동"을 한 곳에서 정한다 — 오늘 나의 행동 카드, 비서 브리핑, 계좌 리포트, 종목 카드가
 // 전부 이 규칙을 공유한다. 예전에는 page.tsx 안 IIFE에 묻혀 있어 브리핑이 같은 결론을 낼 방법이 없었다.
 import type { AiAdvice, EngineSignal, Portfolio, Quote, TodayTrade } from "./types";
-import { STOCKS } from "./types";
+import { fmtQty, STOCKS } from "./types";
 
 /** "실제로 보유 중"의 단 하나의 정의 — 수량과 평단가가 모두 있어야 한다. 서버(normalizePortfolio)와 같은 기준. */
 export function isHeld(h: { qty: number; avgPrice: number } | undefined | null): h is { qty: number; avgPrice: number } {
@@ -69,23 +69,23 @@ export function buildDoitRows(result: DoitInput, portfolio: Portfolio, quotes: R
         return {
           ...base, rank: 1, kind: "sell", verb: "절반 파세요",
           detail: atTarget && target != null
-            ? `보유 ${hold.qty}주 중 ${half}주 · ${px(target)} 부근`
-            : `보유 ${hold.qty}주 중 ${half}주 · 지금 ${px(livePrice)} 부근에서${cause ? ` · ${cause.length > 44 ? `${cause.slice(0, 44)}…` : cause}` : ""}`,
+            ? `보유 ${fmtQty(sg.ticker, hold.qty)} 중 ${fmtQty(sg.ticker, half)} · ${px(target)} 부근`
+            : `보유 ${fmtQty(sg.ticker, hold.qty)} 중 ${fmtQty(sg.ticker, half)} · 지금 ${px(livePrice)} 부근에서${cause ? ` · ${cause.length > 44 ? `${cause.slice(0, 44)}…` : cause}` : ""}`,
         };
       }
-      return { ...base, rank: 0, kind: "sell", verb: "지금 파세요", detail: `보유 ${hold.qty}주 전량 · ${px(ai?.stopPrice ?? sg.stopPrice)} 아래면 즉시` };
+      return { ...base, rank: 0, kind: "sell", verb: "지금 파세요", detail: `보유 ${fmtQty(sg.ticker, hold.qty)} 전량 · ${px(ai?.stopPrice ?? sg.stopPrice)} 아래면 즉시` };
     }
     if (isSell) return { ...base, rank: 5, kind: "avoid", verb: "사지 마세요", detail: "떨어지는 흐름이라 지금 새로 들어갈 자리가 아닙니다 (보유분 없음)" };
     if (act === "신규매수" || act === "추가매수") {
       // 수량은 엔진이 "엔진 손절폭" 기준 1% 리스크로 낸 값 — 이 행의 손절가도 엔진 값을 써야 수량과 맞는다
-      const qty = sg.suggestedQty && sg.suggestedQty > 0 ? `${sg.suggestedQty}주` : "수량은 종목 탭 참고";
+      const qty = sg.suggestedQty && sg.suggestedQty > 0 ? fmtQty(sg.ticker, sg.suggestedQty) : "수량은 종목 탭 참고";
       return { ...base, rank: 2, kind: "buy", verb: hold ? "더 사세요" : "사세요", detail: `${px(ai?.entryPrice ?? sg.suggestedEntryPrice)} · ${qty} · 손절 ${px(sg.stopPrice)}` };
     }
     if (hold) {
       const exit1 = sg.scaledExit[0];
       return {
         ...base, rank: 4, kind: "hold", verb: "그대로 두세요",
-        detail: `보유 ${hold.qty}주 · ${px(ai?.stopPrice ?? sg.stopPrice)} 깨지면 파세요${exit1 ? ` · ${px(exit1.price)} 닿고 꺾이면 절반 익절` : ""}`,
+        detail: `보유 ${fmtQty(sg.ticker, hold.qty)} · ${px(ai?.stopPrice ?? sg.stopPrice)} 깨지면 파세요${exit1 ? ` · ${px(exit1.price)} 닿고 꺾이면 절반 익절` : ""}`,
       };
     }
     // 미보유 관망 — "기다리세요"로 끝내지 않는다. ① 검증된 눌림목(있을 때만) ② 엔진 대기 매수가(점수 58+) ③ 도달확률 지정가
@@ -93,7 +93,7 @@ export function buildDoitRows(result: DoitInput, portfolio: Portfolio, quotes: R
     if (dip) {
       return {
         ...base, rank: 3, kind: "limit", verb: "지정가 걸어두세요",
-        detail: `${px(dip.entryPrice)} 매수 대기${dip.suggestedQty ? ` · ${dip.suggestedQty}주` : ""} · 익절 ${px(dip.targetPrice)} / 손절 ${px(dip.stopPrice)} · 미체결이면 오늘은 없음`,
+        detail: `${px(dip.entryPrice)} 매수 대기${dip.suggestedQty ? ` · ${fmtQty(sg.ticker, dip.suggestedQty)}` : ""} · 익절 ${px(dip.targetPrice)} / 손절 ${px(dip.stopPrice)} · 미체결이면 오늘은 없음`,
       };
     }
     if (sg.suggestedEntryPrice != null && sg.score >= 58) {
@@ -107,7 +107,7 @@ export function buildDoitRows(result: DoitInput, portfolio: Portfolio, quotes: R
   // 보유 중인데 시세·캔들 수집 실패로 신호가 안 나온 종목 — 행이 없으면 "괜찮다"로 읽힌다. 반드시 알린다.
   for (const h of portfolio.holdings) {
     if (!isHeld(h) || result.signals.some((s) => s.ticker === h.ticker)) continue;
-    rows.push({ ticker: h.ticker, name: STOCKS[h.ticker].name, rank: 0, kind: "hold", verb: "데이터 없음", detail: `보유 ${h.qty}주 · 이번 분석에서 시세를 못 가져왔어요 — 증권사 앱에서 직접 확인하세요` });
+    rows.push({ ticker: h.ticker, name: STOCKS[h.ticker].name, rank: 0, kind: "hold", verb: "데이터 없음", detail: `보유 ${fmtQty(h.ticker, h.qty)} · 이번 분석에서 시세를 못 가져왔어요 — ${STOCKS[h.ticker].market === "CRYPTO" ? "거래소" : "증권사"} 앱에서 직접 확인하세요` });
   }
   return rows.sort((a, b) => a.rank - b.rank);
 }

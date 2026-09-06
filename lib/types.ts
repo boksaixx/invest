@@ -119,8 +119,9 @@ export interface Holding {
 }
 
 export interface Portfolio {
-  cash: number; // 보유 현금 (원) — 국내(KRW) 종목 매수용
+  cash: number; // 보유 현금 (원) — 국내(KRW) 종목 매수용 (증권사 계좌)
   cashUSD: number; // 보유 달러현금 ($) — 미국(USD) 종목 매수용. 구버전 저장 데이터엔 없을 수 있어 항상 optional 취급하듯 0 기본값으로 다뤄야 함
+  cashCrypto?: number; // 거래소(업비트) 예수금 (원) — 가상자산 매수용. 증권사 현금과 다른 지갑이라 따로 센다. 구버전 데이터엔 없음 → 0
   holdings: Holding[];
 }
 
@@ -136,7 +137,11 @@ export type StockTicker =
   | "005380"
   | "105560"
   | "068270"
-  | "030200";
+  | "030200"
+  // 가상자산 3종 — 업비트 원화마켓 코드 그대로. 24시간 거래, 소수점 수량, 상하한가 없음, 수수료 0.05%×2.
+  | "KRW-BTC"
+  | "KRW-ETH"
+  | "KRW-XRP";
 
 export type Action =
   | "신규매수"
@@ -487,9 +492,13 @@ export interface CollectedSnapshot {
 
 // sector: "반도체" 종목에만 반도체 전용 통계(국면별 분포·도달확률 보정표·SOX 전이)를 적용한다.
 // 그 통계들은 전부 국내 반도체 5종목으로 만든 것이라 다른 업종에 그대로 쓰면 근거 없는 숫자가 된다.
+export type Market = "KR" | "US" | "CRYPTO";
+
+// yahoo 필드는 "시세·히스토리 데이터 키"다. 국내·미국 종목은 야후 심볼, 가상자산은 업비트 마켓 코드(KRW-BTC)를
+// 그대로 쓴다(시세·5년 일봉·분봉 모두 업비트 공개 API에서 받고, 야후 BTC-KRW는 폴백).
 export const STOCKS: Record<
   StockTicker,
-  { name: string; yahoo: string; market: "KR" | "US"; currency: "KRW" | "USD"; sector: string; driver: string }
+  { name: string; yahoo: string; market: Market; currency: "KRW" | "USD"; sector: string; driver: string }
 > = {
   "005930": { name: "삼성전자", yahoo: "005930.KS", market: "KR", currency: "KRW", sector: "반도체", driver: "메모리 업황·SOX" },
   "000660": { name: "SK하이닉스", yahoo: "000660.KS", market: "KR", currency: "KRW", sector: "반도체", driver: "HBM·메모리 업황" },
@@ -502,10 +511,25 @@ export const STOCKS: Record<
   "105560": { name: "KB금융", yahoo: "105560.KS", market: "KR", currency: "KRW", sector: "금융", driver: "금리·예대마진" },
   "068270": { name: "셀트리온", yahoo: "068270.KS", market: "KR", currency: "KRW", sector: "바이오", driver: "임상·허가·약가" },
   "030200": { name: "KT", yahoo: "030200.KS", market: "KR", currency: "KRW", sector: "통신", driver: "요금규제·배당(경기 방어)" },
+  // ↓ 가상자산 — 업비트 원화마켓. 같은 엔진(일봉 지표·분봉 VWAP·변동성·뉴스 축)을 쓰되 시장 규칙은 다르다:
+  //   24시간 거래(업비트 일봉은 09:00 KST 시작), 소수점 수량, 상하한가·VI 없음, 수수료 0.05%×2, 세금 없음.
+  "KRW-BTC": { name: "비트코인", yahoo: "KRW-BTC", market: "CRYPTO", currency: "KRW", sector: "크립토", driver: "미 현물 ETF 자금·달러·금리" },
+  "KRW-ETH": { name: "이더리움", yahoo: "KRW-ETH", market: "CRYPTO", currency: "KRW", sector: "크립토", driver: "ETF·스테이킹·디파이 활동" },
+  "KRW-XRP": { name: "리플", yahoo: "KRW-XRP", market: "CRYPTO", currency: "KRW", sector: "크립토", driver: "SEC 규제·결제 채택·국내 거래대금" },
 };
 
 /** 반도체 전용 통계를 적용해도 되는 종목인지 */
 export const isSemiconductor = (t: StockTicker) => STOCKS[t].sector === "반도체";
+/** 가상자산인지 — 수량·수수료·장 시간대·호가단위 규칙이 다르다 */
+export const isCrypto = (t: StockTicker) => STOCKS[t].market === "CRYPTO";
+/** 수량 단위 — 주식은 "주", 가상자산은 "개" */
+export const unitOf = (t: StockTicker) => (isCrypto(t) ? "개" : "주");
+/** 가상자산 수량 표기 — 소수점 8자리까지, 불필요한 0은 뗀다 */
+export const fmtQty = (t: StockTicker, qty: number | null | undefined): string => {
+  if (qty == null || !Number.isFinite(qty)) return "-";
+  if (!isCrypto(t)) return `${Math.round(qty).toLocaleString("ko-KR")}주`;
+  return `${Number(qty.toFixed(8)).toLocaleString("ko-KR", { maximumFractionDigits: 8 })}개`;
+};
 
 export const TICKER_LIST: StockTicker[] = [
   "005930",
@@ -518,9 +542,15 @@ export const TICKER_LIST: StockTicker[] = [
   "105560",
   "068270",
   "030200",
+  "KRW-BTC",
+  "KRW-ETH",
+  "KRW-XRP",
 ];
 
-// 국내(KRX)/미국(나스닥 등) 종목 구분 — DART 공시·KRX 수급처럼 한국 시장 전용 데이터 소스를
-// 미국 종목에는 아예 시도하지 않도록 걸러내거나, 시장별로 다른 로직(개장시간·통화)을 적용할 때 사용.
+// 국내(KRX)/미국(나스닥 등)/가상자산 구분 — DART 공시·KRX 수급처럼 한국 시장 전용 데이터 소스를
+// 다른 시장에는 아예 시도하지 않도록 걸러내거나, 시장별로 다른 로직(개장시간·통화·수량 단위)을 적용할 때 사용.
 export const KR_TICKERS: StockTicker[] = TICKER_LIST.filter((t) => STOCKS[t].market === "KR");
 export const US_TICKERS: StockTicker[] = TICKER_LIST.filter((t) => STOCKS[t].market === "US");
+export const CRYPTO_TICKERS: StockTicker[] = TICKER_LIST.filter((t) => STOCKS[t].market === "CRYPTO");
+/** 주식(국내+미국) — 화면의 "내 종목" 탭 */
+export const STOCK_TICKERS: StockTicker[] = TICKER_LIST.filter((t) => STOCKS[t].market !== "CRYPTO");

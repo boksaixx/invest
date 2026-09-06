@@ -217,6 +217,32 @@ export function getUSMarketPhase(now: Date = new Date()): MarketPhaseInfo {
   return { phase: "장마감", kstTime, note: "미국 정규장이 마감되었습니다. 오늘 데이터를 복기하고 다음 거래일 전략을 준비하세요." };
 }
 
-export function getMarketPhaseForMarket(market: "KR" | "US", now: Date = new Date()): MarketPhaseInfo {
+/**
+ * 가상자산(업비트) — 24시간 거래. "장"은 닫히지 않지만 업비트 일봉이 09:00 KST에 시작하므로
+ * 엔진의 오프닝레인지·VWAP·"당일" 기준도 09:00을 세션 시작으로 본다. 09:00~09:30은 국내 주식과
+ * 같은 이유로(방향이 자주 뒤집힘) 장초반으로 두고, 그 외는 전부 장중이다. 마감임박·동시호가는 없다
+ * (당일 청산 규칙 ③은 자연히 적용되지 않는다 — 넘길 밤이 따로 없기 때문).
+ */
+export function getCryptoMarketPhase(now: Date = new Date()): MarketPhaseInfo {
+  const kst = new Date(now.getTime() + 9 * 3600_000);
+  const hh = kst.getUTCHours();
+  const mm = kst.getUTCMinutes();
+  const kstTime = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  const minutesOfDay = hh * 60 + mm;
+  if (minutesOfDay >= 9 * 60 && minutesOfDay < 9 * 60 + 30) {
+    return { phase: "장초반", kstTime, note: "업비트 일봉이 09:00에 새로 시작됐습니다. 첫 30분은 방향이 자주 뒤집히니 VWAP 위 안착 후 진입하세요." };
+  }
+  const usSession = minutesOfDay >= 22 * 60 + 30 || minutesOfDay < 5 * 60;
+  return {
+    phase: "장중",
+    kstTime,
+    note: usSession
+      ? "미국 정규장 시간대(한국시간 22:30~05:00)입니다 — ETF 자금·나스닥과 같이 움직이는 시간이라 변동성이 커집니다."
+      : "24시간 거래 중입니다. 손절 예약은 잠들기 전에 반드시 걸어두세요 — 밤사이 급변동은 예고 없이 옵니다.",
+  };
+}
+
+export function getMarketPhaseForMarket(market: "KR" | "US" | "CRYPTO", now: Date = new Date()): MarketPhaseInfo {
+  if (market === "CRYPTO") return getCryptoMarketPhase(now);
   return market === "US" ? getUSMarketPhase(now) : getMarketPhase(now);
 }

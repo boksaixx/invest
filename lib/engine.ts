@@ -27,7 +27,7 @@ import type {
   StockTicker,
   VolForecast,
 } from "./types";
-import { isSemiconductor, STOCKS } from "./types";
+import { isCrypto, isSemiconductor, STOCKS, unitOf } from "./types";
 import { computeIndicators } from "./indicators";
 import { CORRELATED_PAIR_MAX_WEIGHT, forecastVolatility } from "./volatility";
 import { roundToTick } from "./tick";
@@ -76,6 +76,12 @@ export const DAY_TARGET_SIGMA = 1.0;
 export const SELL_TAX_PCT = 0.0015;
 export const BROKER_FEE_PCT = 0.00015;
 const ROUND_TRIP_COST_PCT = SELL_TAX_PCT + BROKER_FEE_PCT * 2; // 0.18%
+// 가상자산(업비트 원화마켓): 세금 없음, 수수료 0.05% × 2 = 0.10%. 최소 주문 5,000원.
+export const CRYPTO_FEE_PCT = 0.0005;
+const CRYPTO_ROUND_TRIP_COST_PCT = CRYPTO_FEE_PCT * 2;
+const CRYPTO_MIN_ORDER_KRW = 5_000;
+/** 가상자산 수량은 소수점 8자리(업비트 단위)로 내림 */
+const floorCryptoQty = (v: number) => Math.floor(v * 1e8) / 1e8;
 
 // 뉴스 감성 점수(±15) — 2026-09부터 lib/issueMap.ts 의 업종별 민감도 표로 계산한다.
 // 예전 구현은 relatedTo가 종목명·"반도체"·"매크로"·"파생시장"일 때만 세어서 지정학·관세·중국·실적
@@ -472,8 +478,9 @@ function computeSuggestedEntryPrice(
   currency: "KRW" | "USD" = "KRW",
   // 관망일 때 어떤 성격의 대기인지 — 지정가를 어디에 걸어야 하는지가 달라진다
   waitKind: "추격대기" | "장초반대기" | "근접대기" = "근접대기",
+  market: "KR" | "US" | "CRYPTO" = "KR",
 ): { price: number; basis: string } | null {
-  const tick = (v: number) => roundToTick(v, currency, "nearest");
+  const tick = (v: number) => roundToTick(v, currency, "nearest", market);
   if (action === "신규매수") {
     return { price: tick(price), basis: "현재가 기준 즉시 진입 (분할매수 1차 라인 참고)" };
   }
@@ -548,12 +555,17 @@ function applyCorrelationCap(
   price: number,
   headroom: number | null | undefined,
   warnings: string[],
+  // 가상자산은 소수점 수량 — 1주 단위 내림 대신 8자리 내림, 최소 주문 5,000원
+  crypto = false,
 ): { budget: number; qty: number } {
+  const unit = crypto ? "개" : "주";
+  const toQty = (won: number) => (crypto ? floorCryptoQty(won / price) : Math.max(1, Math.floor(won / price)));
   const raw = Math.floor(budget);
-  const rawQty = Math.max(1, Math.floor(budget / price));
+  const rawQty = toQty(budget);
+  if (crypto && rawQty * price < CRYPTO_MIN_ORDER_KRW) return { budget: 0, qty: 0 };
   if (headroom == null || !isFinite(headroom)) return { budget: raw, qty: rawQty };
 
-  if (headroom < price) {
+  if (headroom < (crypto ? CRYPTO_MIN_ORDER_KRW : price)) {
     warnings.unshift(
       `상관 종목 합산 비중 한도(총자산의 ${(CORRELATED_PAIR_MAX_WEIGHT * 100).toFixed(0)}%)에 도달해 이 종목은 더 담지 않습니다 — ` +
         `이미 보유한 종목과 거의 같이 움직여서, 더 사면 분산이 아니라 같은 베팅을 키우는 것이 됩니다.`,
@@ -561,9 +573,9 @@ function applyCorrelationCap(
     return { budget: 0, qty: 0 };
   }
   if (headroom < budget) {
-    const qty = Math.max(1, Math.floor(headroom / price));
+    const qty = toQty(headroom);
     warnings.push(
-      `상관 종목 합산 비중 한도로 매수 수량을 ${rawQty}주 → ${qty}주로 줄였습니다 — ` +
+      `상관 종목 합산 비중 한도로 매수 수량을 ${rawQty}${unit} → ${qty}${unit}로 줄였습니다 — ` +
         `이미 보유한 종목과 상관이 높아 합산 ${(CORRELATED_PAIR_MAX_WEIGHT * 100).toFixed(0)}%를 넘기지 않도록 제한합니다.`,
     );
     return { budget: Math.floor(qty * price), qty };
@@ -611,13 +623,15 @@ function buildInvalidation(id: IntradayInsight | null, macro: MacroSnapshot): st
   return `${parts.join(" 또는 ")} 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.`;
 }
 
-function buildScaledEntry(price: number, qty: number | null, currency: "KRW" | "USD"): ScaledOrder[] {
-  const tick = (v: number) => roundToTick(v, currency, "nearest");
-  if (!qty || qty < 2) {
+function buildScaledEntry(price: number, qty: number | null, currency: "KRW" | "USD", market: "KR" | "US" | "CRYPTO" = "KR"): ScaledOrder[] {
+  const tick = (v: number) => roundToTick(v, currency, "nearest", market);
+  const crypto = market === "CRYPTO";
+  // 가상자산은 소수점 수량이라 "2주 미만"이 아니라 "분할했을 때 각 주문이 최소 주문(5,000원)을 넘는가"로 판단
+  if (!qty || (crypto ? qty * price < CRYPTO_MIN_ORDER_KRW * 2 : qty < 2)) {
     return qty ? [{ price: tick(price), qty, note: "1회 매수 (수량이 적어 분할 실익 없음)" }] : [];
   }
-  const q1 = Math.ceil(qty * 0.6);
-  const q2 = qty - q1;
+  const q1 = crypto ? floorCryptoQty(qty * 0.6) : Math.ceil(qty * 0.6);
+  const q2 = crypto ? floorCryptoQty(qty - q1) : qty - q1;
   return [
     { price: tick(price), qty: q1, note: "1차 진입 (60%) — 진입 트리거 충족 즉시" },
     { price: tick(price * 0.985), qty: q2, note: "2차 진입 (40%) — 추가 눌림 시 (물타기 아닌 사전 계획된 분할매수)" },
@@ -631,12 +645,13 @@ function buildScaledExit(
   currency: "KRW" | "USD",
   // 1차 익절선 — 하루 변동성 1σ 기준(단타). 없으면 예전처럼 목표가의 절반 지점.
   dayTarget: number | null = null,
+  market: "KR" | "US" | "CRYPTO" = "KR",
 ): ScaledOrder[] {
   if (!targetPrice || !qty) return [];
   // 익절가는 내림 — 올리면 도달이 어려워져 제시한 계획보다 불리해진다
-  const mid = roundToTick(entryPrice + (targetPrice - entryPrice) * 0.5, currency, "down");
+  const mid = roundToTick(entryPrice + (targetPrice - entryPrice) * 0.5, currency, "down", market);
   const t1 = dayTarget != null && dayTarget > entryPrice && dayTarget < targetPrice ? dayTarget : mid;
-  const q1 = Math.ceil(qty * 0.5);
+  const q1 = market === "CRYPTO" ? floorCryptoQty(qty * 0.5) : Math.ceil(qty * 0.5);
   return [
     {
       price: t1,
@@ -727,8 +742,12 @@ function verbPhrase(
   overheated: boolean,
   /** 점수는 진입 문턱을 넘었는데 과열·변동성·상관한도·하루손실한도가 막은 상태 */
   entryBlocked: boolean,
+  /** 변동성 급확대로 애매한 점수(58~67)의 신규 진입을 보류한 상태 */
+  volatilityHold = false,
 ): { text: string; tone: "buy" | "sell" | "danger" | "neutral" } {
   if (!held) {
+    // 경고문이 "진입 보류"라고 말하는데 판정이 "매수를 고려하세요"면 정면 충돌 — 먼저 걸러낸다
+    if (volatilityHold) return { text: "지금은 매수하지 마세요 (변동성이 진정될 때까지)", tone: "neutral" };
     // 추격 구간(VWAP 대비 크게 벌어짐/RSI 과매수)에서 점수가 매수권이면 "금지"가 아니라
     // "어디서 사라"를 말한다 — 예전 "절대 금지"는 점수 98점 종목에도 붙어 사용자가 앱을 못 믿게 했다.
     // 근거 가격(VWAP 눌림 지정가)은 buildVerdict가 첫 경고문에서 붙인다.
@@ -759,10 +778,11 @@ function buildVerdict(params: {
   warnings: string[];
   overheated: boolean;
   entryBlocked: boolean;
+  volatilityHold?: boolean;
 }): string {
   const { held, action, buyStrength, reasons, warnings, overheated, entryBlocked } = params;
   const sellStrength = params.sellStrength ?? 0;
-  const { text, tone } = verbPhrase(held, action, buyStrength, sellStrength, !held && overheated, !held && entryBlocked);
+  const { text, tone } = verbPhrase(held, action, buyStrength, sellStrength, !held && overheated, !held && entryBlocked, !held && params.volatilityHold === true);
   // 근거 문장 선택: 매수 쪽 판정이면 긍정 근거(reasons)를, 위험/매도 쪽 판정이면 경고(warnings)를 우선 인용한다.
   // 단, 매도 판정의 직접 원인(익절선 도달·VWAP 이탈·당일 청산)은 reasons 맨 앞에 들어오므로
   // 그 문장이 있으면 변동성 경고 같은 일반 경고보다 먼저 인용한다.
@@ -842,6 +862,11 @@ export function runEngine(params: {
   const { ticker, price, candles, macro, news, portfolio, intraday, marketPhase } = params;
   const name = STOCKS[ticker].name;
   const currency = STOCKS[ticker].currency;
+  const market = STOCKS[ticker].market;
+  const crypto = isCrypto(ticker);
+  const unit = unitOf(ticker);
+  // 왕복 거래비용 — 주식은 세금 0.15%+수수료(0.18%), 가상자산은 수수료만(0.10%)
+  const costPct = crypto ? CRYPTO_ROUND_TRIP_COST_PCT : ROUND_TRIP_COST_PCT;
   const ind = computeIndicators(candles);
 
   const tech = technicalScore(ind, price);
@@ -889,7 +914,10 @@ export function runEngine(params: {
 
   const holding = portfolio.holdings.find((h) => h.ticker === ticker && h.qty > 0) ?? null;
   // 이 종목과 같은 통화의 매수 여력 (원화 종목=cash, 달러 종목=cashUSD)
-  const stockCash = currency === "USD" ? portfolio.cashUSD : portfolio.cash;
+  // 국내 주식=증권사 원화 / 미국 주식=달러 / 가상자산=거래소 예수금 — 서로 다른 지갑이라 섞지 않는다
+  const stockCash = currency === "USD" ? portfolio.cashUSD : crypto ? (portfolio.cashCrypto ?? 0) : portfolio.cash;
+  // "1단위를 살 수 있는가" — 주식은 1주 값, 가상자산은 최소 주문금액(5,000원)
+  const minOrder = crypto ? CRYPTO_MIN_ORDER_KRW : price;
   const totalAsset = params.portfolioTotalAsset ?? stockCash + (holding ? holding.qty * price : 0);
 
   // 단타용 손절폭: 일봉 ATR과 당일 오프닝레인지 폭 중 더 타이트한 쪽을 우선 사용
@@ -959,6 +987,8 @@ export function runEngine(params: {
   let waitKind: "추격대기" | "장초반대기" | "근접대기" = "근접대기";
   // 단타 청산 룰(1σ 익절 후 꺾임 / VWAP 이탈 / 마감 전 당일 청산)로 절반 매도를 결론냈는지
   let dayExit = false;
+  // 변동성 급확대로 신규 진입을 보류한 상태 — 판정문은 "매수 고려"가 아니라 "진정될 때까지 관망"이어야 한다
+  let volatilityHold = false;
 
   // 하루 변동성(σ, %) — 단타 익절선의 단위. 추정 모델이 없으면 ATR로 근사한다.
   const sigmaDailyPct = volForecast.available
@@ -967,19 +997,19 @@ export function runEngine(params: {
       ? (ind.atr14 / price) * 100
       : 2.5;
   // 1σ 익절은 최소한 왕복 거래비용의 3배는 넘어야 실익이 있다
-  const dayTargetPct = Math.max(DAY_TARGET_SIGMA * sigmaDailyPct, ROUND_TRIP_COST_PCT * 100 * 3);
+  const dayTargetPct = Math.max(DAY_TARGET_SIGMA * sigmaDailyPct, costPct * 100 * 3);
 
   if (holding) {
     pnlPct = ((price - holding.avgPrice) / holding.avgPrice) * 100;
     const entryStopDist = Math.max(holding.avgPrice * 0.03, atrStopDist);
     // 기본 손절선: 평단 - 리스크폭. 수익 중이면 트레일링 스탑으로 끌어올림
-    stopPrice = roundToTick(holding.avgPrice - entryStopDist, currency, "up");
+    stopPrice = roundToTick(holding.avgPrice - entryStopDist, currency, "up", market);
     if (price > holding.avgPrice + entryStopDist) {
-      stopPrice = Math.max(stopPrice, roundToTick(price - ind.atr14 * 2, currency, "up"));
+      stopPrice = Math.max(stopPrice, roundToTick(price - ind.atr14 * 2, currency, "up", market));
       reasons.push("수익 구간 — 트레일링 스탑(고점 추적 손절선) 적용");
     }
     // 단타 1차 익절선(평단 + 1σ)과 "장중 흐름이 꺾였는가" 판정
-    const dayTarget = roundToTick(holding.avgPrice * (1 + dayTargetPct / 100), currency, "down");
+    const dayTarget = roundToTick(holding.avgPrice * (1 + dayTargetPct / 100), currency, "down", market);
     const intradayWeak =
       intraday?.available === true &&
       intraday.isToday &&
@@ -987,7 +1017,7 @@ export function runEngine(params: {
     const vwapLost =
       intraday?.available === true && intraday.isToday && intraday.distanceFromVwapPct < -0.15 && intraday.momentum === "강한하락";
     const nearClose = marketPhase.phase === "마감임박" || marketPhase.phase === "동시호가";
-    const profitAboveCost = pnlPct >= ROUND_TRIP_COST_PCT * 100 * 3;
+    const profitAboveCost = pnlPct >= costPct * 100 * 3;
     // 오버나이트 갭이 수익의 대부분이었던 국면(보유우위)이면 당일 청산을 강요하지 않는다 —
     // 실측: 삼성전자 최근 6개월 수익 +71% 중 갭이 +71%p, 장중은 +0.1%p (lib/genius.ts 주석)
     const holdEdge = nearClose && profitAboveCost ? computeHoldEdge(candles) : null;
@@ -1005,7 +1035,7 @@ export function runEngine(params: {
     if (volatilityRegime) {
       warnings.push(volatilityWarning(volForecast, ind, price, "보유"));
     }
-    targetPrice = roundToTick(holding.avgPrice + entryStopDist * 2, currency, "down"); // 손익비 1:2
+    targetPrice = roundToTick(holding.avgPrice + entryStopDist * 2, currency, "down", market); // 손익비 1:2
 
     if (price <= stopPrice) {
       action = "손절";
@@ -1052,14 +1082,14 @@ export function runEngine(params: {
       score >= 70 &&
       pnlPct >= 3 &&
       (holding.qty * price) / totalAsset < MAX_POSITION_WEIGHT &&
-      stockCash > price
+      stockCash >= minOrder
     ) {
       action = "추가매수";
       const budget =
         Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist) *
         volatilitySizeMultiplier *
         overlayMultiplier;
-      const capped = applyCorrelationCap(budget, price, params.correlationHeadroom, warnings);
+      const capped = applyCorrelationCap(budget, price, params.correlationHeadroom, warnings, crypto);
       suggestedBudget = capped.budget;
       suggestedQty = capped.qty;
       if (capped.qty === 0) action = "보유"; // 상관 한도 때문에 더 담을 수 없으면 추가매수가 아니다
@@ -1074,11 +1104,11 @@ export function runEngine(params: {
         reasons.push(`1차 익절선 ${dayTarget.toLocaleString()}원(평단 +${dayTargetPct.toFixed(1)}%, 하루 변동폭 1σ) — 여기 닿고 흐름이 꺾이면 절반 매도`);
       }
     }
-    scaledExit = buildScaledExit(holding.avgPrice, targetPrice, holding.qty, currency, dayTarget);
+    scaledExit = buildScaledExit(holding.avgPrice, targetPrice, holding.qty, currency, dayTarget, market);
   } else {
     // 미보유 — 단타용 진입 트리거를 항상 제시 (지금 조건 미충족이어도 "무엇을 봐야 하는지" 알려줌)
-    stopPrice = roundToTick(price - atrStopDist, currency, "up");
-    targetPrice = roundToTick(price + atrStopDist * 2, currency, "down");
+    stopPrice = roundToTick(price - atrStopDist, currency, "up", market);
+    targetPrice = roundToTick(price + atrStopDist * 2, currency, "down", market);
     entryTriggers = buildEntryTriggers(intraday, ind);
 
     if (atUpperLimit) {
@@ -1096,6 +1126,7 @@ export function runEngine(params: {
       // 거친 장세에서 성급한 신규 진입을 막는다. 점수가 충분히 높으면(68+) 아래 분기에서
       // 정상 진입시키되 예산만 줄인다.
       action = "관망";
+      volatilityHold = true; // 판정문·대기 매수가도 "보류"와 어긋나면 안 된다 (KB금융 사례: "매수를 고려하세요" + "진입 보류" 동시 출력)
       warnings.unshift(
         `${volatilityHeadline(volForecast, ind)} 신호가 아직 충분히 강하지 않아(점수 ${Math.round(score)}) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.`,
       );
@@ -1106,7 +1137,7 @@ export function runEngine(params: {
         ind.rsi14 > 72
           ? `RSI ${ind.rsi14.toFixed(0)}(과매수)`
           : `VWAP 대비 +${(vwapExtPct ?? 0).toFixed(1)}% 이격(기준 +${CHASE_VWAP_PCT.toFixed(1)}%)`;
-      const where = intraday?.available ? `VWAP(${roundToTick(intraday.vwap, currency, "nearest").toLocaleString()}원) 눌림 지정가` : "눌림목";
+      const where = intraday?.available ? `VWAP(${roundToTick(intraday.vwap, currency, "nearest", market).toLocaleString()}원) 눌림 지정가` : "눌림목";
       warnings.unshift(
         `추격 보정 — 종합 점수(${Math.round(score)}점)는 매수 신호지만 ${why}로 지금 시장가로 쫓아 사면 불리합니다(42일 실측: VWAP +1% 이상 위에서 산 신호의 당일 승률 38~41%). ${where}로 기다리세요 — 체결 안 되면 오늘은 없음`,
       );
@@ -1114,23 +1145,25 @@ export function runEngine(params: {
       action = "관망";
       waitKind = "장초반대기";
       const gate = intraday?.available
-        ? `VWAP(${roundToTick(intraday.vwap, currency, "nearest").toLocaleString()}원) 위 안착${intraday.openingRangeHigh ? ` 또는 오프닝레인지 상단(${roundToTick(intraday.openingRangeHigh, currency, "nearest").toLocaleString()}원) 돌파` : ""}`
+        ? `VWAP(${roundToTick(intraday.vwap, currency, "nearest", market).toLocaleString()}원) 위 안착${intraday.openingRangeHigh ? ` 또는 오프닝레인지 상단(${roundToTick(intraday.openingRangeHigh, currency, "nearest", market).toLocaleString()}원) 돌파` : ""}`
         : "분봉 데이터 확보";
       warnings.unshift(
         `장초반(${marketPhase.kstTime}) — 점수(${Math.round(score)}점)는 매수권이지만 첫 30분은 방향이 자주 뒤집힙니다. ${gate} 확인 후 진입하세요`,
       );
-    } else if (score >= 68 && stockCash <= price) {
+    } else if (score >= 68 && stockCash < minOrder) {
       // 예전에는 이 경우 조용히 "관망"으로 떨어져 사용자는 왜 안 사라는지 알 수 없었다
       action = "관망";
       warnings.unshift(
-        `현금 부족 — 점수(${Math.round(score)}점)는 매수 신호지만 1주 ${Math.round(price).toLocaleString()}${currency === "USD" ? "$" : "원"} > 보유 현금 ${Math.round(stockCash).toLocaleString()}${currency === "USD" ? "$" : "원"}. "내 자산 입력"에서 현금을 확인하세요`,
+        crypto
+          ? `예수금 부족 — 점수(${Math.round(score)}점)는 매수 신호지만 거래소 예수금 ${Math.round(stockCash).toLocaleString()}원이 최소 주문(${CRYPTO_MIN_ORDER_KRW.toLocaleString()}원)에 못 미칩니다. "내 자산 입력"에서 거래소 예수금을 확인하세요`
+          : `현금 부족 — 점수(${Math.round(score)}점)는 매수 신호지만 1${unit} ${Math.round(price).toLocaleString()}${currency === "USD" ? "$" : "원"} > 보유 현금 ${Math.round(stockCash).toLocaleString()}${currency === "USD" ? "$" : "원"}. "내 자산 입력"에서 현금을 확인하세요`,
       );
-    } else if (score >= 68 && stockCash > price) {
+    } else if (score >= 68 && stockCash >= minOrder) {
       const budget =
         Math.min(stockCash * ENTRY_FRACTION, (totalAsset * RISK_PER_TRADE * price) / atrStopDist) *
         volatilitySizeMultiplier *
         overlayMultiplier;
-      const capped = applyCorrelationCap(budget, price, params.correlationHeadroom, warnings);
+      const capped = applyCorrelationCap(budget, price, params.correlationHeadroom, warnings, crypto);
       if (capped.qty === 0) {
         // 상관 한도에 걸려 살 수 없으면 "사라"고 말하면 안 된다
         action = "관망";
@@ -1142,13 +1175,14 @@ export function runEngine(params: {
         if (volatilityRegime) {
           warnings.push(volatilityWarning(volForecast, ind, price, "신규"));
         }
-        scaledEntry = buildScaledEntry(price, suggestedQty, currency);
+        scaledEntry = buildScaledEntry(price, suggestedQty, currency, market);
         scaledExit = buildScaledExit(
           price,
           targetPrice,
           suggestedQty,
           currency,
-          roundToTick(price * (1 + dayTargetPct / 100), currency, "down"),
+          roundToTick(price * (1 + dayTargetPct / 100), currency, "down", market),
+          market,
         );
       }
     } else if (score >= 58) {
@@ -1164,12 +1198,12 @@ export function runEngine(params: {
   // 미보유 관망이라도 점수가 매수 근접(58+)이면 "어디에 지정가를 걸지"를 숫자로 준다 —
   // "기다리세요"로 끝나면 단타에는 쓸모가 없다. 상하한가·하루손실한도 상태는 제외.
   const waitEntryEligible =
-    !holding && action === "관망" && score >= 58 && !atUpperLimit && !atLowerLimit && !params.dailyStopTriggered;
+    !holding && action === "관망" && score >= 58 && !atUpperLimit && !atLowerLimit && !params.dailyStopTriggered && !volatilityHold;
   const suggestedEntryPrice =
     action === "신규매수" || action === "추가매수"
-      ? computeSuggestedEntryPrice(action, price, intraday, ind, currency)
+      ? computeSuggestedEntryPrice(action, price, intraday, ind, currency, "근접대기", market)
       : waitEntryEligible
-        ? computeSuggestedEntryPrice("관망", price, intraday, ind, currency, waitKind)
+        ? computeSuggestedEntryPrice("관망", price, intraday, ind, currency, waitKind, market)
         : null;
 
   const invalidation = buildInvalidation(intraday, macro);
@@ -1178,9 +1212,9 @@ export function runEngine(params: {
   // 왕복 거래비용(증권거래세+수수료) 추정 — 목표가가 비용 대비 실익이 얇으면 경고
   let estimatedRoundTripCostWon: number | null = null;
   if (holding && holding.qty > 0) {
-    estimatedRoundTripCostWon = Math.round(holding.qty * price * ROUND_TRIP_COST_PCT);
+    estimatedRoundTripCostWon = Math.round(holding.qty * price * costPct);
   } else if (suggestedBudget) {
-    estimatedRoundTripCostWon = Math.round(suggestedBudget * ROUND_TRIP_COST_PCT);
+    estimatedRoundTripCostWon = Math.round(suggestedBudget * costPct);
   }
 
   // 본전 가격 — 초보자가 가장 자주 놓치는 숫자다.
@@ -1189,13 +1223,13 @@ export function runEngine(params: {
   const breakEvenBase = holding && holding.qty > 0 ? holding.avgPrice : (suggestedEntryPrice?.price ?? null);
   const breakEvenPrice =
     breakEvenBase && breakEvenBase > 0
-      ? roundToTick(breakEvenBase * (1 + ROUND_TRIP_COST_PCT), currency, "up") // 올려서 잡아야 진짜 본전을 넘는다
+      ? roundToTick(breakEvenBase * (1 + costPct), currency, "up", market) // 올려서 잡아야 진짜 본전을 넘는다
       : null;
   if (targetPrice && (action === "신규매수" || action === "추가매수")) {
     const profitPct = ((targetPrice - price) / price) * 100;
-    if (profitPct < ROUND_TRIP_COST_PCT * 100 * 3) {
+    if (profitPct < costPct * 100 * 3) {
       warnings.push(
-        `목표가까지 예상 수익률(${profitPct.toFixed(2)}%)이 거래비용(왕복 약 ${(ROUND_TRIP_COST_PCT * 100).toFixed(2)}%) 대비 여유가 크지 않습니다 — 실익 재확인 필요`,
+        `목표가까지 예상 수익률(${profitPct.toFixed(2)}%)이 거래비용(왕복 약 ${(costPct * 100).toFixed(2)}%) 대비 여유가 크지 않습니다 — 실익 재확인 필요`,
       );
     }
   }
@@ -1265,7 +1299,7 @@ export function runEngine(params: {
     holding && action !== "추가매수"
       ? sellStrengthSummary(sellStrength as number, stopPrice, targetPrice)
       : buyStrengthSummary(buyStrength, price, entryBlocked, score);
-  const verdict = buildVerdict({ held: Boolean(holding), action, buyStrength, sellStrength, reasons, warnings, overheated: overheatedNow, entryBlocked });
+  const verdict = buildVerdict({ held: Boolean(holding), action, buyStrength, sellStrength, reasons, warnings, overheated: overheatedNow, entryBlocked, volatilityHold });
 
   // 예상 경로(차트용) — 조회 시점부터 마감까지 + D+1/D+2의 확률 구간.
   // 방향성은 과거 같은 국면의 5일 중앙값을 하루치로 환산한 값만(±0.5% 제한) 반영한다.
@@ -1292,7 +1326,8 @@ export function runEngine(params: {
   // 오늘 체결이 가능한 가격 범위 — 상한가·하한가와 정적VI(전일 종가 ±10%) 발동가.
   // 국내 시장은 특정 가격에 닿으면 거래 방식이 바뀌는데(2분 단일가), 초보자는 이걸 모르고
   // "왜 체결이 안 되지"를 겪는다. 전일 종가를 모르면 조용히 생략된다.
-  const priceLimits = currency === "KRW" ? computePriceLimits(params.prevClose ?? null, price) : null;
+  // 상하한가·정적VI는 KRX 규칙 — 가상자산·미국 주식에는 없다
+  const priceLimits = market === "KR" ? computePriceLimits(params.prevClose ?? null, price) : null;
 
   // 파생 가격 최종 검문 — 실제 주문에 쓰이는 값이라 "이상하면 숨긴다"가 원칙이다.
   //
