@@ -1695,6 +1695,9 @@ details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
 .doit-hold .doit-verb { color: #b26a00; }
 .doit-wait { background: var(--gray-weak); }
 .doit-wait .doit-verb { color: var(--text-weak); }
+/* 지정가 대기 — "사세요"(즉시)와 구분되는 "이 가격에 걸어두세요". 매수 계열이라 파란 톤이되 연하게 */
+.doit-limit { background: #eef4ff; }
+.doit-limit .doit-verb { color: #2f6fd6; }
 /* 미보유 + 매도신호 = "사지 마세요". 파란 계열이지만 매수(doit-buy)와 헷갈리지 않게 톤을 낮춘다 */
 .doit-avoid { background: var(--gray-weak); }
 .doit-avoid .doit-verb { color: #8a5a5f; }

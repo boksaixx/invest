@@ -783,22 +783,51 @@ export default function Home() {
               const lv = sg.forecastPath?.orderLevels;
               const isSell = act === "손절" || act === "전량매도" || act === "부분매도";
               if (isSell && hold) {
-                if (act === "부분매도")
-                  return { rank: 1, kind: "sell", name: sg.name, verb: "절반 파세요", detail: `보유 ${hold.qty}주 중 ${Math.max(1, Math.floor(hold.qty / 2))}주 · ${px(ai?.targetPrice ?? sg.targetPrice)} 부근` };
+                if (act === "부분매도") {
+                  // 단타 청산(1σ 익절·VWAP 이탈·마감 전 청산)은 "지금 시장가로 절반"이 결론이다 —
+                  // 목표가 부근이 아니라 현재가에서 판다. 엔진 근거 첫 문장이 이유를 말한다.
+                  const dayExit = /익절선|VWAP.*하향 이탈|마감 전/.test(sg.reasons[0] ?? "");
+                  return {
+                    rank: 1, kind: "sell", name: sg.name, verb: "절반 파세요",
+                    detail: dayExit
+                      ? `보유 ${hold.qty}주 중 ${Math.max(1, Math.floor(hold.qty / 2))}주 · 지금 ${px(sg.price)} 부근에서 · ${(sg.reasons[0] ?? "").split(" — ")[0].slice(0, 44)}`
+                      : `보유 ${hold.qty}주 중 ${Math.max(1, Math.floor(hold.qty / 2))}주 · ${px(ai?.targetPrice ?? sg.targetPrice)} 부근`,
+                  };
+                }
                 return { rank: 0, kind: "sell", name: sg.name, verb: "지금 파세요", detail: `보유 ${hold.qty}주 전량 · ${px(ai?.stopPrice ?? sg.stopPrice)} 아래면 즉시` };
               }
               if (isSell)
-                return { rank: 4, kind: "avoid", name: sg.name, verb: "사지 마세요", detail: "떨어지는 흐름이라 지금 새로 들어갈 자리가 아닙니다 (보유분 없음)" };
+                return { rank: 5, kind: "avoid", name: sg.name, verb: "사지 마세요", detail: "떨어지는 흐름이라 지금 새로 들어갈 자리가 아닙니다 (보유분 없음)" };
               if (act === "신규매수" || act === "추가매수") {
                 const qty = sg.suggestedQty && sg.suggestedQty > 0 ? `${sg.suggestedQty}주` : "수량은 종목 탭 참고";
                 return { rank: 2, kind: "buy", name: sg.name, verb: hold ? "더 사세요" : "사세요", detail: `${px(ai?.entryPrice ?? sg.suggestedEntryPrice)} · ${qty} · 손절 ${px(ai?.stopPrice ?? sg.stopPrice)}` };
               }
-              if (hold)
-                return { rank: 3, kind: "hold", name: sg.name, verb: "그대로 두세요", detail: `보유 ${hold.qty}주 · ${px(ai?.stopPrice ?? sg.stopPrice)} 깨지면 그때 파세요` };
-              return { rank: 5, kind: "wait", name: sg.name, verb: "기다리세요", detail: lv ? `${px(lv.buyPrice)}까지 내려오면 그때 검토 (오늘 닿을 확률 ${lv.buyProbPct}%)` : "지금은 살 이유가 없습니다" };
+              if (hold) {
+                const exit1 = sg.scaledExit[0];
+                return {
+                  rank: 4, kind: "hold", name: sg.name, verb: "그대로 두세요",
+                  detail: `보유 ${hold.qty}주 · ${px(ai?.stopPrice ?? sg.stopPrice)} 깨지면 파세요${exit1 ? ` · ${px(exit1.price)} 닿고 꺾이면 절반 익절` : ""}`,
+                };
+              }
+              // 미보유 관망 — "기다리세요"로 끝내지 않는다. 단타는 어디에 지정가를 걸지가 전부다.
+              // 우선순위: ① 오늘의 작전 눌림목(5년 4구간 검증 플러스) ② 엔진 대기 매수가(점수 58+) ③ 도달확률 지정가
+              const dip = result.todayPlan?.trades.find((t) => t.ticker === sg.ticker && t.kind === "눌림목매수" && t.entryPrice != null);
+              if (dip) {
+                return {
+                  rank: 3, kind: "limit", name: sg.name, verb: "지정가 걸어두세요",
+                  detail: `${px(dip.entryPrice)} 매수 대기${dip.suggestedQty ? ` · ${dip.suggestedQty}주` : ""} · 익절 ${px(dip.targetPrice)} / 손절 ${px(dip.stopPrice)} · 미체결이면 오늘은 없음`,
+                };
+              }
+              if (sg.suggestedEntryPrice != null && sg.score >= 58) {
+                return {
+                  rank: 3, kind: "limit", name: sg.name, verb: "지정가 걸어두세요",
+                  detail: `${px(ai?.entryPrice ?? sg.suggestedEntryPrice)} 매수 대기 · 손절 ${px(ai?.stopPrice ?? sg.stopPrice)} · ${(sg.entryPriceBasis ?? "").split(" — ")[0].slice(0, 40)}`,
+                };
+              }
+              return { rank: 6, kind: "wait", name: sg.name, verb: "기다리세요", detail: lv ? `${px(lv.buyPrice)}까지 내려오면 그때 검토 (오늘 닿을 확률 ${lv.buyProbPct}%)` : "지금은 살 이유가 없습니다" };
             }).sort((a, b) => a.rank - b.rank);
-            const act = rows.filter((r) => r.rank <= 3);
-            const wait = rows.filter((r) => r.rank >= 4);
+            const act = rows.filter((r) => r.rank <= 4);
+            const wait = rows.filter((r) => r.rank >= 5);
             return (
               <>
                 {act.map((r) => (
@@ -1619,6 +1648,13 @@ export default function Home() {
                 {(action === "신규매수" || action === "추가매수") && (ai?.entryPrice ?? sig.suggestedEntryPrice) != null && (
                   <div className="kv-row">
                     <span className="k">{held ? "추가 매수가 (피라미딩)" : "매수 진입가"}</span>
+                    <span className="v">{fmt(ai?.entryPrice ?? sig.suggestedEntryPrice, currency)}</span>
+                  </div>
+                )}
+                {/* 미보유 관망이라도 점수가 매수 근접이면 엔진이 "어디에 지정가를 걸지"를 준다 (추격대기·장초반대기·근접대기) */}
+                {!held && action === "관망" && (ai?.entryPrice ?? sig.suggestedEntryPrice) != null && (
+                  <div className="kv-row">
+                    <span className="k">대기 매수가 (지정가)</span>
                     <span className="v">{fmt(ai?.entryPrice ?? sig.suggestedEntryPrice, currency)}</span>
                   </div>
                 )}

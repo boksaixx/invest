@@ -35,10 +35,33 @@ import { computeUpRate } from "./upRate";
 import { buildForecastPath, driftFromScenario, kstMinutesNow } from "./forecastPath";
 import { computeScenarioOutlook, type ScenarioTable } from "./scenario";
 import { computePriceLimits } from "./priceLimits";
+import { computeHoldEdge } from "./genius";
 
 const MAX_POSITION_WEIGHT = 0.5; // 한 종목 최대 비중 (총자산 대비)
 const ENTRY_FRACTION = 0.25; // 1회 매수 시 현금 대비 최대 비율
 const RISK_PER_TRADE = 0.01; // 1회 매매 허용 손실 = 총자산의 1%
+
+// ── 단타 진입·청산 파라미터 (2026-09 고도화) ─────────────────────────────────────────
+//
+// "추격 매수" 판정을 "당일 고가권(레인지 95%+)"에서 "VWAP 대비 이격"으로 바꿨다.
+// 실측 근거 (scripts/validate-chase-rule.ts):
+//  · 42일 자동수집 로그(2026-07-19~09-04)에서 신규 진입이 막힌 129건 중 126건이 고가권 규칙 때문이었다.
+//    점수 90+ 종목이 "절대 금지"로 막혔지만, 차단된 신호의 사후 성과(익일 +0.14%, 승률 61%)는
+//    허용된 신호(익일 -0.06%, 승률 51%)보다 나쁘지 않았다 — 차단이 아무것도 지키지 못했다.
+//  · 5년 일봉에서 "고가권 마감" 다음날 수익률은 평균 -0.08%, 승률 42.6% — 저가권 마감(+0.39%)보다
+//    낮긴 하지만 상승일에 한정하면 -0.01%로 사실상 0. 강한 종목은 고가권에서 마감하는 게 정상이라
+//    이 규칙은 "강한 놈을 못 사게 막는" 규칙이었다.
+//  · 로그를 VWAP 이격으로 나누면 +1~2% 구간이 당일 승률 38%, 익일 -2.0%로 가장 나빴고(n=24),
+//    +2% 이상은 당일 승률 41%로 역시 낮았다(익일은 +2.1%/78%, n=18 — 추세 지속. 단타는 당일 기준이라
+//    시장가 추격보다 VWAP 눌림 지정가가 맞지만, 며칠 들고 갈 거면 이 구간이 나빴다고 볼 수 없다).
+//    "얼마나 위로 벌어졌나"가 "레인지 어디쯤이냐"보다 추격 위험을 직접적으로 재고, 무엇보다
+//    "사지 마라" 대신 "VWAP 가격에 걸어라"라는 실행 가능한 답이 나온다.
+//  표본이 수십 건이라 임계값 2.0%는 최적화 값이 아니라 설계값이다. 데이터가 쌓이면 재검증할 것.
+export const CHASE_VWAP_PCT = 2.0; // VWAP 대비 이 % 이상 위면 시장가 추격 대신 VWAP 눌림 지정가로 대기
+// 보유 종목의 "1차 익절" — 손익비 1:2 목표(평단 +6% 이상)는 하루 안에 거의 닿지 않아 보유 종목이
+// 영원히 "그대로 두세요"로 남았다. 하루 변동성 1σ(lib/genius.ts 눌림목 플레이북과 같은 +1.0σ,
+// 4개 구간 검증 플러스)를 1차 익절선으로 두고, 그 위에서 장중 모멘텀이 꺾이면 절반을 챙긴다.
+export const DAY_TARGET_SIGMA = 1.0;
 // 왕복 거래비용 — 국내 주식은 "매도할 때만" 세금을 낸다. 매수에는 수수료만 붙는다.
 //
 //   매도 시 세금   0.15%  (2025년 이후 코스피·코스닥 공통. 코스피는 증권거래세 0% + 농어촌특별세 0.15%,
@@ -456,6 +479,8 @@ function computeSuggestedEntryPrice(
   intraday: IntradayInsight | null,
   ind: Indicators,
   currency: "KRW" | "USD" = "KRW",
+  // 관망일 때 어떤 성격의 대기인지 — 지정가를 어디에 걸어야 하는지가 달라진다
+  waitKind: "추격대기" | "장초반대기" | "근접대기" = "근접대기",
 ): { price: number; basis: string } | null {
   const tick = (v: number) => roundToTick(v, currency, "nearest");
   if (action === "신규매수") {
@@ -466,9 +491,28 @@ function computeSuggestedEntryPrice(
   }
   if (action === "관망") {
     if (intraday?.available) {
+      const vwap = tick(intraday.vwap);
+      if (waitKind === "추격대기") {
+        return {
+          price: vwap,
+          basis: `점수는 매수 신호지만 VWAP 대비 +${intraday.distanceFromVwapPct.toFixed(1)}% 벌어져 있어 시장가 추격 대신 VWAP(${vwap.toLocaleString()}원) 눌림 지정가로 대기`,
+        };
+      }
+      if (waitKind === "장초반대기") {
+        const orbHigh = intraday.openingRangeHigh ? tick(intraday.openingRangeHigh) : null;
+        // 오프닝레인지가 아직 안 만들어진 09:00~09:30에는 VWAP 위 안착이 유일한 확인 수단이다
+        return orbHigh && price < orbHigh
+          ? { price: orbHigh, basis: `장초반 — 오프닝레인지 상단(${orbHigh.toLocaleString()}원) 돌파 확인 후 진입 (돌파 전 추격 금지)` }
+          : { price: vwap, basis: `장초반 — VWAP(${vwap.toLocaleString()}원) 위 안착 확인 후 진입 (첫 30분은 방향이 자주 뒤집힘)` };
+      }
+      // 근접 대기: 현재가가 VWAP 위면 VWAP까지 눌림을 기다리고, 아래면 VWAP 회복을 기다린다 —
+      // 어느 쪽이든 "VWAP 가격에 지정가"가 답이라 사용자는 숫자 하나만 기억하면 된다.
       return {
-        price: tick(intraday.vwap),
-        basis: `VWAP(${tick(intraday.vwap).toLocaleString()}원) 상향 돌파 + 거래량 증가 확인 시 진입`,
+        price: vwap,
+        basis:
+          price >= vwap
+            ? `VWAP(${vwap.toLocaleString()}원) 눌림에 지정가 매수 대기 — 체결 안 되면 오늘은 없음(추격 금지)`
+            : `VWAP(${vwap.toLocaleString()}원) 회복 + 거래량 증가 확인 시 진입`,
       };
     }
     return { price: tick(ind.ma20), basis: `20일선(${tick(ind.ma20).toLocaleString()}원) 회복 확인 시 진입 검토 (장중 데이터 미확보)` };
@@ -589,13 +633,28 @@ function buildScaledEntry(price: number, qty: number | null, currency: "KRW" | "
   ];
 }
 
-function buildScaledExit(entryPrice: number, targetPrice: number | null, qty: number | null, currency: "KRW" | "USD"): ScaledOrder[] {
+function buildScaledExit(
+  entryPrice: number,
+  targetPrice: number | null,
+  qty: number | null,
+  currency: "KRW" | "USD",
+  // 1차 익절선 — 하루 변동성 1σ 기준(단타). 없으면 예전처럼 목표가의 절반 지점.
+  dayTarget: number | null = null,
+): ScaledOrder[] {
   if (!targetPrice || !qty) return [];
   // 익절가는 내림 — 올리면 도달이 어려워져 제시한 계획보다 불리해진다
-  const t1 = roundToTick(entryPrice + (targetPrice - entryPrice) * 0.5, currency, "down");
+  const mid = roundToTick(entryPrice + (targetPrice - entryPrice) * 0.5, currency, "down");
+  const t1 = dayTarget != null && dayTarget > entryPrice && dayTarget < targetPrice ? dayTarget : mid;
   const q1 = Math.ceil(qty * 0.5);
   return [
-    { price: t1, qty: q1, note: "1차 익절 (50%) — 손익비 1:1 도달 시 우선 실현" },
+    {
+      price: t1,
+      qty: q1,
+      note:
+        t1 === mid
+          ? "1차 익절 (50%) — 손익비 1:1 도달 시 우선 실현"
+          : "1차 익절 (50%) — 하루 변동폭(1σ) 도달 시. 여기서 장중 흐름이 꺾이면 절반은 챙기세요",
+    },
     { price: targetPrice, qty: qty - q1, note: "2차 익절 (나머지) — 목표가 도달 또는 트레일링 스탑으로 관리" },
   ];
 }
@@ -624,14 +683,17 @@ function computeSellStrength(params: {
   score: number;
   pnlPct: number;
   rsi14: number;
+  // 단타 청산 룰이 "절반 매도"로 결론냈는지 — 엔진 action과 강도가 반대를 말하면 안 된다
+  dayExit: boolean;
 }): number {
-  const { price, stopPrice, targetPrice, score, pnlPct, rsi14 } = params;
+  const { price, stopPrice, targetPrice, score, pnlPct, rsi14, dayExit } = params;
   if (stopPrice != null && price <= stopPrice) return 10; // 손절선 이탈 — 즉시
   if (pnlPct <= -7) return 10; // 손실 -7% 초과 — 즉시
   if (score <= 25) return 9;
   if (score <= 32) return 8; // 엔진 전량매도 임계값
   if (targetPrice != null && price >= targetPrice && score < 60) return 8; // 목표가 도달 + 모멘텀 둔화
   if (targetPrice != null && price >= targetPrice) return 6; // 목표가 도달, 모멘텀은 유지
+  if (dayExit) return 6; // 1σ 익절선 위에서 흐름 꺾임 / VWAP 이탈 / 마감 전 당일 청산 — 절반 매도
   if (rsi14 >= 75 && pnlPct > 3) return 5; // 과열 + 수익 중 — 일부 차익실현 고려
   if (score <= 40) return 5;
   if (score <= 48) return 3;
@@ -676,7 +738,11 @@ function verbPhrase(
   entryBlocked: boolean,
 ): { text: string; tone: "buy" | "sell" | "danger" | "neutral" } {
   if (!held) {
-    if (overheated) return { text: "지금은 추격 매수하지 마세요 (절대 금지)", tone: "danger" };
+    // 추격 구간(VWAP 대비 크게 벌어짐/RSI 과매수)에서 점수가 매수권이면 "금지"가 아니라
+    // "어디서 사라"를 말한다 — 예전 "절대 금지"는 점수 98점 종목에도 붙어 사용자가 앱을 못 믿게 했다.
+    // 근거 가격(VWAP 눌림 지정가)은 buildVerdict가 첫 경고문에서 붙인다.
+    if (overheated && entryBlocked) return { text: "지금 추격하지 말고 눌림목 지정가로 기다리세요", tone: "neutral" };
+    if (overheated) return { text: "지금은 매수하지 마세요 (과열 구간)", tone: "neutral" };
     // 막힌 이유가 과열이 아닐 때(변동성·상관한도·하루손실한도)도 "매수를 고려하세요"라고 하면
     // 바로 아래 경고문("신규 매수를 멈췄습니다")과 정면으로 부딪힌다. 실제로 그렇게 나갔다.
     if (entryBlocked) return { text: "점수는 좋지만 지금 살 자리는 아니에요", tone: "neutral" };
@@ -707,7 +773,16 @@ function buildVerdict(params: {
   const sellStrength = params.sellStrength ?? 0;
   const { text, tone } = verbPhrase(held, action, buyStrength, sellStrength, !held && overheated, !held && entryBlocked);
   // 근거 문장 선택: 매수 쪽 판정이면 긍정 근거(reasons)를, 위험/매도 쪽 판정이면 경고(warnings)를 우선 인용한다.
-  const groundingPool = tone === "buy" ? [...reasons, ...warnings] : [...warnings, ...reasons];
+  // 단, 매도 판정의 직접 원인(익절선 도달·VWAP 이탈·당일 청산)은 reasons 맨 앞에 들어오므로
+  // 그 문장이 있으면 변동성 경고 같은 일반 경고보다 먼저 인용한다.
+  // "과매도" 같은 지표 문구에 걸리지 않도록 청산 사유 문장에만 있는 표현으로 좁힌다
+  const exitCause = reasons.find((r) => /1차 익절선|하향 이탈|마감 전\(|목표가.*도달|차익실현|수익 확정|절반 매도/.test(r));
+  const groundingPool =
+    tone === "buy"
+      ? [...reasons, ...warnings]
+      : tone === "sell" && exitCause
+        ? [exitCause, ...warnings, ...reasons]
+        : [...warnings, ...reasons];
   const grounding = groundingPool[0];
   const icon = tone === "buy" ? "🟢" : tone === "sell" ? "🔵" : tone === "danger" ? "🔴" : "⚪";
   return grounding ? `${icon} ${text} — ${grounding}` : `${icon} ${text}`;
@@ -785,8 +860,11 @@ export function runEngine(params: {
   const disc = disclosureScore(params.disclosures);
   const flow = investorFlowScore(params.investorFlow, ind.avgVolume20);
 
-  // 장초반/점심시간대는 신호 신뢰도가 낮으므로 가중치를 낮춘다 (과최적화된 진입 방지)
-  const phaseDampener = marketPhase.phase === "장초반" || marketPhase.phase === "점심시간대" ? 0.7 : 1;
+  // 점심시간대는 거래량이 줄어 신호가 약하게 나오므로 가중치를 소폭 낮춘다.
+  // 장초반(09:00~09:30) 0.7배 감쇄는 뺐다 — 단타가 가장 필요한 시간대에 점수 75가 67로 눌려
+  // 신호가 통째로 사라졌다(42일 로그: 장초반 35행 중 신규매수 6, 차단 12). 대신 아래에서
+  // "VWAP 위 안착/오프닝레인지 돌파"라는 장중 확인을 요구해 방향 확정 전 추격만 막는다.
+  const phaseDampener = marketPhase.phase === "점심시간대" ? 0.85 : 1;
 
   let score = Math.max(
     0,
@@ -825,9 +903,16 @@ export function runEngine(params: {
       : null;
   const atrStopDist = orRangeDist && orRangeDist > price * 0.005 ? Math.min(dailyAtrDist, orRangeDist * 1.3) : dailyAtrDist;
 
-  // 기술적/기본적 교차 검증 보정: 뉴스·매크로가 아무리 우호적이어도 RSI 과매수(72+) 또는
-  // 당일 고가권(레인지 상위 95%+) 근접이면 신규 진입을 보류한다 (미보유 시에만 의미 있는 판단).
-  const overheatedNow = ind.rsi14 > 72 || (intraday?.available === true && intraday.rangePositionPct >= 95);
+  // 추격 판정: RSI 과매수(72+) 또는 VWAP 대비 +CHASE_VWAP_PCT% 이상 이격.
+  // 예전 "당일 고가권(레인지 95%+)" 기준은 뺐다 — 근거와 실측은 파일 상단 CHASE_VWAP_PCT 주석 참조.
+  // 이 상태에서 점수가 매수권이면 "사지 마라"가 아니라 "VWAP 눌림 지정가로 기다려라"로 답한다.
+  const vwapExtPct = intraday?.available ? intraday.distanceFromVwapPct : null;
+  const overheatedNow = ind.rsi14 > 72 || (vwapExtPct != null && vwapExtPct > CHASE_VWAP_PCT);
+  // 장초반(첫 30분)은 방향이 자주 뒤집힌다 — 점수를 깎는 대신 VWAP 위 안착(또는 오프닝레인지
+  // 상단 돌파)이라는 장중 확인을 요구한다. 분봉이 없으면 확인할 수 없으므로 통과시키지 않는다.
+  const earlyUnconfirmed =
+    marketPhase.phase === "장초반" &&
+    !(intraday?.available && (intraday.orbStatus === "상단돌파" || intraday.distanceFromVwapPct > 0));
 
   // 상한가/하한가(국내 가격제한폭 ±30%) 도달 — 요즘처럼 대장주가 상한가를 치는 장세에서는
   // RSI 과매수보다 훨씬 강력하고 명확한 "오늘은 더 못 오른다/더 못 내린다" 신호다.
@@ -873,6 +958,19 @@ export function runEngine(params: {
   let entryTriggers: string[] = [];
   let scaledEntry: ScaledOrder[] = [];
   let scaledExit: ScaledOrder[] = [];
+  // 관망일 때 어떤 대기인지 (지정가를 어디에 걸지 결정)
+  let waitKind: "추격대기" | "장초반대기" | "근접대기" = "근접대기";
+  // 단타 청산 룰(1σ 익절 후 꺾임 / VWAP 이탈 / 마감 전 당일 청산)로 절반 매도를 결론냈는지
+  let dayExit = false;
+
+  // 하루 변동성(σ, %) — 단타 익절선의 단위. 추정 모델이 없으면 ATR로 근사한다.
+  const sigmaDailyPct = volForecast.available
+    ? volForecast.sigmaDailyPct
+    : !isNaN(ind.atr14) && price > 0
+      ? (ind.atr14 / price) * 100
+      : 2.5;
+  // 1σ 익절은 최소한 왕복 거래비용의 3배는 넘어야 실익이 있다
+  const dayTargetPct = Math.max(DAY_TARGET_SIGMA * sigmaDailyPct, ROUND_TRIP_COST_PCT * 100 * 3);
 
   if (holding) {
     pnlPct = ((price - holding.avgPrice) / holding.avgPrice) * 100;
@@ -883,6 +981,20 @@ export function runEngine(params: {
       stopPrice = Math.max(stopPrice, roundToTick(price - ind.atr14 * 2, currency, "up"));
       reasons.push("수익 구간 — 트레일링 스탑(고점 추적 손절선) 적용");
     }
+    // 단타 1차 익절선(평단 + 1σ)과 "장중 흐름이 꺾였는가" 판정
+    const dayTarget = roundToTick(holding.avgPrice * (1 + dayTargetPct / 100), currency, "down");
+    const intradayWeak =
+      intraday?.available === true &&
+      intraday.isToday &&
+      (intraday.distanceFromVwapPct < 0 || intraday.momentum === "하락" || intraday.momentum === "강한하락" || intraday.orbStatus === "하단이탈");
+    const vwapLost =
+      intraday?.available === true && intraday.isToday && intraday.distanceFromVwapPct < -0.15 && intraday.momentum === "강한하락";
+    const nearClose = marketPhase.phase === "마감임박" || marketPhase.phase === "동시호가";
+    const profitAboveCost = pnlPct >= ROUND_TRIP_COST_PCT * 100 * 3;
+    // 오버나이트 갭이 수익의 대부분이었던 국면(보유우위)이면 당일 청산을 강요하지 않는다 —
+    // 실측: 삼성전자 최근 6개월 수익 +71% 중 갭이 +71%p, 장중은 +0.1%p (lib/genius.ts 주석)
+    const holdEdge = nearClose && profitAboveCost ? computeHoldEdge(candles) : null;
+    const holdFavored = holdEdge?.available === true && holdEdge.verdict === "보유우위";
     if (atUpperLimit) {
       warnings.unshift(
         `오늘 상한가(+${params.changePct!.toFixed(1)}%) 도달 — 오늘은 더 이상 오를 여력이 없습니다. 추가매수는 절대 금지, 익일 시가가 크게 벌어질 수 있는 갭 리스크에 대비해 일부 차익실현을 고려하세요.`,
@@ -913,6 +1025,29 @@ export function runEngine(params: {
     } else if (price >= targetPrice) {
       action = "부분매도";
       reasons.unshift("목표가 도달 — 절반 수익 실현, 나머지는 트레일링 스탑으로 관리");
+    } else if (price >= dayTarget && intradayWeak) {
+      // 단타 청산 ①: 1σ 익절선 위에서 장중 흐름이 꺾임 — 절반은 챙긴다
+      action = "부분매도";
+      dayExit = true;
+      reasons.unshift(
+        `1차 익절선(평단 +${dayTargetPct.toFixed(1)}% = ${dayTarget.toLocaleString()}원) 위에서 장중 흐름이 꺾임(${
+          intraday!.distanceFromVwapPct < 0 ? "VWAP 아래" : intraday!.orbStatus === "하단이탈" ? "오프닝레인지 하단 이탈" : "최근 30분 음봉 우세"
+        }) — 절반 매도로 수익 확보, 나머지는 손절선(${stopPrice.toLocaleString()}원)으로 관리`,
+      );
+    } else if (vwapLost && profitAboveCost) {
+      // 단타 청산 ②: 수익 중인데 VWAP을 강하게 깨고 내려감 — 당일 매수세가 매도세로 바뀐 신호
+      action = "부분매도";
+      dayExit = true;
+      reasons.unshift(
+        `수익 +${pnlPct.toFixed(1)}% 상태에서 VWAP(${Math.round(intraday!.vwap).toLocaleString()}원) 하향 이탈 + 최근 30분 강한 하락 — 당일 매수세가 꺾였으니 절반 매도로 수익 보호`,
+      );
+    } else if (nearClose && profitAboveCost && !holdFavored) {
+      // 단타 청산 ③: 마감 50분 전, 비용 차감 후 수익이면 절반은 당일 청산 — 밤사이 갭 리스크를 반으로 줄인다
+      action = "부분매도";
+      dayExit = true;
+      reasons.unshift(
+        `마감 전(${marketPhase.kstTime}) 수익 +${pnlPct.toFixed(1)}% — 단타 원칙상 절반은 오늘 청산해 밤사이 갭 리스크를 줄이세요. 나머지는 손절선(${stopPrice.toLocaleString()}원)을 예약해 두고 넘기거나 전량 정리`,
+      );
     } else if (ind.rsi14 > 75 && pnlPct > 3) {
       action = "부분매도";
       reasons.unshift("단기 과열 + 수익 구간 — 일부 차익실현 권고");
@@ -932,8 +1067,15 @@ export function runEngine(params: {
       else reasons.unshift("수익 중 + 신호 강세 — 피라미딩(불타기) 조건 충족");
     } else {
       action = "보유";
+      if (nearClose && profitAboveCost && holdFavored) {
+        reasons.push(
+          `마감 전 수익 +${pnlPct.toFixed(1)}% — 최근 6개월 이 종목 수익은 대부분 밤사이 갭에서 나와(보유우위 국면) 당일 청산을 강요하지 않습니다. 넘길 거면 손절선(${stopPrice.toLocaleString()}원) 예약은 필수`,
+        );
+      } else if (pnlPct > 0 && pnlPct < dayTargetPct) {
+        reasons.push(`1차 익절선 ${dayTarget.toLocaleString()}원(평단 +${dayTargetPct.toFixed(1)}%, 하루 변동폭 1σ) — 여기 닿고 흐름이 꺾이면 절반 매도`);
+      }
     }
-    scaledExit = buildScaledExit(holding.avgPrice, targetPrice, holding.qty, currency);
+    scaledExit = buildScaledExit(holding.avgPrice, targetPrice, holding.qty, currency, dayTarget);
   } else {
     // 미보유 — 단타용 진입 트리거를 항상 제시 (지금 조건 미충족이어도 "무엇을 봐야 하는지" 알려줌)
     stopPrice = roundToTick(price - atrStopDist, currency, "up");
@@ -960,8 +1102,29 @@ export function runEngine(params: {
       );
     } else if (score >= 68 && overheatedNow) {
       action = "관망";
+      waitKind = "추격대기";
+      const why =
+        ind.rsi14 > 72
+          ? `RSI ${ind.rsi14.toFixed(0)}(과매수)`
+          : `VWAP 대비 +${(vwapExtPct ?? 0).toFixed(1)}% 이격(기준 +${CHASE_VWAP_PCT.toFixed(1)}%)`;
+      const where = intraday?.available ? `VWAP(${roundToTick(intraday.vwap, currency, "nearest").toLocaleString()}원) 눌림 지정가` : "눌림목";
       warnings.unshift(
-        `기술적 과열 보정 — 종합 점수(${Math.round(score)}점)는 매수 신호였지만 RSI ${ind.rsi14.toFixed(0)}(과매수) 또는 당일 고가권 근접으로 신규 진입을 보류합니다. 뉴스·매크로가 우호적이어도 추격 매수는 금지, 눌림목 또는 과열 해소 후 재진입 검토`,
+        `추격 보정 — 종합 점수(${Math.round(score)}점)는 매수 신호지만 ${why}로 지금 시장가로 쫓아 사면 불리합니다(42일 실측: VWAP +1% 이상 위에서 산 신호의 당일 승률 38~41%). ${where}로 기다리세요 — 체결 안 되면 오늘은 없음`,
+      );
+    } else if (score >= 68 && earlyUnconfirmed) {
+      action = "관망";
+      waitKind = "장초반대기";
+      const gate = intraday?.available
+        ? `VWAP(${roundToTick(intraday.vwap, currency, "nearest").toLocaleString()}원) 위 안착${intraday.openingRangeHigh ? ` 또는 오프닝레인지 상단(${roundToTick(intraday.openingRangeHigh, currency, "nearest").toLocaleString()}원) 돌파` : ""}`
+        : "분봉 데이터 확보";
+      warnings.unshift(
+        `장초반(${marketPhase.kstTime}) — 점수(${Math.round(score)}점)는 매수권이지만 첫 30분은 방향이 자주 뒤집힙니다. ${gate} 확인 후 진입하세요`,
+      );
+    } else if (score >= 68 && stockCash <= price) {
+      // 예전에는 이 경우 조용히 "관망"으로 떨어져 사용자는 왜 안 사라는지 알 수 없었다
+      action = "관망";
+      warnings.unshift(
+        `현금 부족 — 점수(${Math.round(score)}점)는 매수 신호지만 1주 ${Math.round(price).toLocaleString()}${currency === "USD" ? "$" : "원"} > 보유 현금 ${Math.round(stockCash).toLocaleString()}${currency === "USD" ? "$" : "원"}. "내 자산 입력"에서 현금을 확인하세요`,
       );
     } else if (score >= 68 && stockCash > price) {
       const budget =
@@ -979,7 +1142,13 @@ export function runEngine(params: {
           warnings.push(volatilityWarning(volForecast, ind, price, "신규"));
         }
         scaledEntry = buildScaledEntry(price, suggestedQty, currency);
-        scaledExit = buildScaledExit(price, targetPrice, suggestedQty, currency);
+        scaledExit = buildScaledExit(
+          price,
+          targetPrice,
+          suggestedQty,
+          currency,
+          roundToTick(price * (1 + dayTargetPct / 100), currency, "down"),
+        );
       }
     } else if (score >= 58) {
       action = "관망";
@@ -991,8 +1160,16 @@ export function runEngine(params: {
 
   // 보유 중이라도 action이 "추가매수"(피라미딩)면 매수 진입가 개념이 여전히 유효하다.
   // 그 외 보유 중(매도 판단/단순 보유)에는 매수 진입가 개념이 없으므로 null.
+  // 미보유 관망이라도 점수가 매수 근접(58+)이면 "어디에 지정가를 걸지"를 숫자로 준다 —
+  // "기다리세요"로 끝나면 단타에는 쓸모가 없다. 상하한가·하루손실한도 상태는 제외.
+  const waitEntryEligible =
+    !holding && action === "관망" && score >= 58 && !atUpperLimit && !atLowerLimit && !params.dailyStopTriggered;
   const suggestedEntryPrice =
-    action === "신규매수" || action === "추가매수" ? computeSuggestedEntryPrice(action, price, intraday, ind, currency) : null;
+    action === "신규매수" || action === "추가매수"
+      ? computeSuggestedEntryPrice(action, price, intraday, ind, currency)
+      : waitEntryEligible
+        ? computeSuggestedEntryPrice("관망", price, intraday, ind, currency, waitKind)
+        : null;
 
   const invalidation = buildInvalidation(intraday, macro);
   const watchOrderNote = buildWatchOrderNote(action, price, stopPrice, targetPrice, currency);
@@ -1079,7 +1256,9 @@ export function runEngine(params: {
   const buyStrengthRaw = scoreToBuyStrength(score);
   const entryBlocked = !holding && action === "관망" && buyStrengthRaw >= 7;
   const buyStrength = entryBlocked ? 5 : buyStrengthRaw;
-  const sellStrength = holding ? computeSellStrength({ price, stopPrice, targetPrice, score, pnlPct: pnlPct ?? 0, rsi14: ind.rsi14 }) : null;
+  const sellStrength = holding
+    ? computeSellStrength({ price, stopPrice, targetPrice, score, pnlPct: pnlPct ?? 0, rsi14: ind.rsi14, dayExit })
+    : null;
   // 보유 중이라도 action이 "추가매수"(피라미딩)면 매도가 아니라 "추가로 얼마나 강하게 사야 하는지"를 보여줘야 한다.
   const actionSummary =
     holding && action !== "추가매수"
