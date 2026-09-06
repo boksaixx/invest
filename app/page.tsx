@@ -12,6 +12,11 @@ import { computeNewsSignal } from "@/lib/newsSignal";
 // 이슈영향(issueImpacts)과 같은 topic 추정을 쓴다.
 import { computeTopicBoard, topicLabel } from "@/lib/issueMap";
 import { AXES as NEWS_AXES } from "@/lib/newsSignal";
+// 화면이 따를 최종 행동·보유 판정·행 목록은 한 곳(lib/actions.ts)에서 — 브리핑과 카드가 같은 결론을 낸다
+import { buildDoitRows, effectiveAction, fmtPrice, isHeld } from "@/lib/actions";
+import { buildBriefing } from "@/lib/briefing";
+import { getMarketPhase } from "@/lib/marketPhase";
+import { ActionBar, Onboarding, SecretaryCard } from "./Secretary";
 import scenarioStats from "@/data/scenarios.json";
 import dipStats from "@/data/dip-stats.json";
 // 매매일지 — 이 앱의 추천이 실제로 맞았는지 기록하고 채점한다(브라우저에만 저장).
@@ -246,9 +251,7 @@ function manwon(n: number | null | undefined): string {
 // 값이라 "이상한 숫자를 예쁘게 렌더링하는" 경로를 아예 남기지 않는다.
 // 음수 주가·Infinity는 존재할 수 없는 값이므로 "-"로 표시한다 (예전에는 "-35,062원", "∞원"으로 그대로 나왔다).
 function fmt(n: number | null | undefined, currency: "KRW" | "USD"): string {
-  if (n == null || !Number.isFinite(n) || n <= 0) return "-";
-  if (currency === "USD") return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  return `${Math.round(n).toLocaleString("ko-KR")}원`;
+  return fmtPrice(n, currency);
 }
 
 function pctClass(v: number | null | undefined): string {
@@ -339,22 +342,7 @@ function scoreBand(score: number, kind: "buy" | "sell"): { name: string; text: s
   return { name: b.name, text: kind === "buy" ? b.buy : b.sell, idx: i < 0 ? SCORE_BANDS.length - 1 : i };
 }
 
-/** "실제로 보유 중"의 단 하나의 정의 — 수량과 평단가가 모두 있어야 한다. 서버(normalizePortfolio)와 같은 기준.
- *  예전에는 화면은 qty>0만 보고 서버는 avgPrice>0까지 봐서, 평단가를 안 넣은 종목이 화면에선 "보유"·서버에선 "미보유"로 갈렸다. */
-function isHeld(h: { qty: number; avgPrice: number } | undefined | null): h is { qty: number; avgPrice: number } {
-  return Boolean(h && h.qty > 0 && h.avgPrice > 0);
-}
-
-/**
- * 화면이 따를 최종 행동 — AI 판단을 우선하되, 엔진이 진입을 막은 종목(entryBlocked)에 AI가 매수를 내면
- * 엔진 판단으로 되돌린다. 서버(lib/claude.ts applyConsistencyCheck)도 같은 보정을 하지만, 예전 캐시 결과와
- * "AI 없이 엔진만" 경로까지 한 규칙으로 묶기 위해 화면에서도 한 번 더 건다.
- */
-function effectiveAction(sig: EngineSignal | undefined, ai: AiAdvice["stocks"][number] | undefined): string | undefined {
-  const a = ai?.action ?? sig?.action;
-  if (sig?.entryBlocked && (a === "신규매수" || a === "추가매수")) return sig.action;
-  return a;
-}
+// isHeld / effectiveAction 은 lib/actions.ts 로 옮겼다 — 브리핑(lib/briefing.ts)과 같은 정의를 쓰기 위해.
 
 // 종목 하나의 최종 표시 점수를 계산 — AI 판단이 있으면 그 값을, 없으면 룰 엔진 1차 계산값을 쓴다.
 // 보유 중이라도 action이 "추가매수"(수익 중 피라미딩)면 매도강도가 아니라 "추가매수 강도"를 보여줘야
@@ -674,6 +662,13 @@ export default function Home() {
   // 몇 건이 어느 축(업황/지정학/중국/실적/큰손/매크로/지수)에 몰려 있는지를 먼저 본다.
   const newsSignal = useMemo(() => computeNewsSignal(result?.news ?? []), [result]);
   const issueBoard = useMemo(() => computeTopicBoard(result?.news ?? []), [result]);
+  // "오늘 나의 행동" 행 목록 — 카드와 비서 브리핑이 같은 목록을 쓴다
+  const doitRows = useMemo(
+    () => (result?.signals?.length ? buildDoitRows(result, portfolio, market?.quotes) : []),
+    [result, portfolio, market],
+  );
+  // 지금 장 시간대는 분석 시점이 아니라 "지금" 기준 — nowTick이 60초마다 갱신된다
+  const livePhase = useMemo(() => getMarketPhase(new Date(nowTick)), [nowTick]);
 
   // 추적종목 전체 중 "지금 뭘 해야 하나"를 강도순으로 정렬한 요약 — 화면 맨 위에서 바로 판단할 수 있게
   const summaryRows = useMemo(() => {
@@ -710,13 +705,43 @@ export default function Home() {
   const displayMasterScore = result?.masterScore ?? (snapshotUnusable ? null : snapshotMasterScore);
   const masterScoreIsLive = Boolean(result?.masterScore);
 
+  // 비서 브리핑 — 시장·계좌·행 목록·알림을 사람 말로. 순수 함수(lib/briefing.ts)라 회귀 검사가 된다.
+  const briefing = useMemo(
+    () =>
+      buildBriefing({
+        now: new Date(nowTick),
+        phase: livePhase,
+        rows: doitRows,
+        result: result
+          ? { generatedAt: result.generatedAt, signals: result.signals, news: result.news, dailyRisk: result.dailyRisk, advice: result.advice, todayPlan: result.todayPlan }
+          : null,
+        quotes: market?.quotes,
+        macro: market?.macro,
+        portfolio,
+        totalAssetKrw: totalAsset,
+      }),
+    [nowTick, livePhase, doitRows, result, market, portfolio, totalAsset],
+  );
+  const firstTime = !result && !portfolio.holdings.some((h) => isHeld(h));
+  const openStock = (ticker: string) => {
+    setTab("종목");
+    setCardOpen((p) => ({ ...p, [ticker]: true }));
+  };
+  const costText =
+    result?.adviceUsage
+      ? `이번 분석 약 ${usdKrwRate ? `${Math.round(result.adviceUsage.costUsd * usdKrwRate).toLocaleString()}원` : `$${result.adviceUsage.costUsd.toFixed(3)}`}`
+      : null;
+
   return (
-    <main className="container">
+    <main className={tab === "오늘" ? "container has-actionbar" : "container"}>
       {/* 헤더 — 예전에는 제목·부제·접속주소·버튼 2개가 첫 화면의 1/4을 먹었다.
           토스처럼 "지금 필요한 것"만 남기고 나머지는 설정 시트로 내렸다. */}
       <div className="header">
         <div className="hd-left">
-          <h1>내 주식 비서</h1>
+          <span className="hd-brand">
+            <span className="hd-brand-mark" aria-hidden>비</span>
+            <h1>내 주식 비서</h1>
+          </span>
           {snapshotLabel && (
             <span className={snapshotStale ? "hd-chip hd-chip-stale" : "hd-chip"}>
               {snapshotLabel.replace("자동수집 ", "")}
@@ -820,6 +845,15 @@ export default function Home() {
       {/* ===== 탭: 오늘 ===== */}
       <div style={{ display: tab === "오늘" ? undefined : "none" }}>
 
+      {/* 🧑‍💼 비서 브리핑 — 화면에서 가장 먼저 읽는 것. 지금 시각·시장·내 계좌·할 일 개수·위험 알림을 사람 말로. */}
+      <SecretaryCard briefing={briefing} onAlertTap={openStock} />
+      {firstTime && <Onboarding onOpenAssets={() => setEditOpen(true)} onAnalyze={() => void runAnalysis()} loading={loading} />}
+      {error && (
+        <div className="card" style={{ color: "var(--red)", fontWeight: 700, fontSize: 14 }}>
+          {error}
+        </div>
+      )}
+
       {/* 하루 손실 한도 — "멈추라"는 신호는 "무엇을 사라"보다 먼저 와야 한다.
           종목별 1% 규칙만으로는 여러 종목이 같은 날 무너지는 상황을 못 막는다(반도체 상관 0.89). */}
       {result?.dailyRisk && (result.dailyRisk.stopTriggered || result.dailyRisk.warnTriggered) && (
@@ -844,85 +878,13 @@ export default function Home() {
             </span>
           </div>
           {(() => {
-            const rows = result.signals.map((sg) => {
-              const ai = result.advice?.stocks.find((x) => x.ticker === sg.ticker || x.ticker.includes(sg.ticker));
-              // AI 판단 우선이되, 엔진이 진입을 막은 종목의 AI 매수는 엔진 판단으로 되돌린다(effectiveAction)
-              const act = (effectiveAction(sg, ai) ?? sg.action) as string;
-              const hold = portfolio.holdings.find((x) => x.ticker === sg.ticker && isHeld(x));
-              const cur = STOCKS[sg.ticker].currency;
-              const px = (v: number | null | undefined) => (v == null ? "" : fmt(v, cur));
-              // 행의 "지금 가격"은 60초마다 갱신되는 시세를 쓴다 — 분석 시점 가격에 묶어두면 몇 시간 전 값이 "지금"으로 읽힌다
-              const livePrice = market?.quotes?.[sg.ticker]?.price ?? sg.price;
-              // 우선순위: 팔 것 → 살 것 → 들고 있을 것 → 안 건드릴 것
-              //
-              // 매도 문구는 반드시 "실제로 보유 중일 때"만 낸다. 보유하지 않은 종목에
-              // "지금 파세요 · 보유 0주"를 띄우면 초보 사용자는 공매도로 오해하거나
-              // 자기가 뭘 갖고 있는지 헷갈린다(QA에서 실제로 발생). 미보유 + 매도신호는
-              // "지금은 사지 마세요"가 올바른 번역이다.
-              const lv = sg.forecastPath?.orderLevels;
-              const isSell = act === "손절" || act === "전량매도" || act === "부분매도";
-              if (isSell && hold) {
-                if (act === "부분매도") {
-                  // 단타 청산(1σ 익절·VWAP 이탈·마감 전 청산)은 "지금 시장가로 절반"이 결론이다 —
-                  // 목표가 부근이 아니라 현재가에서 판다. 엔진 근거 첫 문장이 이유를 말한다.
-                  // "절반" 수량은 엔진의 분할 매도 계획(scaledExit 1차)과 같은 숫자를 쓴다(예전엔 floor/ceil이 달라 5주 vs 6주).
-                  const half = sg.scaledExit[0]?.qty ?? Math.ceil(hold.qty / 2);
-                  const cause = (sg.reasons[0] ?? "").split(" — ")[0];
-                  const atTarget = /목표가.*도달/.test(cause);
-                  const target = ai?.targetPrice ?? sg.targetPrice;
-                  return {
-                    rank: 1, kind: "sell", name: sg.name, verb: "절반 파세요",
-                    detail: atTarget && target != null
-                      ? `보유 ${hold.qty}주 중 ${half}주 · ${px(target)} 부근`
-                      : `보유 ${hold.qty}주 중 ${half}주 · 지금 ${px(livePrice)} 부근에서${cause ? ` · ${cause.length > 44 ? `${cause.slice(0, 44)}…` : cause}` : ""}`,
-                  };
-                }
-                return { rank: 0, kind: "sell", name: sg.name, verb: "지금 파세요", detail: `보유 ${hold.qty}주 전량 · ${px(ai?.stopPrice ?? sg.stopPrice)} 아래면 즉시` };
-              }
-              if (isSell)
-                return { rank: 5, kind: "avoid", name: sg.name, verb: "사지 마세요", detail: "떨어지는 흐름이라 지금 새로 들어갈 자리가 아닙니다 (보유분 없음)" };
-              if (act === "신규매수" || act === "추가매수") {
-                // 수량은 엔진이 "엔진 손절폭" 기준 1% 리스크로 낸 값이다. 손절가만 AI 값으로 바꿔 보여주면 수량과 어긋나므로
-                // 이 행에서는 손절가도 엔진 값을 쓴다(AI 손절가는 종목 카드에서 따로 본다).
-                const qty = sg.suggestedQty && sg.suggestedQty > 0 ? `${sg.suggestedQty}주` : "수량은 종목 탭 참고";
-                return { rank: 2, kind: "buy", name: sg.name, verb: hold ? "더 사세요" : "사세요", detail: `${px(ai?.entryPrice ?? sg.suggestedEntryPrice)} · ${qty} · 손절 ${px(sg.stopPrice)}` };
-              }
-              if (hold) {
-                const exit1 = sg.scaledExit[0];
-                return {
-                  rank: 4, kind: "hold", name: sg.name, verb: "그대로 두세요",
-                  detail: `보유 ${hold.qty}주 · ${px(ai?.stopPrice ?? sg.stopPrice)} 깨지면 파세요${exit1 ? ` · ${px(exit1.price)} 닿고 꺾이면 절반 익절` : ""}`,
-                };
-              }
-              // 미보유 관망 — "기다리세요"로 끝내지 않는다. 단타는 어디에 지정가를 걸지가 전부다.
-              // 우선순위: ① 오늘의 작전 눌림목(5년 4구간 검증 플러스) ② 엔진 대기 매수가(점수 58+) ③ 도달확률 지정가
-              const dip = result.todayPlan?.trades.find((t) => t.ticker === sg.ticker && t.kind === "눌림목매수" && t.entryPrice != null);
-              if (dip) {
-                return {
-                  rank: 3, kind: "limit", name: sg.name, verb: "지정가 걸어두세요",
-                  detail: `${px(dip.entryPrice)} 매수 대기${dip.suggestedQty ? ` · ${dip.suggestedQty}주` : ""} · 익절 ${px(dip.targetPrice)} / 손절 ${px(dip.stopPrice)} · 미체결이면 오늘은 없음`,
-                };
-              }
-              if (sg.suggestedEntryPrice != null && sg.score >= 58) {
-                return {
-                  rank: 3, kind: "limit", name: sg.name, verb: "지정가 걸어두세요",
-                  detail: `${px(ai?.entryPrice ?? sg.suggestedEntryPrice)} 매수 대기 · 손절 ${px(ai?.stopPrice ?? sg.stopPrice)} · ${(sg.entryPriceBasis ?? "").split(" — ")[0].slice(0, 40)}`,
-                };
-              }
-              return { rank: 6, kind: "wait", name: sg.name, verb: "기다리세요", detail: lv ? `${px(lv.buyPrice)}까지 내려오면 그때 검토 (오늘 닿을 확률 ${lv.buyProbPct}%)` : "지금은 살 이유가 없습니다" };
-            });
-            // 보유 중인데 시세·캔들 수집 실패로 신호가 안 나온 종목 — 행이 아예 없으면 "괜찮다"로 읽힌다. 반드시 알린다.
-            for (const h of portfolio.holdings) {
-              if (!isHeld(h) || result.signals.some((s) => s.ticker === h.ticker)) continue;
-              rows.push({ rank: 0, kind: "hold", name: STOCKS[h.ticker].name, verb: "데이터 없음", detail: `보유 ${h.qty}주 · 이번 분석에서 시세를 못 가져왔어요 — 증권사 앱에서 직접 확인하세요` });
-            }
-            rows.sort((a, b) => a.rank - b.rank);
-            const act = rows.filter((r) => r.rank <= 4);
-            const wait = rows.filter((r) => r.rank >= 5);
+            // 행 목록은 lib/actions.ts buildDoitRows — 비서 브리핑의 "할 일 N개"와 반드시 같은 목록이어야 한다
+            const act = doitRows.filter((r) => r.rank <= 4);
+            const wait = doitRows.filter((r) => r.rank >= 5);
             return (
               <>
                 {act.map((r) => (
-                  <div className={`doit-row doit-${r.kind}`} key={r.name}>
+                  <div className={`doit-row doit-${r.kind}`} key={r.name} onClick={() => openStock(r.ticker)} role="button" tabIndex={0}>
                     <span className="doit-verb">{r.verb}</span>
                     <span className="doit-name">{r.name}</span>
                     <span className="doit-detail">{r.detail}</span>
@@ -1392,39 +1354,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* AI 분석 버튼 */}
-      <button className="btn btn-primary" onClick={() => void runAnalysis()} disabled={loading} style={{ marginBottom: !loading && result ? 4 : 14 }}>
-        {loading ? (
-          <>
-            <span className="spinner" />
-            AI 분석 중… {elapsed}초 (보통 30초~2분 걸려요)
-          </>
-        ) : result ? (
-          "다시 분석하기"
-        ) : (
-          "지금 AI 정밀 분석 받기"
-        )}
-      </button>
-      {!loading && result && (
-        <div className="hint" style={{ textAlign: "center", marginBottom: 14 }}>
-          {staleness(result.generatedAt, "분석")}
-          {/* 이 버튼 한 번이 실제로 얼마인지 보이지 않으면 아껴 쓸 방법이 없다.
-              출력 토큰이 요금의 대부분이라 따로 보여준다. */}
-          {result.adviceUsage && (
-            <>
-              {" · "}
-              <span title={`${result.adviceUsage.model} · 입력 ${result.adviceUsage.inputTokens.toLocaleString()} + 캐시읽기 ${result.adviceUsage.cacheReadTokens.toLocaleString()} / 출력 ${result.adviceUsage.outputTokens.toLocaleString()} 토큰`}>
-                이번 분석 약 {usdKrwRate ? `${Math.round(result.adviceUsage.costUsd * usdKrwRate).toLocaleString()}원` : `$${result.adviceUsage.costUsd.toFixed(3)}`}
-              </span>
-            </>
-          )}
-        </div>
-      )}
-      {error && (
-        <div className="card" style={{ color: "var(--red)", fontWeight: 700, fontSize: 14 }}>
-          {error}
-        </div>
-      )}
+      {/* 분석 버튼은 하단 고정 행동 바(ActionBar)로 옮겼다 — 화면 중간에 묻혀 있던 문제 해결. 오류 카드는 브리핑 바로 아래에 있다. */}
       {!error && newsNotice && (
         <div className="card" style={{ color: "var(--text-sub)", fontSize: 13, fontWeight: 600 }}>
           ℹ️ {newsNotice}
@@ -2522,19 +2452,31 @@ export default function Home() {
         </details>
       </div>
 
-      {/* 하단 고정 탭바 — 한 손 조작 기준으로 화면을 3개 영역으로 나눈다 */}
+      {/* 하단 고정 행동 바 — "브리핑 받기"가 어느 스크롤 위치에서도 한 번에 닿는다 (오늘 탭에서만) */}
+      {tab === "오늘" && (
+        <ActionBar
+          loading={loading}
+          elapsed={elapsed}
+          hasResult={Boolean(result)}
+          staleText={result ? staleness(result.generatedAt, "분석") : null}
+          costText={costText}
+          onAnalyze={() => void runAnalysis()}
+        />
+      )}
+
+      {/* 하단 고정 탭바 — 한 손 조작 기준으로 화면을 4개 영역으로 나눈다 */}
       <nav className="tabbar">
         <button className={tab === "오늘" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("오늘")}>
-          <span className="tabbar-icon">🎯</span>오늘 할 일
+          <span className="tabbar-icon">🗓️</span>오늘
         </button>
         <button className={tab === "종목" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("종목")}>
-          <span className="tabbar-icon">📈</span>종목
+          <span className="tabbar-icon">📈</span>내 종목
         </button>
         <button className={tab === "정보" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("정보")}>
-          <span className="tabbar-icon">📰</span>뉴스·시장
+          <span className="tabbar-icon">📰</span>시장·뉴스
         </button>
         <button className={tab === "분석방식" ? "tabbar-btn active" : "tabbar-btn"} onClick={() => setTab("분석방식")}>
-          <span className="tabbar-icon">📚</span>분석 방식
+          <span className="tabbar-icon">📚</span>설명
         </button>
       </nav>
     </main>

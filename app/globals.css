@@ -2375,3 +2375,195 @@ details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
   max-width: 62%;
   font-weight: 600;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   비서 UI (2026-09) — 브리핑 카드 · 하단 행동 바 · 첫 사용 안내 · 헤더 아바타
+   카드 나열형 대시보드에서 "비서가 먼저 말을 거는" 구조로 바꾸면서 추가된 스타일.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.sec-card {
+  position: relative;
+  background: linear-gradient(160deg, #ffffff 0%, #f5f9ff 100%);
+  border: 1px solid #e3ecfb;
+  border-radius: var(--radius);
+  padding: 18px 18px 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 6px 24px rgba(49, 130, 246, 0.08);
+  overflow: hidden;
+}
+.sec-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--blue);
+}
+.sec-alert { border-left: 3px solid transparent; }
+.sec-card.mood-alert::before { background: #f0a020; }
+.sec-card.mood-danger::before { background: var(--red); }
+.sec-card.mood-danger { background: linear-gradient(160deg, #ffffff 0%, #fff4f5 100%); border-color: #ffd6da; }
+.sec-card.mood-alert { background: linear-gradient(160deg, #ffffff 0%, #fff9ee 100%); border-color: #ffe4b8; }
+.sec-head { display: flex; align-items: center; gap: 10px; }
+.sec-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #3182f6, #6aa6ff);
+  color: #fff;
+  font-weight: 900;
+  font-size: calc(15px * var(--font-scale));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 8px rgba(49, 130, 246, 0.35);
+  flex: 0 0 auto;
+}
+.sec-head-text { min-width: 0; flex: 1 1 auto; }
+.sec-greet { font-size: calc(13px * var(--font-scale)); font-weight: 700; color: var(--text-sub); }
+.sec-when { font-size: calc(12px * var(--font-scale)); color: var(--text-weak); font-weight: 600; margin-top: 1px; }
+.sec-mood {
+  font-size: calc(11px * var(--font-scale));
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: var(--blue-weak);
+  color: #1b64da;
+  flex: 0 0 auto;
+}
+.sec-mood-alert { background: #fff3d6; color: #9a6200; }
+.sec-mood-danger { background: var(--red-weak); color: #c9353f; }
+.sec-headline {
+  font-size: calc(19px * var(--font-scale));
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  line-height: 1.35;
+  margin: 14px 0 6px;
+  color: var(--text);
+}
+.sec-lines {
+  font-size: calc(13.5px * var(--font-scale));
+  color: var(--text-sub);
+  line-height: 1.6;
+  font-weight: 500;
+}
+.sec-alerts { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.sec-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.85);
+  font-size: calc(13px * var(--font-scale));
+}
+.sec-alert-danger { background: var(--red-weak); border-left-color: var(--red); }
+.sec-alert-warn { background: #fff7e6; border-left-color: #f0a020; }
+.sec-alert-info { background: var(--gray-weak); border-left-color: #c5cdd6; }
+.sec-alert.tappable { cursor: pointer; }
+.sec-alert.tappable:active { transform: scale(0.99); }
+.sec-alert-icon { flex: 0 0 auto; font-size: calc(15px * var(--font-scale)); line-height: 1.3; }
+.sec-alert-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.sec-alert-text { font-weight: 700; color: var(--text); line-height: 1.4; }
+.sec-alert-sub { font-size: calc(12px * var(--font-scale)); color: var(--text-sub); font-weight: 500; line-height: 1.4; }
+.sec-alert-go { color: var(--text-weak); font-weight: 800; align-self: center; }
+
+/* 하단 고정 행동 바 — 탭바 바로 위. 분석 버튼이 화면 중간에 묻혀 있던 문제를 해결한다. */
+.actionbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(56px + env(safe-area-inset-bottom, 0));
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 8px 12px 10px;
+  background: linear-gradient(180deg, rgba(242, 244, 246, 0) 0%, var(--bg) 35%);
+  z-index: 49;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.actionbar-meta {
+  text-align: center;
+  font-size: calc(11.5px * var(--font-scale));
+  color: var(--text-weak);
+  font-weight: 600;
+}
+.actionbar-btn { margin: 0; box-shadow: 0 6px 18px rgba(49, 130, 246, 0.3); }
+.container.has-actionbar { padding-bottom: 150px; }
+
+/* 첫 사용 안내 */
+.onboard {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 18px 16px 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+.onboard-title { font-size: calc(16px * var(--font-scale)); font-weight: 800; margin-bottom: 10px; letter-spacing: -0.3px; }
+.onboard-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.onboard-step {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  border: none;
+  background: var(--gray-weak);
+  border-radius: 14px;
+  padding: 12px 12px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+}
+.onboard-step:disabled { opacity: 0.6; cursor: default; }
+.onboard-step > span:nth-child(2) { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.onboard-step b { font-size: calc(14.5px * var(--font-scale)); font-weight: 800; }
+.onboard-step small { font-size: calc(12px * var(--font-scale)); color: var(--text-sub); line-height: 1.4; }
+.onboard-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 800;
+  font-size: calc(13px * var(--font-scale));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.onboard-go { color: var(--text-weak); font-weight: 800; font-size: 18px; }
+.onboard-note { margin-top: 10px; font-size: calc(12px * var(--font-scale)); color: var(--text-weak); line-height: 1.5; }
+
+/* 헤더 — 비서 아바타 + 제목 */
+.hd-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hd-brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #3182f6, #6aa6ff);
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+/* 탭바 — 활성 탭을 더 분명하게 */
+.tabbar-btn.active .tabbar-icon { transform: translateY(-1px); }
+.tabbar-btn { transition: color 0.15s; }
+.tabbar-btn.active::after {
+  content: "";
+  display: block;
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: #1b64da;
+  margin-top: 2px;
+}
+
+/* 섹션 소제목 — 카드 사이 위계를 만든다 */
+.sec-h { font-size: calc(13px * var(--font-scale)); font-weight: 800; color: var(--text-weak); margin: 6px 4px 8px; letter-spacing: 0.2px; }
