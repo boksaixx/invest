@@ -76,6 +76,7 @@ interface AdviceResponse {
   aiAvailable: boolean;
   newsLive: boolean;
   newsCollectedAt?: string | null; // 뉴스가 실제로 수집된 시각 (스냅샷 뉴스를 이어 쓸 때 generatedAt보다 오래됨)
+  adviceCached?: boolean; // 5분 안 재클릭이라 AI를 다시 부르지 않고 직전 조언을 재사용했음 (비용 0)
   portfolioNotice?: string | null; // 보낸 자산 정보가 손상돼 서버가 기본값으로 계산했을 때의 안내
   marketPhase?: { phase: string; kstTime: string; note: string };
   marketPhaseUS?: { phase: string; kstTime: string; note: string };
@@ -772,8 +773,9 @@ export default function Home() {
     setTab("종목");
     setCardOpen((p) => ({ ...p, [ticker]: true }));
   };
-  const costText =
-    result?.adviceUsage
+  const costText = result?.adviceCached
+    ? "5분 안 재분석 — AI 조언 재사용(비용 0)"
+    : result?.adviceUsage
       ? `이번 분석 약 ${usdKrwRate ? `${Math.round(result.adviceUsage.costUsd * usdKrwRate).toLocaleString()}원` : `$${result.adviceUsage.costUsd.toFixed(3)}`}`
       : null;
 

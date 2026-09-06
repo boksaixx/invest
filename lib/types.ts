@@ -414,6 +414,7 @@ export interface NewsItem {
   publishedAt?: string;
   isBreaking?: boolean; // 최근 몇 시간 내 발생한 속보성 뉴스인지
   topic?: NewsTopic; // 수집기가 붙인 축. 없으면(구버전 스냅샷) issueMap이 제목으로 추정한다
+  seenAt?: string; // 이 기사를 처음 수집한 시각(ISO). 증분 수집에서 12시간 창·속보 만료(3시간)의 기준
   eventAt?: string; // topic이 예정이벤트일 때 — "오늘 21:30", "내일 03:00(KST)" 같은 사람이 읽는 시각
   eventInHours?: number; // 예정이벤트까지 남은 시간(대략). 30시간 이내면 엔진이 "이벤트 전 축소" 오버레이를 켠다
 }

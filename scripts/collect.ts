@@ -12,7 +12,8 @@ import { computeIntradayInsight } from "../lib/intraday";
 import { getMarketPhaseForMarket } from "../lib/marketPhase";
 import { generateShortSummary } from "../lib/claude";
 import { fetchBacktestSnapshot } from "../lib/backtest";
-import type { CollectedSnapshot, EngineSignal, Portfolio } from "../lib/types";
+import type { CollectedSnapshot, EngineSignal, NewsItem, Portfolio } from "../lib/types";
+import { mergeNews } from "../lib/newsSignal";
 import { isCrypto, isSemiconductor, STOCKS, TICKER_LIST } from "../lib/types";
 
 const DATA_DIR = join(process.cwd(), "data");
@@ -37,9 +38,27 @@ async function main() {
     return;
   }
 
+  // 직전 스냅샷 — 뉴스 증분 수집(이미 아는 제목 제외)과 요약 이어쓰기의 기준
+  const prevPath = join(DATA_DIR, "latest.json");
+  let prev: CollectedSnapshot | null = null;
+  if (existsSync(prevPath)) {
+    try {
+      prev = JSON.parse(readFileSync(prevPath, "utf8")) as CollectedSnapshot;
+    } catch {
+      prev = null;
+    }
+  }
+  const prevNewsAt = prev?.newsCollectedAt ?? prev?.collectedAt ?? null;
+  const prevNewsAgeMin = prevNewsAt ? (Date.now() - new Date(prevNewsAt).getTime()) / 60_000 : Infinity;
+  // 뉴스는 NEWS_INTERVAL_MIN(기본 30분)마다만 새로 묻는다 — 엔진은 15분마다 돌아도 뉴스는 그 사이 거의 안 바뀐다.
+  // 그라운딩 검색은 요청당 과금이라 호출 횟수 자체가 비용이다. 속보 지연은 최악 30분.
+  const NEWS_INTERVAL_MIN = Number(process.env.NEWS_INTERVAL_MIN ?? 30);
+  const askNews = !(prev?.news?.length && prevNewsAgeMin < NEWS_INTERVAL_MIN) || process.env.FORCE_NEWS === "1";
+  const knownTitles = (prev?.news ?? []).map((n) => n.title);
+
   const [macro, newsResult, backtest, disclosureResult, flowResult, creditTrend, ...stockData] = await Promise.all([
     getMacroSnapshot(),
-    collectNews(),
+    askNews ? collectNews({ knownTitles }) : Promise.resolve({ news: [] as NewsItem[], error: null as string | null }),
     fetchBacktestSnapshot(),
     fetchDartDisclosures(),
     fetchInvestorFlows(),
@@ -56,27 +75,26 @@ async function main() {
   if (disclosureResult.error) console.warn("DART 공시 수집 경고:", disclosureResult.error);
   if (flowResult.error) console.warn("KRX 수급 수집 경고:", flowResult.error);
 
-  // Gemini 그라운딩은 무료 등급 쿼터가 빡빡해 이번 수집 주기엔 실패할 수 있다. 그 경우 뉴스를
-  // 비워서 덮어쓰지 않고, 직전 성공한 수집분(너무 오래되지 않았다면)을 그대로 이어서 사용한다.
-  let newsCollectedAt = new Date().toISOString();
-  if (news.length === 0) {
-    const prevPath = join(DATA_DIR, "latest.json");
-    if (existsSync(prevPath)) {
-      try {
-        const prev = JSON.parse(readFileSync(prevPath, "utf8")) as CollectedSnapshot;
-        // 나이는 "뉴스가 실제 수집된 시각" 기준으로 잰다 — collectedAt 기준이면 15분마다 새로 태어나
-        // 3시간 상한이 영영 안 걸렸다(2026-09 감사).
-        const prevNewsAt = prev.newsCollectedAt ?? prev.collectedAt;
-        const prevAgeMs = Date.now() - new Date(prevNewsAt).getTime();
-        if (prev.news.length > 0 && prevAgeMs < 3 * 3600_000) {
-          news = prev.news;
-          newsCollectedAt = prevNewsAt;
-          newsError = newsError ? `${newsError} (직전 수집분으로 대체)` : null;
-        }
-      } catch {
-        // 직전 스냅샷 파싱 실패 시 그냥 빈 뉴스로 진행
+  // 뉴스 병합 — 직전 12시간 창의 기사에 이번에 새로 받은 기사를 얹는다(중복 제거, 속보 3시간 재계산).
+  //  · 이번에 안 물었으면(간격 미도달) 직전 것을 그대로 (나이는 prevNewsAt 유지)
+  //  · 물었는데 새 기사가 0건이면 정상(증분) — 직전 것을 이어 쓰되 수집 시각은 지금으로
+  //  · Gemini가 실패했으면 직전 것을 이어 쓰고 오류를 남긴다(예전처럼 3시간 넘으면 버린다)
+  const prevNews = prev?.news ?? [];
+  let newsCollectedAt = prevNewsAt ?? new Date().toISOString();
+  if (askNews) {
+    if (newsError && news.length === 0) {
+      if (prevNewsAgeMin < 180) {
+        news = mergeNews(prevNews, [], new Date(), prevNewsAt ?? undefined);
+        newsError = `${newsError} (직전 수집분으로 대체)`;
       }
+    } else {
+      news = mergeNews(prevNews, news, new Date(), prevNewsAt ?? undefined);
+      newsCollectedAt = new Date().toISOString();
+      console.log(`뉴스 증분: 새 ${newsResult.news.length}건 + 이전 ${prevNews.length}건 → 병합 ${news.length}건`);
     }
+  } else {
+    news = mergeNews(prevNews, [], new Date(), prevNewsAt ?? undefined);
+    console.log(`뉴스 재사용: ${Math.round(prevNewsAgeMin)}분 전 수집분 ${news.length}건 (다음 수집까지 ${Math.max(0, Math.round(NEWS_INTERVAL_MIN - prevNewsAgeMin))}분)`);
   }
 
   console.log("뉴스 수집:", news.length, "건", newsError ? `(오류: ${newsError})` : "");
@@ -132,9 +150,13 @@ async function main() {
     );
   }
 
-  let aiSummary: string | null = null;
-  if (signals.length > 0) {
-    aiSummary = await generateShortSummary({ signals, macro, news });
+  // AI 짧은 요약(aiSummary)은 화면·AI 페이로드 어디에도 쓰이지 않고 latest.json에만 남는 "사람용 브리핑"이다.
+  // 예전에는 15분마다 Haiku를 불렀다(하루 약 28회) — 개장 전(08:30)·마감 후(16:10) 두 번이면 충분하고,
+  // 그 사이엔 직전 요약을 이어 쓴다. 강제로 만들려면 FORCE_SUMMARY=1.
+  const wantSummary = process.env.FORCE_SUMMARY === "1" || marketPhaseKR.phase === "장전" || marketPhaseKR.phase === "장마감";
+  let aiSummary: string | null = prev?.aiSummary ?? null;
+  if (signals.length > 0 && wantSummary) {
+    aiSummary = (await generateShortSummary({ signals, macro, news })) ?? aiSummary;
   }
 
   const snapshot: CollectedSnapshot = {

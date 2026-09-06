@@ -148,6 +148,8 @@ const SYSTEM = `당신은 20년 경력의 한국 주식 단기(데이트레이�
    · 상세 종목("룰엔진_신호"에 실린 종목 = 보유 중이거나 행동 신호가 난 종목): rationale 최대 3개, checklist 최대 2개, entryTriggers 최대 2개. 각 항목은 한 문장(80자 이내)으로 끝낸다.
    · 압축 종목("관망_종목_요약"에 한 줄로만 실린 종목): 당신에게 주어진 정보 자체가 한 줄뿐이므로 길게 쓸 근거가 없다. headline 한 문장 + rationale 1개만 쓰고, checklist와 entryTriggers는 빈 배열([]), entryPrice·targetPrice·stopPrice는 null, invalidation도 null로 둔다. 이 종목들에 대해 길게 쓰는 것은 근거 없는 창작이므로 금지한다.
    · 어떤 종목에도 같은 말을 두 번 쓰지 않는다. headline에 쓴 문장을 rationale에서 되풀이하지 않는다.
+   · headline 40자 이내, invalidation 80자 이내. insightReport의 다섯 항목은 각각 2~3문장·150자 이내로 끝낸다(길게 쓴다고 정보가 늘지 않는다 — 숫자와 결론만). newsHighlights는 최대 4건, 각 60자 이내.
+   · 엔진이 이미 준 숫자(손절가·목표가·수량·분할 라인)는 그대로 인용하되 다시 설명하지 않는다. 당신의 몫은 "왜"와 "지금 무엇을 볼지"다.
 16. timeHorizon(투자 시계열)을 항상 명시한다 — entryTriggers가 오늘 장중에 충족될 가능성이 높으면 "당일", 며칠에 걸쳐 조건(예: 눌림목, 되돌림, 추가 뉴스 확인)이 갖춰질 성격이면 "수일내(스윙)"로 표시한다. 이 앱은 단타 전용이므로 "수일내"라도 최대 며칠 내 단기 스윙을 의미하며 중장기 투자를 뜻하지 않는다.
 17. 최근 DART 공시가 있는 종목은 뉴스보다 우선해 headline/rationale에 구체적으로 반영한다(공시 제목과 접수일 인용). 공시와 뉴스가 같은 사안을 다루면 공시 쪽 시각을 기준으로 최신성을 판단한다.
 18. rationale/checklist/entryTriggers/invalidation에서도 RSI·MACD·ADX·볼린저·스토캐스틱·다이버전스·OBV·피벗·VWAP 같은 지표명을 그냥 나열하지 말고, "지금 과매수 구간이라 위험해요(RSI 74)"처럼 그 지표가 뜻하는 상황을 먼저 쉬운 말로 설명한 뒤 괄호로 수치/용어를 덧붙인다. 고객은 이런 용어를 전혀 모른다고 가정하고 쓴다.
@@ -607,9 +609,13 @@ export function buildAdvicePayload(params: {
         // 매도·위험 톤일 때 warnings[0]을 그대로 인용한다).
         근거: s.reasons.filter((r) => !s.verdict.includes(r) && !commonReasons.has(r)).slice(0, 3),
         경고: s.warnings.filter((w) => !s.verdict.includes(w) && !commonWarnings.has(w)).slice(0, 3),
-        // 대외변수를 이 종목 기준 방향으로 번역한 목록 — 상위 3건만, 한 줄씩 압축
-        이슈영향: s.issueImpacts.length
-          ? s.issueImpacts.slice(0, 3).map((i) => `${i.direction}${i.strength}${i.flipped ? "(반전)" : ""}[${i.topic}] ${i.title.slice(0, 40)} — ${i.why.slice(0, 30)}`)
+        // 대외변수를 이 종목 기준 방향으로 번역한 목록 — 강도 2 이상만 최대 3건, 한 줄씩 압축.
+        // 강도 1(영향도 낮음·민감도 낮음)은 근거 문장에서 이미 다뤄지지 않고 판단도 안 바꾼다 — 토큰만 쓴다.
+        이슈영향: (s.issueImpacts ?? []).some((i) => i.strength >= 2)
+          ? (s.issueImpacts ?? [])
+              .filter((i) => i.strength >= 2)
+              .slice(0, 3)
+              .map((i) => `${i.direction}${i.strength}${i.flipped ? "(반전)" : ""}[${i.topic}] ${i.title.slice(0, 40)} — ${i.why.slice(0, 30)}`)
           : null,
         리스크오버레이: s.riskOverlay ? `예산 ${Math.round(s.riskOverlay.sizeMultiplier * 100)}% — ${s.riskOverlay.notes.map((n) => n.split(" — ")[1] ?? n).join(" / ").slice(0, 160)}` : null,
         엔진_매수진입가_초안: s.suggestedEntryPrice,
@@ -630,7 +636,9 @@ export function buildAdvicePayload(params: {
           ? `${s.priceLimits.lowerLimit}~${s.priceLimits.upperLimit} (VI ${s.priceLimits.viLower}/${s.priceLimits.viUpper})`
           : null,
         상대강도: s.relativeStrengthNote,
-        진입트리거_엔진초안: s.entryTriggers,
+        // 트리거는 3~4개가 정형 문장으로 반복된다(VWAP·오프닝레인지·피벗·당일저가). 앞의 2개가 핵심이고
+        // 나머지는 AI가 어차피 2개까지만 쓰라는 규칙(15)에 걸러진다 — 입력에서부터 2개만 보낸다.
+        진입트리거_엔진초안: s.entryTriggers.length ? s.entryTriggers.slice(0, 2) : null,
         // 무효화 조건은 종목마다 가격 레벨이 달라 최상위로 못 옮기지만, 뒷부분 정형 문구
         // ("...목표가·손절가 도달 여부와 무관하게 즉시 재검토")는 6종목 내내 똑같이 반복된다.
         // 그 규칙은 SYSTEM(캐시되어 1/10 비용)에 이미 있으므로 트리거 부분만 보낸다.

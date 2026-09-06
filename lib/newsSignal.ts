@@ -117,6 +117,42 @@ export function computeNewsSignal(news: NewsItem[]): NewsSignal {
   return { available: true, collected: news.length, breaking, positive, negative, neutral: news.length - positive - negative, highImpact, pressure, axes, summary, thin };
 }
 
+/** 제목 정규화 — 공백·문장부호·따옴표를 떼고 앞 24자만 비교 키로 쓴다(같은 사안의 살짝 다른 제목을 하나로) */
+function titleKey(t: string): string {
+  return t.replace(/[\s"'“”‘’·,.…!?()\[\]\-–—:;/]/g, "").toLowerCase().slice(0, 24);
+}
+
+/** 뉴스 하나가 "지금" 속보인지 — 처음 본 지 3시간 안 + 고영향 */
+export const NEWS_WINDOW_HOURS = 12;
+export const BREAKING_HOURS = 3;
+
+/**
+ * 증분 수집 병합 — 직전 수집분(12시간 창)에 새 기사를 얹고 중복을 제거한다.
+ *
+ * 왜: 15분마다 60건을 통째로 다시 받으면 출력 토큰(그라운딩 응답의 대부분)이 매번 나가는데, 그중 대부분은
+ * 이미 아는 기사다. 새 기사만 받아 이어 붙이면 토큰은 줄고 12시간 커버리지는 오히려 안정된다.
+ * 속보 표시는 "처음 본 지 3시간" 기준으로 다시 계산한다(수집기가 붙인 값은 그 시점 기준이라 곧 낡는다).
+ */
+export function mergeNews(prev: NewsItem[], fresh: NewsItem[], now: Date = new Date(), prevSeenAtFallback?: string): NewsItem[] {
+  const nowMs = now.getTime();
+  const byKey = new Map<string, NewsItem>();
+  const keep = (n: NewsItem) => {
+    const seenAt = n.seenAt ?? prevSeenAtFallback ?? now.toISOString();
+    const ageH = (nowMs - new Date(seenAt).getTime()) / 3_600_000;
+    if (ageH > NEWS_WINDOW_HOURS) return; // 12시간 지난 기사는 "오늘 주가"의 근거가 아니다
+    const key = titleKey(n.title);
+    const existing = byKey.get(key);
+    // 같은 사안이면 더 최근에 본 쪽(상태가 바뀐 기사)을 남긴다
+    if (existing && new Date(existing.seenAt ?? 0).getTime() >= new Date(seenAt).getTime()) return;
+    byKey.set(key, { ...n, seenAt, isBreaking: n.impact === "높음" && ageH <= BREAKING_HOURS && (n.isBreaking ?? true) });
+  };
+  for (const n of prev) keep(n);
+  for (const n of fresh) keep(n);
+  return [...byKey.values()]
+    .sort((a, b) => Number(b.isBreaking) - Number(a.isBreaking) || new Date(b.seenAt ?? 0).getTime() - new Date(a.seenAt ?? 0).getTime())
+    .slice(0, 80);
+}
+
 /**
  * Claude에 원문으로 보낼 뉴스를 고른다.
  *

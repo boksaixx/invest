@@ -143,19 +143,33 @@ function isQuotaOrAuthError(status: number): boolean {
   return status === 401 || status === 403 || status === 429;
 }
 
-export async function collectNews(): Promise<{ news: NewsItem[]; error: string | null }> {
+/**
+ * 증분 수집 — 직전 수집분의 제목을 넘기면 "그 이후 새로 나온 기사·상태가 바뀐 사안"만 받는다.
+ * 15분마다 60건을 통째로 다시 받으면 대부분이 같은 기사인데 출력 토큰(그라운딩 응답의 대부분)만 쓴다.
+ * 이미 아는 기사는 collect.ts가 12시간 창 안에서 그대로 이어 붙이므로 정보는 줄지 않는다.
+ */
+export interface CollectNewsOptions {
+  knownTitles?: string[]; // 직전 수집분 제목 (최대 60개)
+}
+
+export async function collectNews(opts: CollectNewsOptions = {}): Promise<{ news: NewsItem[]; error: string | null }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return { news: [], error: "GEMINI_API_KEY 미설정" };
 
   const now = Date.now();
   if (newsCache && newsCache.expiresAt > now) return { news: newsCache.news, error: newsCache.error };
 
+  const known = (opts.knownTitles ?? []).slice(0, 60);
+  const prompt = known.length
+    ? `${PROMPT}\n\n증분 수집 지시(중요): 아래 제목들은 이미 수집돼 있다. 같은 사안을 다루는 기사는 다시 싣지 말고, 그 이후 "새로 나온" 기사나 "상태가 바뀐"(예: 협상 결렬→타결, 예정 이벤트 발표 완료) 사안만 수집한다. 새 기사가 정말 없으면 빈 배열 []만 출력한다. 주제별 최소 건수 규칙은 이 경우 적용하지 않는다.\n이미 수집된 제목:\n${known.map((t) => `- ${t}`).join("\n")}`
+    : PROMPT;
+
   const candidates = await resolveModelCandidates(apiKey);
   let lastError = "사용 가능한 Gemini 모델을 찾지 못했습니다";
   for (const model of candidates) {
     try {
       const result = await callGeminiGenerate(apiKey, model, {
-        contents: [{ parts: [{ text: PROMPT }] }],
+        contents: [{ parts: [{ text: prompt }] }],
         tools: [{ google_search: {} }],
         // maxOutputTokens: 수집 상한을 60건으로 올렸으므로 여기도 같이 올려야 한다.
         // 1건당 JSON 약 245자 → 60건이면 약 14,700자(한국어 JSON 기준 대략 7~9천 토큰).
@@ -167,8 +181,9 @@ export async function collectNews(): Promise<{ news: NewsItem[]; error: string |
         workingModelCache = { name: model, expiresAt: Date.now() + 30 * 60_000 };
         const parts: { text?: string }[] = (result.json as any)?.candidates?.[0]?.content?.parts ?? [];
         const text = parts.map((p) => p.text ?? "").join("\n");
-        const news = parseNewsJson(text);
-        const error = news.length === 0 ? "Gemini 응답에서 뉴스를 파싱하지 못했습니다" : null;
+        const news = parseNewsJson(text).map((n) => ({ ...n, seenAt: new Date().toISOString() }));
+        // 증분 수집에서 빈 배열은 "새 기사 없음"이지 실패가 아니다 — 호출부가 직전 수집분을 그대로 쓴다
+        const error = news.length === 0 && !known.length ? "Gemini 응답에서 뉴스를 파싱하지 못했습니다" : null;
         newsCache = { news, error, expiresAt: Date.now() + NEWS_CACHE_TTL_OK_MS };
         return { news, error };
       }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote, sessionPrevClose } from "@/lib/market";
 import dipStatsData from "@/data/dip-stats.json";
 import { collectNews } from "@/lib/gemini";
+import { mergeNews } from "@/lib/newsSignal";
 import { fetchDartDisclosures, fetchRelatedDisclosures } from "@/lib/dart";
 import { fetchInvestorFlows } from "@/lib/investorFlow";
 import { computeMasterScore, computeRelativeStrength, computeSectorConcentration, runEngine } from "@/lib/engine";
@@ -22,6 +23,9 @@ import scenarioData from "@/data/scenarios.json";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
+
+// AI 조언 5분 캐시 (서버 인스턴스 메모리 — Vercel 웜 인스턴스에서만 살아 있다. 없으면 그냥 다시 부른다)
+const adviceCache = new Map<string, { advice: import("@/lib/types").AiAdvice; usage: import("@/lib/claude").AdviceUsage | null; at: number; actionSig: string }>();
 
 /**
  * 클라이언트가 보낸 포트폴리오를 신뢰하지 않고 정규화한다.
@@ -124,10 +128,14 @@ export async function POST(req: Request) {
       newsLive = false;
       newsCollectedAt = newsAtIso;
     } else {
-      const liveResult = await collectNews();
-      newsLive = liveResult.news.length > 0;
-      news = newsLive ? liveResult.news : ageNews(snapshot?.news ?? [], newsAgeMs);
-      newsError = liveResult.news.length === 0 ? liveResult.error : null;
+      // 증분 수집 — 스냅샷 뉴스(12시간 창)를 알고 있다고 알리고 새 기사만 받아 병합한다. 토큰은 줄고 커버리지는 유지.
+      const snapNews = snapshot?.news ?? [];
+      const liveResult = await collectNews({ knownTitles: snapNews.map((n) => n.title) });
+      newsLive = liveResult.error == null;
+      news = newsLive
+        ? mergeNews(snapNews, liveResult.news, new Date(), newsAtIso ?? undefined)
+        : ageNews(snapNews, newsAgeMs);
+      newsError = newsLive ? null : liveResult.error;
       newsCollectedAt = newsLive ? new Date().toISOString() : newsAtIso;
     }
 
@@ -289,18 +297,39 @@ export async function POST(req: Request) {
       },
     );
 
-    const { advice, error: adviceError, usage: adviceUsage } = await generateAdvice({
-      signals,
-      macro,
-      news,
-      portfolio,
-      events: eventsData.events,
-      relativeStrengthSummary,
-      sectorConcentrationWarning: concentration.warning,
-      todayPlan,
-      creditNote: creditTrend?.note ?? null,
-      dailyRisk,
-    });
+    // 같은 자산·같은 엔진 결론으로 5분 안에 다시 누르면 Claude를 다시 부르지 않는다 — 결과가 같을 수밖에 없는 호출이다.
+    // (엔진 신호·시세·뉴스는 매번 새로 계산하고, AI 조언만 재사용한다. 엔진 행동이 하나라도 바뀌면 다시 부른다)
+    const ADVICE_CACHE_MS = 5 * 60_000;
+    const actionSig = signals.map((s) => `${s.ticker}:${s.action}:${s.entryBlocked ? 1 : 0}`).join(",");
+    const cacheKey = JSON.stringify({ cash: portfolio.cash, cashCrypto: portfolio.cashCrypto ?? 0, h: portfolio.holdings });
+    const hit = adviceCache.get(cacheKey);
+    let advice: import("@/lib/types").AiAdvice | null;
+    let adviceError: string | null;
+    let adviceUsage: import("@/lib/claude").AdviceUsage | null | undefined;
+    let adviceCached = false;
+    if (hit && Date.now() - hit.at < ADVICE_CACHE_MS && hit.actionSig === actionSig) {
+      advice = hit.advice;
+      adviceError = null;
+      adviceUsage = hit.usage ? { ...hit.usage, costUsd: 0 } : null;
+      adviceCached = true;
+    } else {
+      const r = await generateAdvice({
+        signals,
+        macro,
+        news,
+        portfolio,
+        events: eventsData.events,
+        relativeStrengthSummary,
+        sectorConcentrationWarning: concentration.warning,
+        todayPlan,
+        creditNote: creditTrend?.note ?? null,
+        dailyRisk,
+      });
+      advice = r.advice;
+      adviceError = r.error;
+      adviceUsage = r.usage;
+      if (advice && !adviceError) adviceCache.set(cacheKey, { advice, usage: r.usage ?? null, at: Date.now(), actionSig });
+    }
 
     return NextResponse.json({
       signals,
@@ -325,6 +354,7 @@ export async function POST(req: Request) {
       aiAvailable: Boolean(process.env.ANTHROPIC_API_KEY),
       newsLive,
       newsCollectedAt,
+      adviceCached, // 5분 안 재클릭이라 AI를 다시 부르지 않았음 (비용 0)
       // 보낸 자산 정보가 손상돼 기본값으로 계산했으면 화면에 알린다 — 조용히 2,000만원으로 수량을 내면 안 된다
       portfolioNotice,
       generatedAt: new Date().toISOString(),
