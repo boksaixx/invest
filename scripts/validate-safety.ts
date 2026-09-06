@@ -36,7 +36,8 @@ function invariants(label: string, s: EngineSignal, price: number) {
     if (v == null) continue;
     if (!Number.isFinite(v)) return bad(`${label}: ${k}=${v} (유한수 아님)`);
     if (v <= 0) return bad(`${label}: ${k}=${v} (0 이하)`);
-    if (cur === "KRW" && v % tickSize(v, "KRW") !== 0) return bad(`${label}: ${k}=${v} 호가 부적합`);
+    // 가상자산은 업비트 호가단위(KRX 표와 다름) — 엔진과 같은 market 인자로 검사한다
+    if (cur === "KRW" && v % tickSize(v, "KRW", STOCKS[s.ticker].market) !== 0) return bad(`${label}: ${k}=${v} 호가 부적합`);
     if (v > price * 3 || v < price / 3) wrn(`${label}: ${k}=${v} 가 현재가 ${price}에서 3배 이상 벗어남`);
   }
   if (s.stopPrice != null && s.stopPrice >= price) wrn(`${label}: 손절가(${s.stopPrice}) >= 현재가(${price})`);
