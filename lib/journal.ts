@@ -56,6 +56,23 @@ export interface JournalSummary {
   caution: string;
 }
 
+/** KST 날짜 (YYYY-MM-DD) */
+function kstDate(d: Date): string {
+  return new Date(d.getTime() + 9 * 3600_000).toISOString().slice(0, 10);
+}
+
+/** 두 시각 사이의 거래일 수(주말 제외, KST 날짜 기준). 같은 날이면 0. */
+export function tradingDaysBetween(from: Date, to: Date): number {
+  const start = new Date(kstDate(from));
+  const end = new Date(kstDate(to));
+  let n = 0;
+  for (let d = new Date(start.getTime() + 86_400_000); d <= end; d = new Date(d.getTime() + 86_400_000)) {
+    const wd = d.getUTCDay();
+    if (wd !== 0 && wd !== 6) n++;
+  }
+  return n;
+}
+
 /** 매수 계열이면 오르는 게 정답, 매도 계열이면 내리는 게 정답 */
 function directionOf(action: string): 1 | -1 | 0 {
   if (action === "신규매수" || action === "추가매수") return 1;
@@ -110,20 +127,26 @@ export function recordAndScore(
 
     const rawPct = ((cur - e.priceAtRec) / e.priceAtRec) * 100;
     const signedPct = Number((rawPct * dir).toFixed(2)); // 매도 추천이면 내려야 +
-    const ageDays = (now.getTime() - new Date(e.recommendedAt).getTime()) / 86_400_000;
+    // "5거래일"이라고 화면에 약속했으므로 달력일이 아니라 거래일(주말 제외)로 센다 —
+    // 금요일 추천이 수요일에 만료되는 일이 없게. (공휴일까지는 세지 않는다 — 보수적 방향의 오차)
+    const ageDays = tradingDaysBetween(new Date(e.recommendedAt), now);
 
     let verdict: NonNullable<JournalEntry["outcome"]>["verdict"] = "진행중";
     if (dir === 1 && e.targetPrice && cur >= e.targetPrice) verdict = "목표달성";
     else if (dir === 1 && e.stopPrice && cur <= e.stopPrice) verdict = "손절";
     else if (dir === -1 && e.stopPrice && cur <= e.stopPrice) verdict = "목표달성"; // 팔라고 했고 실제로 내려갔다
+    // 팔라고 했는데 목표가(상방)까지 올라갔으면 그 매도 추천은 틀린 것이다 — 예전에는 매도 추천이
+    // 불리하게 움직여도 기간 만료까지 "진행중"으로 남아 매도 쪽 성적이 후하게 나왔다.
+    else if (dir === -1 && e.targetPrice && cur >= e.targetPrice) verdict = "손절";
     else if (ageDays >= SETTLE_DAYS) verdict = "기간만료";
 
     return { ...e, outcome: { checkedAt: now.toISOString(), priceAtCheck: cur, verdict, signedPct } };
   });
 
-  // 2) 새 추천 추가 (중복 제거)
-  const day = now.toISOString().slice(0, 10);
-  const seen = new Set(scored.filter((e) => e.recommendedAt.slice(0, 10) === day).map((e) => `${e.ticker}|${e.action}`));
+  // 2) 새 추천 추가 (중복 제거) — "같은 날"은 KST 날짜 기준. UTC 날짜는 09:00 KST에 바뀌어
+  //    장전 08:50 추천과 09:10 추천이 다른 날로, 어제 09:10과 오늘 08:50이 같은 날로 묶였다.
+  const day = kstDate(now);
+  const seen = new Set(scored.filter((e) => kstDate(new Date(e.recommendedAt)) === day).map((e) => `${e.ticker}|${e.action}`));
   const added: JournalEntry[] = [];
   for (const f of fresh) {
     if (!isScorable(f.action, f.price)) continue;

@@ -6,6 +6,7 @@ import type { AiAdvice, CollectedSnapshot, EngineSignal, MacroSnapshot, MarketPh
 import { STOCKS } from "./types";
 import { roundToTick } from "./tick";
 import { computeNewsSignal, selectNewsForPrompt } from "./newsSignal";
+import { checkOrderPrice } from "./priceLimits";
 
 // 분석 모델 — 예전 기본값은 Opus 4.8이었다. 비용의 90%가 출력 토큰에서 나오는데
 // Opus는 출력이 $25/100만 토큰, Sonnet 5는 $15로 40% 싸다. 이 앱에서 AI가 하는 일은
@@ -70,7 +71,7 @@ const SYSTEM = `당신은 20년 경력의 한국 주식 단기(데이트레이�
   · 얼마에: 지정가 후보와 그 체결 확률(5년 2,495일 실측)
   · 얼마나: 리스크 1% 규칙에 따른 수량(변동성이 크면 자동으로 줄어듦)
   · 어디서 자를지: ATR 기반 손절선, 손익비 1:2
-"upRate" 필드가 오면 그 국면의 과거 실측 상승률을 인용하되, distinguishable=false면
+"오늘상승확률" 필드가 오면 그 국면의 과거 실측 상승률을 인용하되, 그 문장에 "평균과 구분 안 됨=방향 근거 없음"이 붙어 있으면
 "전체 평균과 구분되지 않는다(=방향 근거 없음)"는 점을 반드시 함께 말한다.
 
 확률·국면 판단 규칙 (이 앱 조언의 뼈대):
@@ -170,10 +171,10 @@ insightReport(종합 인사이트 리포트) — 분석 버튼을 누를 때마�
   · 각 항목은 2~4문장이며 반드시 구체적 숫자(가격·%·점수 등)를 최소 1개 포함하되, 숫자를 말할 때도 "RSI가 72"가 아니라 "지금 인기가 너무 몰려서 과열 신호(72점, 70점 넘으면 과열)가 떴어요"처럼 그 숫자가 좋은건지 나쁜건지 바로 알 수 있게 설명을 붙인다.
   · "분위기가 좋다", "관심 필요" 같은 알맹이 없는 말만으로 채우지 않는다.
 - marketRegime: 오늘 주식시장이 전반적으로 어떤 상태인지(계속 오르거나 내리는 흐름인지, 오르락내리락 횡보하는지) + 환율·VIX(변동성)·공포탐욕지수·미국 선물 같은 큰 배경이 지금 반도체株에 유리한지 불리한지를 쉬운 말로.
-- technicalSynthesis: 6종목의 차트 신호들을 종합해서 지금이 "너무 많이 올라서 위험한 구간"인지 "떨어지다가 멈출 조짐"인지 "특별한 신호 없이 애매한 구간"인지 쉬운 말로. 유독 다른 흐름을 보이는 종목이 있으면 그것도 짚어준다.
+- technicalSynthesis: 10종목의 차트 신호들을 종합해서 지금이 "너무 많이 올라서 위험한 구간"인지 "떨어지다가 멈출 조짐"인지 "특별한 신호 없이 애매한 구간"인지 쉬운 말로. 유독 다른 흐름을 보이는 종목이 있으면 그것도 짚어준다.
 - flowAndSentiment: 외국인·기관투자자(큰손)가 최근 사고 있는지 팔고 있는지, 최신 뉴스·공시 분위기가 좋은지 나쁜지, 이 둘이 같은 방향인지 엇갈리는지를 쉬운 말로.
 - keyRisks: 지금 반드시 조심해야 할 것 1~2가지를 쉬운 말로 구체적으로(예: "지금 따라 사면 고점에 물릴 위험이 커요", "반도체 관련주에 다 넣으면 계란을 한 바구니에 담는 셈이라 위험해요").
-- actionPlan: 6종목 중 지금 가장 먼저 볼 종목과 순서, 그 이유를 한 문단으로 쉽게 — 화면 상단 종목별 카드를 보기 전에 먼저 읽고 "오늘은 이런 느낌이구나"를 파악할 수 있도록.`;
+- actionPlan: 10종목 중 지금 가장 먼저 볼 종목과 순서, 그 이유를 한 문단으로 쉽게 — 화면 상단 종목별 카드를 보기 전에 먼저 읽고 "오늘은 이런 느낌이구나"를 파악할 수 있도록.`;
 
 const ADVICE_SCHEMA = {
   type: "object",
@@ -200,7 +201,7 @@ const ADVICE_SCHEMA = {
         },
         technicalSynthesis: {
           type: "string",
-          description: "5종목 전반의 기술적 지표(RSI/MACD/볼린저/스토캐스틱/피벗/다이버전스/해머/OBV) 흐름 종합. 2~4문장.",
+          description: "10종목 전반의 기술적 지표(RSI/MACD/볼린저/스토캐스틱/피벗/다이버전스/해머/OBV) 흐름 종합. 2~4문장.",
         },
         flowAndSentiment: {
           type: "string",
@@ -212,7 +213,7 @@ const ADVICE_SCHEMA = {
         },
         actionPlan: {
           type: "string",
-          description: "5종목 중 지금 우선적으로 봐야 할 종목/순서와 이유. 2~4문장.",
+          description: "10종목 중 지금 우선적으로 봐야 할 종목/순서와 이유. 2~4문장.",
         },
       },
       required: ["marketRegime", "technicalSynthesis", "flowAndSentiment", "keyRisks", "actionPlan"],
@@ -293,8 +294,10 @@ export async function generateAdvice(params: {
 }): Promise<{ advice: AiAdvice | null; error: string | null; usage?: AdviceUsage | null }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { advice: null, error: "ANTHROPIC_API_KEY 미설정 (Vercel 환경변수 확인 필요)" };
-  // 타임아웃(ms) — 웹 요청 안에서 도는 호출이므로 재시도는 1회로 제한
-  const client = new Anthropic({ apiKey, timeout: 150_000, maxRetries: 1 });
+  // 타임아웃(ms) — 웹 요청 안에서 도는 호출이라 Vercel 함수 상한(300초) 안에 끝나야 한다.
+  // 예전 150초×재시도 1회 + 캐시 실패 재호출까지 하면 최악 600초로 함수가 먼저 죽어
+  // 출력 토큰만 청구되고 화면엔 비JSON 504가 떨어졌다(2026-09 감사). 120초·재시도 없음.
+  const client = new Anthropic({ apiKey, timeout: 120_000, maxRetries: 0 });
 
   const { signals, macro, news, portfolio } = params;
 
@@ -352,7 +355,12 @@ export async function generateAdvice(params: {
     } catch (cacheErr) {
       // 캐싱은 비용 최적화일 뿐이라 실패해도 조언 자체는 나와야 한다.
       // (예: 계정/모델이 1시간 캐시 TTL을 아직 지원하지 않는 경우) 캐시 없이 한 번 더 시도한다.
-      console.warn("프롬프트 캐싱 요청 실패 — 캐시 없이 재시도합니다:", cacheErr);
+      // 단, "캐시 옵션 때문에" 거절된 400에서만 — 429·401·타임아웃까지 다시 쏘면 한도 초과 계정이
+      // 두 배로 청구되고 함수 시간만 태운다.
+      const isCacheRejection =
+        cacheErr instanceof Anthropic.BadRequestError && /cache_control|ttl|ephemeral/i.test(String(cacheErr.message));
+      if (!isCacheRejection) throw cacheErr;
+      console.warn("프롬프트 캐싱 옵션 거절 — 캐시 없이 재시도합니다:", cacheErr);
       response = await client.messages.create({
         ...baseRequest,
         system: `${SYSTEM}\n\n${eventsText}`,
@@ -378,7 +386,7 @@ export async function generateAdvice(params: {
       };
     }
     const parsed = sanitizeAdvicePrices(raw, signals, quietTickers);
-    applyConsistencyCheck(parsed, signals);
+    applyConsistencyCheck(parsed, signals, params.dailyRisk?.stopTriggered === true);
     return {
       advice: { ...parsed, generatedAt: new Date().toISOString() },
       // 부분 복구된 경우에도 화면에는 보여주되, 잘렸다는 사실을 반드시 알린다 —
@@ -561,8 +569,9 @@ export function buildAdvicePayload(params: {
           // 두 번째 경고가 통째로 사라졌다(정보 손실 검증에서 잡힘).
           // 설명부(" — " 뒤)는 떼고 식별 문구만 남겨 길이를 억제한다.
           const warn = own.length ? ` ⚠ ${own.slice(0, 2).map((w) => w.split(" — ")[0].slice(0, 40)).join(" / ")}` : "";
+          // 티커 코드를 함께 준다 — 없으면 모델이 6자리 코드를 기억에서 꺼내 쓰다 다른 종목에 판단을 붙인다
           return (
-            `${s.name}(${STOCKS[s.ticker].sector}) ${Math.round(s.price).toLocaleString()} ${s.score >= 50 ? "+" : ""}${s.score - 50}p ` +
+            `${s.name}[${s.ticker}](${STOCKS[s.ticker].sector}) ${Math.round(s.price).toLocaleString()} ${s.score >= 50 ? "+" : ""}${s.score - 50}p ` +
             `일간±${s.volForecast ? s.volForecast.sigmaDailyPct.toFixed(1) : "?"}% — 보유없음·신호없음${warn}`
           );
         })
@@ -602,6 +611,10 @@ export function buildAdvicePayload(params: {
         리스크오버레이: s.riskOverlay ? `예산 ${Math.round(s.riskOverlay.sizeMultiplier * 100)}% — ${s.riskOverlay.notes.map((n) => n.split(" — ")[1] ?? n).join(" / ").slice(0, 160)}` : null,
         엔진_매수진입가_초안: s.suggestedEntryPrice,
         엔진_매수진입가_근거: s.entryPriceBasis,
+        // SYSTEM이 "지정가 후보와 체결 확률"을 근거로 쓰라고 하는데 정작 이 값이 안 가고 있었다(지어낼 위험)
+        지정가후보_도달확률: s.forecastPath?.orderLevels
+          ? `매수 ${s.forecastPath.orderLevels.buyPrice.toLocaleString()}(${s.forecastPath.orderLevels.buyProbPct}%) / 매도 ${s.forecastPath.orderLevels.sellPrice.toLocaleString()}(${s.forecastPath.orderLevels.sellProbPct}%) — ${s.forecastPath.orderLevels.horizonLabel}`
+          : null,
         목표가: s.targetPrice,
         손절가: s.stopPrice,
         제안수량: s.suggestedQty,
@@ -700,7 +713,7 @@ export function buildAdvicePayload(params: {
       ? newsSignal.axes.map((a) => `${a.axis} ${a.total}건(악재${a.negative}/호재${a.positive}, 압력 ${a.pressure >= 0 ? "+" : ""}${a.pressure})`)
       : null,
     최신뉴스: selectNewsForPrompt(news, 12).map((n) =>
-      `${n.isBreaking ? "[속보]" : ""}[${n.sentiment}/${n.impact}] ${n.title} — ${n.summary} (${n.relatedTo}, ${n.source}, ${n.publishedAt})`,
+      `${n.isBreaking ? "[속보]" : ""}[${n.sentiment}/${n.impact}] ${n.title} — ${n.summary} (${[n.relatedTo, n.source, n.publishedAt].filter(Boolean).join(", ")})`,
     ),
     // 직전 자동수집 브리핑(history.aiSummary)은 보내지 않는다.
     //
@@ -745,12 +758,17 @@ export function parseAdviceResponse(
   const overall = obj.overall as AiAdvice["overall"] | undefined;
   if (!overall?.headline) return { advice: null, truncated: true };
   // 필수 필드가 빠진 종목(정확히 끊긴 그 종목)은 화면에서 잘못된 판단으로 읽힐 수 있으므로 버린다.
+  // 배열 필드(rationale·checklist·entryTriggers)가 빠진 종목은 "정확히 끊긴 그 종목"이다 — 화면이
+  // `.map`/`.length`에서 터지고, 그 결과가 6시간 캐시돼 재현됐다(2026-09 감사). 통째로 버린다.
   const stocks = (Array.isArray(obj.stocks) ? obj.stocks : []).filter(
     (st): st is AiAdvice["stocks"][number] =>
       !!st && typeof st === "object" &&
       typeof (st as Record<string, unknown>).ticker === "string" &&
       typeof (st as Record<string, unknown>).action === "string" &&
-      typeof (st as Record<string, unknown>).headline === "string",
+      typeof (st as Record<string, unknown>).headline === "string" &&
+      Array.isArray((st as Record<string, unknown>).rationale) &&
+      Array.isArray((st as Record<string, unknown>).checklist) &&
+      Array.isArray((st as Record<string, unknown>).entryTriggers),
   );
   const ir = obj.insightReport as AiAdvice["insightReport"] | undefined;
   return {
@@ -823,29 +841,65 @@ function repairTruncatedJson(raw: string): string | null {
  *     그런데도 스키마상 필드는 채울 수 있어 지어낼 여지가 있다. 그런 종목은 가격 필드를 비워
  *     엔진이 계산한 값(검증된 ATR 기반)이 그대로 쓰이게 한다.
  */
+/** AI가 "005930(삼성전자)"처럼 쓴 티커를 6자리 코드로 정규화한다 — 서버 조회는 정확 일치라 안 그러면 검문을 통째로 건너뛴다 */
+function normalizeTicker(raw: string): string {
+  const m = String(raw ?? "").match(/\d{6}/);
+  return m ? m[0] : String(raw ?? "");
+}
+
 function sanitizeAdvicePrices(
   advice: Omit<AiAdvice, "generatedAt">,
   signals: EngineSignal[],
   quietTickers: Set<string>,
 ): Omit<AiAdvice, "generatedAt"> {
   const byTicker = new Map(signals.map((s) => [s.ticker as string, s]));
-  const stocks = (advice.stocks ?? []).map((st) => {
+  const clampScore = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(10, Math.round(v))) : v);
+  const stocks = (advice.stocks ?? []).map((raw) => {
+    const st = { ...raw, ticker: normalizeTicker(raw.ticker), actionScore: clampScore(raw.actionScore) as number };
     const sig = byTicker.get(st.ticker);
     if (!sig) return st;
     if (quietTickers.has(st.ticker)) {
-      // 상세 데이터를 안 줬으므로 가격 판단도 받지 않는다 — 엔진 값으로 대체된다
-      return { ...st, entryPrice: null, targetPrice: null, stopPrice: null };
+      // 상세 데이터를 안 줬으므로 가격뿐 아니라 행동·강도·트리거도 엔진 값으로 되돌린다.
+      // 한 줄만 보고 "신규매수"를 내면 화면은 엔진의 "대기 지정가"를 즉시 진입가로 바꿔 보여줬다.
+      const engineScore = sig.pnlPct != null && st.action !== "추가매수" ? (sig.sellStrength ?? 0) : sig.buyStrength;
+      return { ...st, action: sig.action, actionScore: engineScore, entryPrice: null, targetPrice: null, stopPrice: null, entryTriggers: [] };
     }
     const cur = STOCKS[sig.ticker].currency;
     const fix = (v: number | null | undefined, mode: "nearest" | "up" | "down") =>
       v == null || !isFinite(v) || v <= 0 ? null : roundToTick(v, cur, mode);
-    return {
-      ...st,
-      entryPrice: fix(st.entryPrice, "nearest"),
-      // 손절은 올림(리스크가 계산치를 넘지 않게), 목표는 내림(도달 가능성 보수적) — 엔진과 같은 규칙
-      stopPrice: fix(st.stopPrice, "up"),
-      targetPrice: fix(st.targetPrice, "down"),
-    };
+    let entryPrice = fix(st.entryPrice, "nearest");
+    // 손절은 올림(리스크가 계산치를 넘지 않게), 목표는 내림(도달 가능성 보수적) — 엔진과 같은 규칙
+    let stopPrice = fix(st.stopPrice, "up");
+    let targetPrice = fix(st.targetPrice, "down");
+    const notes: string[] = [];
+    // 프롬프트에만 있던 규칙을 코드로 강제한다: 오늘 체결 불가 가격(상하한가 밖)·역전된 손절/목표·본전 미달 목표는 버린다(엔진 값으로 대체)
+    const limitNote = (p: number | null) => (p != null && sig.priceLimits ? checkOrderPrice(p, sig.priceLimits) : null);
+    for (const [label, p, reset] of [
+      ["매수 진입가", entryPrice, () => (entryPrice = null)],
+      ["손절가", stopPrice, () => (stopPrice = null)],
+      ["목표가", targetPrice, () => (targetPrice = null)],
+    ] as [string, number | null, () => void][]) {
+      const msg = limitNote(p);
+      if (msg) {
+        notes.push(`⚠️ AI ${label}(${p?.toLocaleString()}) 은 오늘 체결 불가 범위라 엔진 값으로 대체 — ${msg.slice(0, 40)}`);
+        reset();
+      }
+    }
+    const isBuy = st.action === "신규매수" || st.action === "추가매수";
+    const ref = entryPrice ?? sig.price;
+    if (isBuy && stopPrice != null && stopPrice >= ref) {
+      notes.push(`⚠️ AI 손절가(${stopPrice.toLocaleString()})가 진입가 이상이라 엔진 값으로 대체`);
+      stopPrice = null;
+    }
+    if (isBuy && targetPrice != null && targetPrice <= ref) {
+      notes.push(`⚠️ AI 목표가(${targetPrice.toLocaleString()})가 진입가 이하라 엔진 값으로 대체`);
+      targetPrice = null;
+    }
+    if (isBuy && targetPrice != null && sig.breakEvenPrice != null && targetPrice < sig.breakEvenPrice) {
+      notes.push(`⚠️ AI 목표가(${targetPrice.toLocaleString()})가 본전가(${sig.breakEvenPrice.toLocaleString()}) 미만 — 이기고도 손해라 엔진 값으로 대체`);
+      targetPrice = null;
+    }
+    return { ...st, entryPrice, stopPrice, targetPrice, checklist: [...(st.checklist ?? []), ...notes] };
   });
   return { ...advice, stocks };
 }
@@ -855,7 +909,7 @@ const ACTION_SCORE_DIVERGENCE = 4; // AI actionScore가 룰 엔진 buy/sellStren
 
 // AI의 목표가/손절가/actionScore가 룰 엔진 1차 계산값과 크게 벗어나면 checklist에 경고를 덧붙인다.
 // (정보의 정합성 확보용 — AI가 근거 없이 임의의 가격/점수를 제시하는 것을 방지)
-function applyConsistencyCheck(advice: Omit<AiAdvice, "generatedAt">, signals: EngineSignal[]): void {
+function applyConsistencyCheck(advice: Omit<AiAdvice, "generatedAt">, signals: EngineSignal[], dailyStopTriggered = false): void {
   const byTicker = new Map(signals.map((s) => [s.ticker, s]));
   for (const stock of advice.stocks) {
     const sig = byTicker.get(stock.ticker as StockTicker);
@@ -863,6 +917,18 @@ function applyConsistencyCheck(advice: Omit<AiAdvice, "generatedAt">, signals: E
     const unit = STOCKS[sig.ticker].currency === "USD" ? "$" : "원";
     const fmtPrice = (n: number) => (unit === "$" ? `$${n.toLocaleString()}` : `${n.toLocaleString()}원`);
     const warnings: string[] = [];
+    // 엔진이 진입을 막은 종목(과열·변동성·상관한도·현금부족)이나 계좌 하루손실 한도가 닿은 날에
+    // AI가 매수를 권하면 "경고 한 줄"로는 부족하다 — 화면은 AI 판단을 먼저 보여주므로 실제로
+    // "사세요"가 떴다(2026-09 감사). 판단 자체를 관망으로 되돌리고 강도를 엔진 상한(5)으로 낮춘다.
+    const aiBuy = stock.action === "신규매수" || stock.action === "추가매수";
+    if (aiBuy && (sig.entryBlocked || dailyStopTriggered)) {
+      const why = dailyStopTriggered ? "계좌 하루 손실 한도(-3%) 도달" : "룰 엔진이 진입을 막은 상태(과열·변동성·상관한도·현금부족 중 하나)";
+      warnings.push(`⚠️ AI는 매수를 권했지만 ${why}라 관망으로 조정했습니다 — 엔진 경고를 먼저 읽으세요`);
+      stock.action = sig.pnlPct != null ? "보유" : "관망";
+      stock.actionScore = Math.min(stock.actionScore ?? 5, 5);
+      stock.entryPrice = null;
+      stock.headline = `${stock.headline} (엔진 보정: 지금은 진입하지 않습니다)`;
+    }
     if (stock.entryPrice != null && sig.suggestedEntryPrice) {
       const diffPct = (Math.abs(stock.entryPrice - sig.suggestedEntryPrice) / sig.suggestedEntryPrice) * 100;
       if (diffPct > CONSISTENCY_DIVERGENCE_PCT) {
@@ -887,25 +953,18 @@ function applyConsistencyCheck(advice: Omit<AiAdvice, "generatedAt">, signals: E
         );
       }
     }
-    // 엔진이 진입을 막은 종목에 AI가 매수를 권하면, 그 자체를 경고로 남긴다.
-    // 막은 이유(과열·변동성·상관한도·하루손실한도)는 측정된 근거라 조용히 덮이면 안 된다.
-    if (sig.entryBlocked && (stock.action === "신규매수" || stock.action === "추가매수")) {
-      warnings.push(
-        `⚠️ 룰 엔진은 이 종목의 신규 진입을 막았는데(과열·변동성·상관한도·하루손실한도 중 하나) AI는 매수를 권합니다 — 아래 근거를 직접 확인하세요`,
-      );
-    }
     if (stock.actionScore != null) {
       // 보유 중이라도 action이 "추가매수"(피라미딩)면 매도강도가 아니라 매수강도(buyStrength)가 기준이다.
       const isHoldingSellJudgment = sig.pnlPct != null && stock.action !== "추가매수";
       const engineScore = isHoldingSellJudgment ? sig.sellStrength : sig.buyStrength;
-      if (engineScore != null && Math.abs(stock.actionScore - engineScore) > ACTION_SCORE_DIVERGENCE) {
+      if (engineScore != null && Math.abs(stock.actionScore - engineScore) >= ACTION_SCORE_DIVERGENCE) {
         const label = isHoldingSellJudgment ? "매도" : "매수";
         warnings.push(
           `⚠️ AI ${label} 강도(${stock.actionScore}점)가 룰 엔진 1차 계산값(${engineScore}점)과 크게 차이 — 근거 재확인 필요`,
         );
       }
     }
-    if (warnings.length > 0) stock.checklist = [...stock.checklist, ...warnings];
+    if (warnings.length > 0) stock.checklist = [...(stock.checklist ?? []), ...warnings];
   }
 }
 

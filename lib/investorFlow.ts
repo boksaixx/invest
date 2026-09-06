@@ -129,11 +129,13 @@ export async function fetchInvestorFlows(): Promise<{ data: Partial<Record<Stock
 
   try {
     const result: Partial<Record<StockTicker, InvestorFlowDay[]>> = {};
+    let failed = 0;
     for (const ticker of KR_TICKERS) {
       try {
         const isin = await resolveIsin(ticker);
         if (!isin) {
           console.warn(`KRX ISIN을 찾지 못함: ${ticker}`);
+          failed++;
           continue;
         }
         const base = await fetchInvestorTrend(isin);
@@ -144,13 +146,21 @@ export async function fetchInvestorFlows(): Promise<{ data: Partial<Record<Stock
           return p == null ? day : { ...day, pensionNet: p };
         });
       } catch (e) {
+        // 실패한 종목은 "빈 배열"이 아니라 "없음(undefined)"으로 둔다 — 호출부가 `?? 스냅샷값`으로
+        // 직전 수집분을 대신 쓸 수 있게(빈 배열은 nullish가 아니라 폴백이 영영 안 탔다).
         console.error(`KRX 수급 조회 실패 (${ticker}):`, e);
-        result[ticker] = [];
+        failed++;
       }
       await new Promise((r) => setTimeout(r, 200)); // 연속 호출 간 짧은 간격 (배려)
     }
+    // 전부 실패했으면 "성공"으로 1시간 캐시하면 안 된다 — 짧게 캐시하고 error를 알린다
+    if (failed >= KR_TICKERS.length) {
+      const msg = "KRX 수급 연동 실패: 전 종목 조회 실패(접근 차단·엔드포인트 변경 가능성)";
+      flowCache = { data: {}, expiresAt: now + 5 * 60_000 };
+      return { data: {}, error: msg };
+    }
     flowCache = { data: result, expiresAt: now + FLOW_CACHE_TTL_MS };
-    return { data: result, error: null };
+    return { data: result, error: failed > 0 ? `KRX 수급 일부 종목(${failed}개) 조회 실패` : null };
   } catch (e) {
     const msg = `KRX 수급 연동 실패: ${String(e).slice(0, 200)}`;
     console.error(msg);

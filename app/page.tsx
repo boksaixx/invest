@@ -11,6 +11,9 @@ import { computeNewsSignal } from "@/lib/newsSignal";
 // 대외변수 보드 — 자사주·중국·미국·전쟁·금리환율 축별 건수/방향과 예정 이벤트. 엔진의 종목별
 // 이슈영향(issueImpacts)과 같은 topic 추정을 쓴다.
 import { computeTopicBoard, topicLabel } from "@/lib/issueMap";
+import { AXES as NEWS_AXES } from "@/lib/newsSignal";
+import scenarioStats from "@/data/scenarios.json";
+import dipStats from "@/data/dip-stats.json";
 // 매매일지 — 이 앱의 추천이 실제로 맞았는지 기록하고 채점한다(브라우저에만 저장).
 import { loadJournal, recordAndScore, saveJournal, summarize, type JournalEntry } from "@/lib/journal";
 // 문서 탭이 인용하는 검증 수치는 반드시 실측 파일에서 읽는다.
@@ -45,6 +48,8 @@ interface AdviceResponse {
   newsError?: string | null;
   aiAvailable: boolean;
   newsLive: boolean;
+  newsCollectedAt?: string | null; // 뉴스가 실제로 수집된 시각 (스냅샷 뉴스를 이어 쓸 때 generatedAt보다 오래됨)
+  portfolioNotice?: string | null; // 보낸 자산 정보가 손상돼 서버가 기본값으로 계산했을 때의 안내
   marketPhase?: { phase: string; kstTime: string; note: string };
   marketPhaseUS?: { phase: string; kstTime: string; note: string };
   relativeStrengthSummary?: string | null;
@@ -165,6 +170,12 @@ function persistPortfolio(p: Portfolio): void {
 const RESULT_CACHE_KEY = "advice-result-v1";
 const RESULT_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
+/** KST 기준 "오늘 09:00"의 epoch ms — 이 시각 이전에 만든 분석은 오늘 장의 판단이 아니다 */
+function kstTodayOpenMs(now = Date.now()): number {
+  const kst = new Date(now + 9 * 3600_000);
+  return Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate(), 0, 0) - 9 * 3600_000 + 9 * 3600_000;
+}
+
 function loadCachedResult(): AdviceResponse | null {
   if (typeof window === "undefined") return null;
   try {
@@ -172,7 +183,15 @@ function loadCachedResult(): AdviceResponse | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AdviceResponse;
     if (!parsed?.generatedAt) return null;
-    if (Date.now() - new Date(parsed.generatedAt).getTime() > RESULT_CACHE_MAX_AGE_MS) return null;
+    const at = new Date(parsed.generatedAt).getTime();
+    if (Date.now() - at > RESULT_CACHE_MAX_AGE_MS) return null;
+    // 어제 저녁 분석이 오늘 아침 "오늘 나의 행동"으로 복원되는 것을 막는다 — 개장(09:00 KST) 이후에는
+    // 개장 전에 만든 결과를 버린다(2026-09 감사에서 잡힌 "6시간 캐시 + 타임스탬프 없음" 문제의 절반).
+    if (Date.now() >= kstTodayOpenMs() && at < kstTodayOpenMs()) return null;
+    // 잘린 AI 응답이 저장됐을 수 있다 — 배열 필드가 빠진 종목은 화면에서 터지므로 걸러낸다
+    if (parsed.advice?.stocks) {
+      parsed.advice.stocks = parsed.advice.stocks.filter((st) => st && Array.isArray(st.rationale) && Array.isArray(st.checklist));
+    }
     return parsed;
   } catch {
     return null;
@@ -320,14 +339,33 @@ function scoreBand(score: number, kind: "buy" | "sell"): { name: string; text: s
   return { name: b.name, text: kind === "buy" ? b.buy : b.sell, idx: i < 0 ? SCORE_BANDS.length - 1 : i };
 }
 
+/** "실제로 보유 중"의 단 하나의 정의 — 수량과 평단가가 모두 있어야 한다. 서버(normalizePortfolio)와 같은 기준.
+ *  예전에는 화면은 qty>0만 보고 서버는 avgPrice>0까지 봐서, 평단가를 안 넣은 종목이 화면에선 "보유"·서버에선 "미보유"로 갈렸다. */
+function isHeld(h: { qty: number; avgPrice: number } | undefined | null): h is { qty: number; avgPrice: number } {
+  return Boolean(h && h.qty > 0 && h.avgPrice > 0);
+}
+
+/**
+ * 화면이 따를 최종 행동 — AI 판단을 우선하되, 엔진이 진입을 막은 종목(entryBlocked)에 AI가 매수를 내면
+ * 엔진 판단으로 되돌린다. 서버(lib/claude.ts applyConsistencyCheck)도 같은 보정을 하지만, 예전 캐시 결과와
+ * "AI 없이 엔진만" 경로까지 한 규칙으로 묶기 위해 화면에서도 한 번 더 건다.
+ */
+function effectiveAction(sig: EngineSignal | undefined, ai: AiAdvice["stocks"][number] | undefined): string | undefined {
+  const a = ai?.action ?? sig?.action;
+  if (sig?.entryBlocked && (a === "신규매수" || a === "추가매수")) return sig.action;
+  return a;
+}
+
 // 종목 하나의 최종 표시 점수를 계산 — AI 판단이 있으면 그 값을, 없으면 룰 엔진 1차 계산값을 쓴다.
 // 보유 중이라도 action이 "추가매수"(수익 중 피라미딩)면 매도강도가 아니라 "추가매수 강도"를 보여줘야
 // "팔아야 하나" 대신 "더 사도 되나"를 정확히 전달할 수 있다.
+// 엔진이 진입을 막은 종목의 매수 강도는 엔진 상한(5)을 넘지 못한다 — "10/10 옆에 절대 금지" 사고의 재발 방지.
 function computeScoreInfo(holding: boolean, sig: EngineSignal | undefined, ai: AiAdvice["stocks"][number] | undefined): ScoreInfo | null {
   if (!sig) return null;
-  const action = ai?.action ?? sig.action;
+  const action = effectiveAction(sig, ai);
+  const capBuy = (s: number) => (sig.entryBlocked ? Math.min(s, 5) : s);
   if (holding && action === "추가매수") {
-    const score = ai?.actionScore ?? sig.buyStrength;
+    const score = capBuy(ai?.actionScore ?? sig.buyStrength);
     return { score, tone: buyTone(score), label: "추가매수 강도", oneLiner: ai?.headline ?? sig.actionSummary };
   }
   if (holding) {
@@ -335,8 +373,8 @@ function computeScoreInfo(holding: boolean, sig: EngineSignal | undefined, ai: A
     if (score == null) return null;
     return { score, tone: sellTone(score), label: "매도 강도", oneLiner: ai?.headline ?? sig.actionSummary };
   }
-  const score = ai?.actionScore ?? sig.buyStrength;
-  return { score, tone: buyTone(score), label: "매수 강도", oneLiner: ai?.headline ?? sig.actionSummary };
+  const score = capBuy(ai?.actionScore ?? sig.buyStrength);
+  return { score, tone: buyTone(score), label: "매수 강도", oneLiner: sig.entryBlocked ? sig.actionSummary : (ai?.headline ?? sig.actionSummary) };
 }
 
 const FONT_SCALE_STEPS = [0.85, 1, 1.15, 1.3, 1.45];
@@ -364,6 +402,11 @@ export default function Home() {
   // 사용자가 직접 접거나 편 종목은 그 선택을 기억한다(null = 아직 안 건드림).
   const [cardOpen, setCardOpen] = useState<Record<string, boolean>>({});
   const [market, setMarket] = useState<MarketData | null>(null);
+  // 시세 갱신이 실패하면 화면의 가격은 마지막 성공분으로 멈춘다 — 그 사실이 보이지 않으면
+  // 오래된 가격을 실시간으로 믿고 주문한다. 마지막 성공 시각과 실패 여부를 헤더 칩으로 보여준다.
+  const [marketAt, setMarketAt] = useState<number | null>(null);
+  const [marketError, setMarketError] = useState(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const [result, setResult] = useState<AdviceResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -466,8 +509,15 @@ export default function Home() {
   async function refreshMarket() {
     try {
       const res = await fetch("/api/market", { cache: "no-store" });
-      if (res.ok) setMarket((await res.json()) as MarketData);
-    } catch {}
+      if (res.ok) {
+        setMarket((await res.json()) as MarketData);
+        setMarketAt(Date.now());
+        setMarketError(false);
+      } else setMarketError(true);
+    } catch {
+      setMarketError(true);
+    }
+    setNowTick(Date.now());
   }
 
   async function runDiagnosis() {
@@ -496,8 +546,8 @@ export default function Home() {
       const res = await fetch("/api/advice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // 평단가만 입력하고 수량은 아직 안 넣은 임시 항목(qty=0)은 "실제 보유"가 아니므로 서버에는 제외하고 보낸다.
-        body: JSON.stringify({ portfolio: { ...portfolio, holdings: portfolio.holdings.filter((h) => h.qty > 0) } }),
+        // 수량·평단가가 모두 있는 항목만 "실제 보유"다(서버 normalizePortfolio와 같은 기준) — 임시 항목은 제외하고 보낸다.
+        body: JSON.stringify({ portfolio: { ...portfolio, holdings: portfolio.holdings.filter((h) => isHeld(h)) } }),
       });
       let json: AdviceResponse | null = null;
       try {
@@ -535,7 +585,12 @@ export default function Home() {
           saveJournal(next);
           setJournal(next);
         }
-        setNewsNotice(!json.newsLive && json.newsError ? "지금은 실시간 속보 대신 최근 자동수집된 뉴스를 보여드리고 있어요 (일시적인 수집 지연)." : null);
+        const newsAgeH = json.newsCollectedAt ? (Date.now() - new Date(json.newsCollectedAt).getTime()) / 3_600_000 : null;
+        setNewsNotice(
+          !json.newsLive && json.newsError
+            ? `지금은 실시간 속보 대신 최근 자동수집된 뉴스를 보여드리고 있어요 (일시적인 수집 지연${newsAgeH != null && newsAgeH >= 1 ? ` · 뉴스 기준 ${Math.round(newsAgeH)}시간 전` : ""}).`
+            : null,
+        );
         if (!json.advice && json.adviceError) {
           setError(`AI 종합 판단 실패: ${json.adviceError}`);
           void runDiagnosis();
@@ -544,6 +599,8 @@ export default function Home() {
           // 빨간 오류로 띄우면 조언 전체를 못 믿게 되므로, 안내 문구로만 알린다.
           setAdviceNotice(json.adviceError);
         }
+        // 보낸 자산 정보가 손상돼 서버가 기본값(현금 2,000만원)으로 수량을 냈다면 반드시 알린다
+        if (json.portfolioNotice) setAdviceNotice((prev) => (prev ? `${prev} · ` : "") + `⚠️ ${json.portfolioNotice}`);
       }
     } catch {
       setError("네트워크 오류 또는 응답 시간 초과입니다. 화면 위쪽 “연결 상태 확인” 결과를 확인해주세요.");
@@ -560,10 +617,11 @@ export default function Home() {
   // 국내(원화)/미국(달러) 보유 평가금을 각각 따로 집계한 뒤, 화면 최상단 "총 자산"에서만
   // 실시간 환율로 원화 환산해 하나의 숫자로 합친다 — 종목 카드 등 개별 표시는 항상 그 종목의
   // 원래 통화(원/달러)로 보여줘야 하므로 여기서 미리 환산해버리지 않는다.
+  // 평가금·매입금은 "실제 보유"(수량+평단가)만 센다 — 평단가 없는 항목을 평가금에만 넣으면 수익률이 부풀려진다
   const holdingsValueKRW = useMemo(() => {
     let sum = 0;
     for (const h of portfolio.holdings) {
-      if (STOCKS[h.ticker].currency !== "KRW") continue;
+      if (!isHeld(h) || STOCKS[h.ticker].currency !== "KRW") continue;
       const q = market?.quotes?.[h.ticker];
       sum += h.qty * (q?.price ?? h.avgPrice);
     }
@@ -573,7 +631,7 @@ export default function Home() {
   const holdingsValueUSD = useMemo(() => {
     let sum = 0;
     for (const h of portfolio.holdings) {
-      if (STOCKS[h.ticker].currency !== "USD") continue;
+      if (!isHeld(h) || STOCKS[h.ticker].currency !== "USD") continue;
       const q = market?.quotes?.[h.ticker];
       sum += h.qty * (q?.price ?? h.avgPrice);
     }
@@ -581,13 +639,15 @@ export default function Home() {
   }, [portfolio, market]);
 
   const investedCostKRW = useMemo(
-    () => portfolio.holdings.filter((h) => STOCKS[h.ticker].currency === "KRW").reduce((a, h) => a + h.qty * h.avgPrice, 0),
+    () => portfolio.holdings.filter((h) => isHeld(h) && STOCKS[h.ticker].currency === "KRW").reduce((a, h) => a + h.qty * h.avgPrice, 0),
     [portfolio],
   );
   const investedCostUSD = useMemo(
-    () => portfolio.holdings.filter((h) => STOCKS[h.ticker].currency === "USD").reduce((a, h) => a + h.qty * h.avgPrice, 0),
+    () => portfolio.holdings.filter((h) => isHeld(h) && STOCKS[h.ticker].currency === "USD").reduce((a, h) => a + h.qty * h.avgPrice, 0),
     [portfolio],
   );
+  // 수량은 있는데 평단가가 없는 항목 — 화면 어디에도 "보유"로 잡히지 않으니 입력을 유도한다
+  const incompleteHoldings = portfolio.holdings.filter((h) => h.qty > 0 && !(h.avgPrice > 0)).map((h) => STOCKS[h.ticker].name);
 
   const holdingsValue = holdingsValueKRW + toKrw(holdingsValueUSD); // 원화 환산 합계 (총 자산 카드 전용)
   const investedCost = investedCostKRW + toKrw(investedCostUSD);
@@ -622,7 +682,7 @@ export default function Home() {
       const sig = result.signals.find((s) => s.ticker === ticker);
       const ai = result.advice?.stocks.find((s) => s.ticker === ticker || s.ticker.includes(ticker));
       const h = portfolio.holdings.find((x) => x.ticker === ticker);
-      const held = Boolean(h && h.qty > 0);
+      const held = isHeld(h);
       const info = computeScoreInfo(held, sig, ai);
       return { ticker, name, held, info };
     })
@@ -660,6 +720,12 @@ export default function Home() {
           {snapshotLabel && (
             <span className={snapshotStale ? "hd-chip hd-chip-stale" : "hd-chip"}>
               {snapshotLabel.replace("자동수집 ", "")}
+            </span>
+          )}
+          {/* 시세 피드 상태 — 3분 넘게 갱신이 안 되거나 오프라인이면 빨간 칩. 화면의 가격은 그 시각에 멈춘 값이다. */}
+          {(marketError || (marketAt != null && nowTick - marketAt > 3 * 60_000)) && (
+            <span className="hd-chip hd-chip-stale" title="시세 갱신 실패 — 화면 가격은 마지막 성공 시각 기준">
+              ⚠ 시세 {marketAt ? `${Math.max(1, Math.round((nowTick - marketAt) / 60_000))}분 전` : "없음"}
             </span>
           )}
         </div>
@@ -770,14 +836,23 @@ export default function Home() {
           아래 모든 카드보다 위에 종목별로 딱 한 줄씩 결론만 보여준다. */}
       {result?.signals && result.signals.length > 0 && (
         <div className="doit">
-          <div className="doit-title">오늘 나의 행동</div>
+          <div className="doit-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+            <span>오늘 나의 행동</span>
+            {/* 언제 계산한 판단인지가 카드 안에 보여야 한다 — 예전에는 최대 6시간 지난 결과가 아무 표시 없이 "오늘"로 떴다 */}
+            <span style={{ fontSize: "0.72em", fontWeight: 600, color: (Date.now() - new Date(result.generatedAt).getTime()) > 30 * 60_000 ? "#c9353f" : "var(--text-weak)" }}>
+              {staleness(result.generatedAt, "분석")}{result.marketPhase ? ` · ${result.marketPhase.phase} 기준` : ""}
+            </span>
+          </div>
           {(() => {
             const rows = result.signals.map((sg) => {
               const ai = result.advice?.stocks.find((x) => x.ticker === sg.ticker || x.ticker.includes(sg.ticker));
-              const act = (ai?.action ?? sg.action) as string;
-              const hold = portfolio.holdings.find((x) => x.ticker === sg.ticker && x.qty > 0);
+              // AI 판단 우선이되, 엔진이 진입을 막은 종목의 AI 매수는 엔진 판단으로 되돌린다(effectiveAction)
+              const act = (effectiveAction(sg, ai) ?? sg.action) as string;
+              const hold = portfolio.holdings.find((x) => x.ticker === sg.ticker && isHeld(x));
               const cur = STOCKS[sg.ticker].currency;
               const px = (v: number | null | undefined) => (v == null ? "" : fmt(v, cur));
+              // 행의 "지금 가격"은 60초마다 갱신되는 시세를 쓴다 — 분석 시점 가격에 묶어두면 몇 시간 전 값이 "지금"으로 읽힌다
+              const livePrice = market?.quotes?.[sg.ticker]?.price ?? sg.price;
               // 우선순위: 팔 것 → 살 것 → 들고 있을 것 → 안 건드릴 것
               //
               // 매도 문구는 반드시 "실제로 보유 중일 때"만 낸다. 보유하지 않은 종목에
@@ -790,12 +865,16 @@ export default function Home() {
                 if (act === "부분매도") {
                   // 단타 청산(1σ 익절·VWAP 이탈·마감 전 청산)은 "지금 시장가로 절반"이 결론이다 —
                   // 목표가 부근이 아니라 현재가에서 판다. 엔진 근거 첫 문장이 이유를 말한다.
-                  const dayExit = /익절선|VWAP.*하향 이탈|마감 전/.test(sg.reasons[0] ?? "");
+                  // "절반" 수량은 엔진의 분할 매도 계획(scaledExit 1차)과 같은 숫자를 쓴다(예전엔 floor/ceil이 달라 5주 vs 6주).
+                  const half = sg.scaledExit[0]?.qty ?? Math.ceil(hold.qty / 2);
+                  const cause = (sg.reasons[0] ?? "").split(" — ")[0];
+                  const atTarget = /목표가.*도달/.test(cause);
+                  const target = ai?.targetPrice ?? sg.targetPrice;
                   return {
                     rank: 1, kind: "sell", name: sg.name, verb: "절반 파세요",
-                    detail: dayExit
-                      ? `보유 ${hold.qty}주 중 ${Math.max(1, Math.floor(hold.qty / 2))}주 · 지금 ${px(sg.price)} 부근에서 · ${(sg.reasons[0] ?? "").split(" — ")[0].slice(0, 44)}`
-                      : `보유 ${hold.qty}주 중 ${Math.max(1, Math.floor(hold.qty / 2))}주 · ${px(ai?.targetPrice ?? sg.targetPrice)} 부근`,
+                    detail: atTarget && target != null
+                      ? `보유 ${hold.qty}주 중 ${half}주 · ${px(target)} 부근`
+                      : `보유 ${hold.qty}주 중 ${half}주 · 지금 ${px(livePrice)} 부근에서${cause ? ` · ${cause.length > 44 ? `${cause.slice(0, 44)}…` : cause}` : ""}`,
                   };
                 }
                 return { rank: 0, kind: "sell", name: sg.name, verb: "지금 파세요", detail: `보유 ${hold.qty}주 전량 · ${px(ai?.stopPrice ?? sg.stopPrice)} 아래면 즉시` };
@@ -803,8 +882,10 @@ export default function Home() {
               if (isSell)
                 return { rank: 5, kind: "avoid", name: sg.name, verb: "사지 마세요", detail: "떨어지는 흐름이라 지금 새로 들어갈 자리가 아닙니다 (보유분 없음)" };
               if (act === "신규매수" || act === "추가매수") {
+                // 수량은 엔진이 "엔진 손절폭" 기준 1% 리스크로 낸 값이다. 손절가만 AI 값으로 바꿔 보여주면 수량과 어긋나므로
+                // 이 행에서는 손절가도 엔진 값을 쓴다(AI 손절가는 종목 카드에서 따로 본다).
                 const qty = sg.suggestedQty && sg.suggestedQty > 0 ? `${sg.suggestedQty}주` : "수량은 종목 탭 참고";
-                return { rank: 2, kind: "buy", name: sg.name, verb: hold ? "더 사세요" : "사세요", detail: `${px(ai?.entryPrice ?? sg.suggestedEntryPrice)} · ${qty} · 손절 ${px(ai?.stopPrice ?? sg.stopPrice)}` };
+                return { rank: 2, kind: "buy", name: sg.name, verb: hold ? "더 사세요" : "사세요", detail: `${px(ai?.entryPrice ?? sg.suggestedEntryPrice)} · ${qty} · 손절 ${px(sg.stopPrice)}` };
               }
               if (hold) {
                 const exit1 = sg.scaledExit[0];
@@ -829,7 +910,13 @@ export default function Home() {
                 };
               }
               return { rank: 6, kind: "wait", name: sg.name, verb: "기다리세요", detail: lv ? `${px(lv.buyPrice)}까지 내려오면 그때 검토 (오늘 닿을 확률 ${lv.buyProbPct}%)` : "지금은 살 이유가 없습니다" };
-            }).sort((a, b) => a.rank - b.rank);
+            });
+            // 보유 중인데 시세·캔들 수집 실패로 신호가 안 나온 종목 — 행이 아예 없으면 "괜찮다"로 읽힌다. 반드시 알린다.
+            for (const h of portfolio.holdings) {
+              if (!isHeld(h) || result.signals.some((s) => s.ticker === h.ticker)) continue;
+              rows.push({ rank: 0, kind: "hold", name: STOCKS[h.ticker].name, verb: "데이터 없음", detail: `보유 ${h.qty}주 · 이번 분석에서 시세를 못 가져왔어요 — 증권사 앱에서 직접 확인하세요` });
+            }
+            rows.sort((a, b) => a.rank - b.rank);
             const act = rows.filter((r) => r.rank <= 4);
             const wait = rows.filter((r) => r.rank >= 5);
             return (
@@ -1026,17 +1113,22 @@ export default function Home() {
             환율을 아직 못 가져와 달러 자산이 빠져 있어요 (잠시 후 자동 갱신).
           </div>
         )}
+        {incompleteHoldings.length > 0 && (
+          <div className="hint" style={{ color: "var(--red)" }}>
+            ⚠️ {incompleteHoldings.join("·")}: 수량은 있는데 <b>평단가</b>가 없어 보유로 계산하지 않았어요 — 설정 → 내 자산 입력에서 평단가를 넣어주세요.
+          </div>
+        )}
       </div>
 
       {/* 종합 리포트 — 카드가 흩어져 있으면 "그래서 지금 내 계좌 상태가 어떻다는 건가"를
           한눈에 알 수 없다. 보유 판단 분포와 위험을 한 카드에 모은다. */}
-      {result && portfolio.holdings.some((x) => x.qty > 0) && (() => {
+      {result && portfolio.holdings.some((x) => isHeld(x)) && (() => {
         const mine = portfolio.holdings
-          .filter((x) => x.qty > 0)
+          .filter((x) => isHeld(x))
           .map((x) => {
             const sg = result.signals.find((v) => v.ticker === x.ticker);
             const av = result.advice?.stocks.find((v) => v.ticker === x.ticker || v.ticker.includes(x.ticker));
-            return { h: x, sig: sg, verdict: holdVerdict(av?.action ?? sg?.action) };
+            return { h: x, sig: sg, verdict: holdVerdict(effectiveAction(sg, av)) };
           });
         const cnt = (c: HoldChoice) => mine.filter((m) => m.verdict.choice === c).length;
         return (
@@ -1413,7 +1505,7 @@ export default function Home() {
               </div>
             ))}
             <div className="hint">
-              미보유 종목은 매수 강도, 보유 종목은 매도 강도(단, 수익 중 추가매수 신호가 뜨면 추가매수 강도)입니다. 8점 이상이면 강한 신호, 4~7점은 조건부(트리거·목표가 확인), 0~3점은 아직 근거 부족(관망/보유)이에요.
+              미보유 종목은 매수 강도, 보유 종목은 매도 강도(단, 수익 중 추가매수 신호가 뜨면 추가매수 강도)입니다. 7점 이상이면 엔진 기준 진입(또는 정리) 신호, 4~6점은 조건부(트리거·목표가 확인), 0~3점은 아직 근거 부족(관망/보유)이에요. 엔진이 진입을 막은 종목은 5점을 넘지 않습니다.
             </div>
           </div>
         </>
@@ -1548,18 +1640,18 @@ export default function Home() {
         <br />
         <strong>무료 공개 API 기반 시세는 최대 15~20분 지연될 수 있습니다.</strong> 실제 주문 직전에는 반드시 증권사 앱(MTS)에서 최신 호가를 확인하세요. 진입/무효화 조건은 고정 가격이 아니라 &quot;조건 충족 여부&quot;로 판단하도록 설계되어 지연의 영향을 줄였지만, 완전히 없앨 수는 없습니다.
         <br />
-        목표가·손절가는 왕복 거래비용(증권거래세+수수료, 약 0.25%)을 반영하지 않은 값입니다. 실제 순수익은 표시된 수치보다 낮습니다.
+        목표가·손절가는 왕복 거래비용(증권거래세 0.15% + 수수료, 약 0.18%)을 반영하지 않은 값입니다. 실제 순수익은 표시된 수치보다 낮습니다. &quot;본전가&quot;는 이 비용을 넘긴 가격입니다.
       </div>
       </div>{/* ===== /탭: 정보 2구간 ===== */}
 
       <div style={{ display: tab === "종목" ? undefined : "none" }}>
       {/* 종목을 "내가 가진 것"과 "지켜보는 것"으로 나눈다.
           섞여 있으면 10개를 하나씩 확인해야 내 포지션을 파악할 수 있다. */}
-      {portfolio.holdings.some((x) => x.qty > 0) && <div className="sec-h">내가 가진 종목</div>}
+      {portfolio.holdings.some((x) => isHeld(x)) && <div className="sec-h">내가 가진 종목</div>}
       {[...TICKERS]
         .sort((a, b) => {
-          const ha = portfolio.holdings.some((x) => x.ticker === a.ticker && x.qty > 0) ? 0 : 1;
-          const hb = portfolio.holdings.some((x) => x.ticker === b.ticker && x.qty > 0) ? 0 : 1;
+          const ha = portfolio.holdings.some((x) => x.ticker === a.ticker && isHeld(x)) ? 0 : 1;
+          const hb = portfolio.holdings.some((x) => x.ticker === b.ticker && isHeld(x)) ? 0 : 1;
           return ha - hb;
         })
         .map(({ ticker, name }, listIdx, arr) => {
@@ -1568,8 +1660,10 @@ export default function Home() {
         const sig = result?.signals.find((s) => s.ticker === ticker);
         const ai = result?.advice?.stocks.find((s) => s.ticker === ticker || s.ticker.includes(ticker));
         const h = portfolio.holdings.find((x) => x.ticker === ticker);
-        const held = Boolean(h && h.qty > 0);
-        const action = ai?.action ?? sig?.action;
+        const held = isHeld(h);
+        const action = effectiveAction(sig, ai);
+        // 수익률은 분석 시점 값(sig.pnlPct)이 아니라 60초마다 갱신되는 시세로 다시 계산한다
+        const livePnl = held && h && q?.price ? ((q.price - h.avgPrice) / h.avgPrice) * 100 : (sig?.pnlPct ?? null);
         const info = computeScoreInfo(held, sig, ai);
         const isOpen = expanded.has(ticker);
         // 기본은 전부 접어둔다. 예전에는 보유·신호 종목을 자동으로 펼쳐서
@@ -1580,14 +1674,14 @@ export default function Home() {
         // 배지(행동)와 어긋나면 안 된다: "손절" 배지 옆에 "매수 검토" 문구가 붙으면 초보자는 혼란만 겪는다.
         const sellish = action === "손절" || action === "전량매도" || action === "부분매도";
         const oneLine = held && h
-          ? `${h.qty}주 보유${sig?.pnlPct != null ? ` · ${sig.pnlPct >= 0 ? "+" : ""}${sig.pnlPct}%` : ""}`
+          ? `${h.qty}주 보유${livePnl != null ? ` · ${livePnl >= 0 ? "+" : ""}${livePnl.toFixed(2)}%` : ""}`
           : sellish
             ? "지금 새로 살 자리는 아니에요"
             : sig?.forecastPath?.orderLevels
               ? `${fmt(sig.forecastPath.orderLevels.buyPrice, currency)}까지 오면 검토`
               : null;
         // 보유 → 관심 종목으로 넘어가는 첫 종목 앞에 구분 제목을 넣는다
-        const prevHeld = listIdx > 0 && portfolio.holdings.some((x) => x.ticker === arr[listIdx - 1].ticker && x.qty > 0);
+        const prevHeld = listIdx > 0 && portfolio.holdings.some((x) => x.ticker === arr[listIdx - 1].ticker && isHeld(x));
         const showWatchHeading = !held && (listIdx === 0 || prevHeld);
         return (
           <Fragment key={ticker}>
@@ -1631,8 +1725,8 @@ export default function Home() {
                   <div className="hv-why">{hv.why}</div>
                   <div className="hv-pos">
                     {h!.qty}주 · 평단 {fmt(h!.avgPrice, currency)}
-                    {sig?.pnlPct != null && (
-                      <span className={pctClass(sig.pnlPct)}> · {sig.pnlPct >= 0 ? "+" : ""}{sig.pnlPct}%</span>
+                    {livePnl != null && (
+                      <span className={pctClass(livePnl)}> · {livePnl >= 0 ? "+" : ""}{livePnl.toFixed(2)}%</span>
                     )}
                     {sig?.breakEvenPrice != null && ` · 본전 ${fmt(sig.breakEvenPrice, currency)}`}
                   </div>
@@ -2025,7 +2119,7 @@ export default function Home() {
             {
               n: "2",
               t: "정리한다",
-              d: "가격은 지표로(RSI·MACD·볼린저·ADX·VWAP…), 수급은 20일 평균거래량 대비 비율로, 뉴스는 7개 축(업황·지정학·중국·실적·큰손·매크로·지수)별 건수와 압력으로 집계",
+              d: `가격은 지표로(RSI·MACD·볼린저·ADX·VWAP…), 수급은 20일 평균거래량 대비 비율로, 뉴스는 ${NEWS_AXES.length}개 축(${NEWS_AXES.map((a) => a.axis).join("·")})별 건수와 압력으로 집계`,
               k: "원문 60건을 축별 집계 + 대표 12건으로 압축 — 정보는 늘리고 토큰은 줄인다",
             },
             {
@@ -2165,18 +2259,15 @@ export default function Home() {
             <div className="doc-chk">수집은 Gemini 몫이라 AI(Claude) 비용과 무관하고, 아래 2단계에서 크기가 고정되도록 압축됩니다</div>
           </div></div>
           <div className="doc-step"><span className="doc-num">2</span><div>
-            <strong>집계 — 7개 축으로 나눠 센다.</strong> 기사마다 영향도(높음 3 / 중간 2 / 낮음 1)에
+            <strong>집계 — {NEWS_AXES.length}개 축으로 나눠 센다.</strong> 기사마다 영향도(높음 3 / 중간 2 / 낮음 1)에
             부호(호재 +, 악재 −)를 붙여 축별로 더한 뒤 건수로 나눕니다. 이 값이 <b>압력</b>입니다.
+            {/* 표는 코드의 축 정의(lib/newsSignal.ts AXES)에서 그대로 그린다 — 손으로 적으면 축을 추가할 때마다 어긋난다 */}
             <table className="doc-tbl" style={{ marginTop: 6 }}><tbody>
-              <tr><th>업황</th><td>D램·낸드·HBM·현물가·가동률 → 국내 반도체 전반</td></tr>
-              <tr><th>지정학</th><td>관세·수출규제·전쟁·중동·미중 → 지수 전체 하방 압력</td></tr>
-              <tr><th>중국</th><td>SMIC·YMTC·CXMT 증설 → 판가 경쟁, 메모리 마진 직격</td></tr>
-              <tr><th>실적</th><td>TSMC·마이크론·ASML 가이던스 → 개별 종목 재평가</td></tr>
-              <tr><th>큰손</th><td>버핏·마이클 버리·13F·공매도·연기금 → 수급 심리</td></tr>
-              <tr><th>매크로</th><td>금리·환율·유가·CPI·연준 → 할인율·밸류에이션</td></tr>
-              <tr><th>지수</th><td>코스피·나스닥·SOX·선물·VIX → 시장 전체 방향</td></tr>
+              {NEWS_AXES.map((a) => (
+                <tr key={a.axis}><th>{a.axis}</th><td>{a.note}</td></tr>
+              ))}
             </tbody></table>
-            <div className="doc-chk">같은 &quot;악재&quot;라도 축이 다르면 맞는 종목이 다릅니다. 지정학은 10종목 전부를, 중국 증설은 메모리 2종목만 때립니다</div>
+            <div className="doc-chk">같은 &quot;악재&quot;라도 축이 다르면 맞는 종목이 다릅니다. 종목별 방향·강도는 업종 민감도 표(lib/issueMap.ts)로 번역합니다 — 전쟁은 코스피 악재지만 방산엔 호재로 뒤집힙니다</div>
           </div></div>
           <div className="doc-step"><span className="doc-num">3</span><div>
             <strong>전송 — 집계 전체 + 원문 12건.</strong> AI에는 (ⓐ) 전체 집계 한 줄, (ⓑ) 축별 건수·압력,
@@ -2189,7 +2280,7 @@ export default function Home() {
             </div>
             <div className="doc-chk">
               정직하게 — 예전 방식(수집 20 / 원문 10건 = 667토큰)보다는 <b>263토큰 늘었습니다</b>.
-              축별 집계 138토큰 + 원문 2건 추가분입니다. 수집을 3배로 넓히고 7개 축 누락을 없애는 값으로는
+              축별 집계 138토큰 + 원문 2건 추가분입니다. 수집을 3배로 넓히고 축 누락을 없애는 값으로는
               싸다고 판단했습니다(10종목 전체 페이로드 5,795토큰의 15%).
             </div>
             <div className="doc-chk">
@@ -2269,7 +2360,7 @@ export default function Home() {
                 into: "① 변동성 추정에서 예상 등락폭을 넓히고 → ② 장세 판별(폭락장/급등과열) 기준이 되며 → ③ 매크로 점수로 개별 종목 점수에 직접 가산·감산",
               },
               {
-                src: "뉴스 (최대 60건 수집 → 7개 축 집계)",
+                src: `뉴스 (최대 60건 수집 → ${NEWS_AXES.length}개 축 집계 → 업종별 방향 번역)`,
                 rel: "축마다 때리는 대상이 다름 — 지정학·지수는 10종목 전부, 중국·업황은 메모리 2종목, 실적은 해당 종목만. 고임팩트 악재는 기술적 매수 신호를 무효화",
                 into: "① 뉴스 감성 점수로 종목 점수에 반영 → ② 과열 교차검증(기술적 매수 신호라도 악재가 있으면 진입 보류) → ③ 축별 압력과 원문 12건을 AI에 함께 전달해 구조적 리스크로 인용 (자세히는 ③번 항목)",
               },
@@ -2319,7 +2410,7 @@ export default function Home() {
               </tbody></table>
               <div style={{ marginTop: 8, fontWeight: 800 }}>&quot;표본과 조합을 늘리면 되지 않나?&quot; — 이것도 측정했습니다</div>
               <table className="doc-tbl" style={{ marginTop: 4 }}><tbody>
-                <tr><th>검정력</th><td>지금 표본으로 탐지 가능한 최소 우위는 적중률 <b>{(50 + (powerStats.powerAnalysis[0].minDetectableAuc - 0.5) * 80).toFixed(1)}%</b>. 표본을 <b>10배</b>로 늘려도 <b>{(50 + (powerStats.powerAnalysis[2].minDetectableAuc - 0.5) * 80).toFixed(1)}%</b>까지만 내려갑니다 — 게다가 그 정도 우위는 왕복 거래비용(0.25%)에도 못 미칩니다</td></tr>
+                <tr><th>검정력</th><td>지금 표본으로 탐지 가능한 최소 우위는 적중률 <b>{(50 + (powerStats.powerAnalysis[0].minDetectableAuc - 0.5) * 80).toFixed(1)}%</b>. 표본을 <b>10배</b>로 늘려도 <b>{(50 + (powerStats.powerAnalysis[2].minDetectableAuc - 0.5) * 80).toFixed(1)}%</b>까지만 내려갑니다 — 게다가 그 정도 우위는 왕복 거래비용(약 0.18%)에도 못 미칩니다</td></tr>
                 <tr><th>조합 확대 실험</th><td>국면을 27 → 213 → 923 → 2,602개로 늘렸더니 <b>검증 적중률이 계속 떨어졌습니다</b> ({powerStats.comboResults.map((c: {testAcc:number}) => `${c.testAcc}%`).join(" → ")}). 셀당 표본이 194개 → 2개로 붕괴하기 때문입니다</td></tr>
                 <tr><th>종목·시계 확대</th><td>종목 9개 × 예측시계 5종으로 넓혀도 1·2·3·5일 전부 신뢰구간이 0.5를 포함(신호 없음). 10일 후에서만 AUC {powerStats.horizonResults[4].auc}로 약한 신호가 있었으나 <b>단타 시계가 아니고</b> 추가 검증이 필요합니다</td></tr>
               </tbody></table>
@@ -2356,7 +2447,7 @@ export default function Home() {
           </div>
           <div className="doc-fail">
             <div className="doc-fail-t">고정 % 손절·익절 (-2% / +3%)</div>
-            <div>학습구간 +36% → 검증구간 -5.5%로 뒤집혔습니다(과적합). σ 비례 방식만 네 구간을 모두 견뎠습니다.</div>
+            <div>학습구간 +36% → 검증구간 -5.5%로 뒤집혔습니다(과적합). σ 비례 방식은 낙관 회계에서만 버텼고, 하루 안의 순서를 보수적으로 잡은 회계에서는 우위가 사라졌습니다(⑦ 표). 그래서 지금은 눌림목 플레이북을 내지 않습니다.</div>
           </div>
           <div className="doc-fail">
             <div className="doc-fail-t">VIX를 변동성 모델에 넣기</div>
@@ -2367,10 +2458,11 @@ export default function Home() {
         <details className="doc-sec">
           <summary className="doc-h">⑦ 검증된 숫자</summary>
           <table className="doc-tbl"><tbody>
-            <tr><th>폭락(-7%↓) 다음날</th><td>평균 +0.75% · 승률 58% (표본 127회, 거래비용 차감)</td></tr>
-            <tr><th>급등(+12%↑) 다음날</th><td>고가 평균 +5.4% · +3% 지정가 도달 64% · 갭하락 출발 42% (50회)</td></tr>
-            <tr><th>SOX 폭락 다음날 시가 매도</th><td>그냥 보유 대비 -0.13%p — 무익 (395회)</td></tr>
-            <tr><th>눌림목 규칙</th><td>급변동 전반 +21.0% / 2025년 +4.3% / 평온한 2024년 +10.2%</td></tr>
+            {/* 숫자는 실측 파일(data/scenarios.json·data/dip-stats.json)에서 읽는다 — 손으로 적으면 데이터 갱신 뒤 낡은 값을 말한다 */}
+            <tr><th>폭락({scenarioStats.playbook.crashRebound.thresholdPct}%↓) 다음날</th><td>평균 {scenarioStats.playbook.crashRebound.avgNextDay >= 0 ? "+" : ""}{scenarioStats.playbook.crashRebound.avgNextDay}% · 승률 {scenarioStats.playbook.crashRebound.winRate}% · 연속 폭락 {scenarioStats.playbook.crashRebound.consecutiveCrashPct}% (표본 {scenarioStats.playbook.crashRebound.n}회, 거래비용 차감)</td></tr>
+            <tr><th>급등(+{scenarioStats.playbook.surgeTakeProfit.thresholdPct}%↑) 다음날</th><td>고가 평균 +{scenarioStats.playbook.surgeTakeProfit.avgNextHigh}% · +3% 지정가 도달 {scenarioStats.playbook.surgeTakeProfit.hit3Pct}% · 갭하락 출발 {scenarioStats.playbook.surgeTakeProfit.gapDownPct}% ({scenarioStats.playbook.surgeTakeProfit.n}회)</td></tr>
+            <tr><th>SOX 폭락 다음날 시가 매도</th><td>그냥 보유 대비 -0.13%p — 무익 (79일 × 5종목 = 395 종목-일)</td></tr>
+            <tr><th>눌림목 규칙(보수 회계)</th><td>{dipStats.periods.map((p) => `${p.label} ${p.conservative.cum >= 0 ? "+" : ""}${p.conservative.cum}%`).join(" / ")} — {dipStats.conservativeAllPositive ? "네 구간 모두 플러스라 플레이북 제안" : "우위 미확인이라 플레이북을 제안하지 않음(낙관 회계: " + dipStats.periods.map((p) => `${p.optimistic.cum >= 0 ? "+" : ""}${p.optimistic.cum}%`).join("/") + ")"}</td></tr>
             <tr><th>삼성전자·하이닉스 상관</th><td>최근 6개월 0.89 — 둘 다 보유해도 분산 효과 거의 없음</td></tr>
             <tr><th>감시주문(하루 이상 방치)</th><td>최악 -34.0% → -20.0%, -10% 넘는 손실 비율 4.8% → 2.4%</td></tr>
             <tr><th>감시주문(당일 재확인 가능)</th><td>오히려 불리 — 스치고 되돌아와 손해 94회 &gt; 손실 줄인 66회</td></tr>

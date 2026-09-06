@@ -2,7 +2,7 @@
 // 시세/환율/해외지수(일봉+장중)+VIX/선물/공포탐욕지수 + Gemini 뉴스 수집 → 룰 엔진 → Claude 요약 → data/ 저장
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote } from "../lib/market";
+import { getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote, sessionPrevClose } from "../lib/market";
 import { collectNews } from "../lib/gemini";
 import { fetchDartDisclosures } from "../lib/dart";
 import { fetchInvestorFlows } from "../lib/investorFlow";
@@ -27,6 +27,16 @@ async function main() {
   console.log("=== 수집 시작:", new Date().toISOString(), "===");
   mkdirSync(join(DATA_DIR, "log"), { recursive: true });
 
+  // 국내 공휴일(설날·추석·대체공휴일·선거일 등)에는 크론이 평일 스케줄대로 돌아온다.
+  // 시세는 전 거래일 그대로고 장중 데이터도 없어 분석할 것이 없는데, 예전에는 15분마다
+  // Gemini·Claude를 호출해 비용만 썼다. 주말 점검(일요일)은 "휴장(주말)"이라 여기 걸리지 않는다.
+  // 수동 실행(workflow_dispatch)에서 강제로 돌리려면 FORCE_COLLECT=1.
+  const phaseNow = getMarketPhaseForMarket("KR");
+  if (phaseNow.phase === "휴장(공휴일)" && process.env.FORCE_COLLECT !== "1") {
+    console.log(`국내 휴장일(${phaseNow.phase}, KST ${phaseNow.kstTime}) — 수집을 건너뜁니다 (FORCE_COLLECT=1로 강제 실행 가능)`);
+    return;
+  }
+
   const [macro, newsResult, backtest, disclosureResult, flowResult, creditTrend, ...stockData] = await Promise.all([
     getMacroSnapshot(),
     collectNews(),
@@ -48,14 +58,19 @@ async function main() {
 
   // Gemini 그라운딩은 무료 등급 쿼터가 빡빡해 이번 수집 주기엔 실패할 수 있다. 그 경우 뉴스를
   // 비워서 덮어쓰지 않고, 직전 성공한 수집분(너무 오래되지 않았다면)을 그대로 이어서 사용한다.
+  let newsCollectedAt = new Date().toISOString();
   if (news.length === 0) {
     const prevPath = join(DATA_DIR, "latest.json");
     if (existsSync(prevPath)) {
       try {
         const prev = JSON.parse(readFileSync(prevPath, "utf8")) as CollectedSnapshot;
-        const prevAgeMs = Date.now() - new Date(prev.collectedAt).getTime();
+        // 나이는 "뉴스가 실제 수집된 시각" 기준으로 잰다 — collectedAt 기준이면 15분마다 새로 태어나
+        // 3시간 상한이 영영 안 걸렸다(2026-09 감사).
+        const prevNewsAt = prev.newsCollectedAt ?? prev.collectedAt;
+        const prevAgeMs = Date.now() - new Date(prevNewsAt).getTime();
         if (prev.news.length > 0 && prevAgeMs < 3 * 3600_000) {
           news = prev.news;
+          newsCollectedAt = prevNewsAt;
           newsError = newsError ? `${newsError} (직전 수집분으로 대체)` : null;
         }
       } catch {
@@ -103,6 +118,7 @@ async function main() {
         relativeStrengthNote: noteFor(sd.ticker),
         backtest: backtest?.perTicker[sd.ticker] ?? null,
         changePct: sd.quote.changePct,
+        prevClose: sessionPrevClose(sd.quote),
         creditTrend,
         disclosures: disclosureResult.data[sd.ticker] ?? [],
         investorFlow: flowResult.data[sd.ticker] ?? [],
@@ -117,6 +133,7 @@ async function main() {
 
   const snapshot: CollectedSnapshot = {
     collectedAt: new Date().toISOString(),
+    newsCollectedAt,
     quotes: Object.fromEntries(stockData.map((s) => [s.ticker, s.quote])),
     macro,
     news,

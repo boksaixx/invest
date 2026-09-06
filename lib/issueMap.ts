@@ -176,8 +176,8 @@ function mentionsStock(n: NewsItem, ticker: StockTicker): boolean {
   };
   const keys = aliases[name] ?? [name];
   if (keys.includes(n.relatedTo)) return true;
-  // 제목 매칭 — "KT"처럼 짧은 이름은 단어 경계로만 (예: "SKT"에 걸리지 않게)
-  return keys.some((k) => (k.length <= 2 ? new RegExp(`(^|[^A-Za-z])${k}([^A-Za-z]|$)`).test(n.title) : n.title.includes(k)));
+  // 제목 매칭 — "KT"처럼 짧은 이름은 단어 경계로만 (예: "SKT"·"KT&G"에 걸리지 않게)
+  return keys.some((k) => (k.length <= 2 ? new RegExp(`(^|[^A-Za-z0-9])${k}(?![A-Za-z0-9&])`).test(n.title) : n.title.includes(k)));
 }
 
 /**
@@ -267,9 +267,11 @@ export function computeRiskOverlay(news: NewsItem[], macro: MacroSnapshot | null
   const notes: string[] = [];
   let mult = 1;
 
+  // 남은 시간을 모르는 이벤트는 "임박"으로 치지 않는다(모든 고영향 예정 기사가 오버레이를 켜는 것을 막는다).
+  // 이미 지난 이벤트(음수)도 제외 — 스냅샷 뉴스를 이어 쓸 때 경과분만큼 줄어든 값이 들어온다.
   const upcoming = news
     .filter((n) => inferTopic(n) === "예정이벤트" && n.impact === "높음")
-    .filter((n) => n.eventInHours == null || n.eventInHours <= EVENT_RISK_HOURS)
+    .filter((n) => Number.isFinite(n.eventInHours) && (n.eventInHours as number) >= 0 && (n.eventInHours as number) <= EVENT_RISK_HOURS)
     .slice(0, 2);
   const eventRisk = upcoming.length > 0;
   if (eventRisk) {

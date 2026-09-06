@@ -257,11 +257,12 @@ export interface ForecastPathData {
 export type MarketRegime = "폭락장" | "급등과열" | "변동성확대" | "보통";
 
 // 오늘의 작전에 담기는 개별 트레이드 지시.
-// kind별 근거 (모두 5개년 실데이터 검증, scripts/validate-modes.ts 로 재현):
-//  - 눌림목매수: σ비례 지정가 매수(-0.6σ 진입/+1.0σ 익절/-0.8σ 손절) — 4개 구간 모두 플러스
+// kind별 근거 (scripts/validate-modes.ts 로 재현, 실측치는 data/dip-stats.json·data/scenarios.json에서 읽는다):
+//  - 눌림목매수: σ비례 지정가 매수(-0.6σ 진입/+1.0σ 익절/-0.8σ 손절). 보수 회계 검증에서 네 구간 모두
+//    플러스일 때만 제안된다(2026-09 기준 미충족 — 제안하지 않음).
 //  - 폭락반등매수: 당일 -7%↓ 폭락 종목을 마감 동시호가 소액 매수 → 익일 종가 청산.
-//    실측 익일 평균 +1.4%(최근 급변동장 +2.1%), 승률 64~65%. 단 13.6% 확률로 연속 폭락이
-//    있어 총자산 10% 이내 소액 전제. 익절/손절 변형은 검증에서 오히려 열위라 쓰지 않는다.
+//    익일 평균·승률·연속 폭락 확률은 scenarios.json playbook.crashRebound 값을 화면에 인용한다.
+//    총자산 10% 이내 소액 전제. 익절/손절 변형은 검증에서 오히려 열위라 쓰지 않는다.
 //  - 급등익절: 당일 +12%↑ 급등 보유 종목 — 익일 시가 투매 대신 전일종가 +3% 지정가 분할 매도.
 //    실측 익일 고가가 +3% 도달 64%, 고가 평균 +5.4% (갭하락 출발도 42%라 전량 홀드는 금물).
 export interface TodayTrade {
@@ -472,6 +473,10 @@ export interface AiAdvice {
 
 export interface CollectedSnapshot {
   collectedAt: string; // ISO
+  // 뉴스가 실제로 수집된 시각. Gemini가 실패해 직전 수집분을 이어 쓸 때는 collectedAt보다 오래된 값이
+  // 들어온다 — 예전에는 이 구분이 없어 15분마다 "새 스냅샷"이 되면서 3시간 상한이 영영 안 걸렸고,
+  // 며칠 된 [속보] 태그가 포지션 축소 오버레이까지 켰다.
+  newsCollectedAt?: string;
   quotes: Record<string, Quote | null>;
   macro: MacroSnapshot;
   news: NewsItem[];

@@ -1,6 +1,26 @@
 // 시세 수집: 야후 파이낸스(기본) + 네이버 금융(국내주 폴백)
 import type { Candle, FearGreedIndex, MacroSnapshot, Quote, StockTicker } from "./types";
 import { STOCKS } from "./types";
+import { getMarketPhase } from "./marketPhase";
+
+/** KST 기준 오늘 날짜 (YYYY-MM-DD) */
+export function kstToday(now: Date = new Date()): string {
+  return new Date(now.getTime() + 9 * 3600_000).toISOString().slice(0, 10);
+}
+
+/**
+ * 이 시세가 "오늘(KST) 세션"의 것인가.
+ * 장전·휴일에는 마지막 체결이 전 거래일이라 quote.prevClose(=그 전날 종가)로 상한가·VI를 계산하면
+ * 하루 어긋난다. 그때는 현재가(=전일 종가)를 기준가로 써야 한다 — sessionPrevClose 참조.
+ */
+export function isQuoteFromToday(q: Quote, now: Date = new Date()): boolean {
+  return kstToday(new Date(q.time)) === kstToday(now);
+}
+
+/** 상한가·하한가·정적VI 계산용 "전일 종가" — 오늘 체결이 없으면 현재가가 곧 전일 종가다 */
+export function sessionPrevClose(q: Quote, now: Date = new Date()): number {
+  return isQuoteFromToday(q, now) ? q.prevClose : q.price;
+}
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
@@ -89,24 +109,22 @@ export async function fetchQuote(symbol: string, name?: string): Promise<Quote |
   }
   const closes = (r.indicators.quote[0]?.close ?? []).filter((v): v is number => v != null && Number.isFinite(v));
 
-  // 전일 종가 후보 2가지: (1) 야후 메타데이터, (2) 일봉 시계열의 마지막 이전 봉.
-  // 정상 상황이면 둘이 거의 같아야 한다. 공휴일 처리 방식 차이 등으로 데이터가 어긋나면
-  // 간혹 한쪽이 완전히 엉뚱한 값(예: "코스피 -12%")을 만들어낼 수 있어, 두 후보 중
-  // "허용 변동폭 이내이면서 더 보수적인(변동폭이 더 작은)" 쪽을 신뢰한다.
-  const metaPrevClose = r.meta.previousClose ?? r.meta.chartPreviousClose ?? null;
+  // 전일 종가 후보: (1) 야후 meta.previousClose(있을 때만), (2) 일봉 시계열의 마지막 이전 봉.
+  //
+  // 2026-09 감사에서 잡힌 버그: 예전에는 meta.chartPreviousClose도 후보에 넣고 "변동폭이 더 작은
+  // 쪽"을 골랐다. 그런데 range=5d 요청의 chartPreviousClose는 "어제"가 아니라 "5일 구간 시작 전
+  // 종가"라서, 코스피가 실제로 +1.64%인 날 -1.50%로 저장됐다(data/latest.json 2026-09-04).
+  // 이 값이 macroScore를 통해 전 종목 점수에 들어갔다. 다중일 구간의 chartPreviousClose는 절대
+  // "전일"이 아니므로 후보에서 뺀다. 허용 변동폭은 "고르는 기준"이 아니라 "버리는 기준"으로만 쓴다.
+  const metaPrevClose = r.meta.previousClose ?? null;
   const seriesPrevClose = closes.length >= 2 ? closes[closes.length - 2] : null;
-  const candidates = [metaPrevClose, seriesPrevClose].filter((v): v is number => v != null && v > 0);
   const maxPct = maxPlausibleChangePct(symbol);
+  const plausible = (c: number | null): c is number => c != null && c > 0 && Math.abs((price - c) / c) * 100 <= maxPct;
 
   let prevClose: number | null = null;
-  let bestAbsPct = Infinity;
-  for (const c of candidates) {
-    const pct = Math.abs((price - c) / c) * 100;
-    if (pct <= maxPct && pct < bestAbsPct) {
-      prevClose = c;
-      bestAbsPct = pct;
-    }
-  }
+  if (plausible(seriesPrevClose)) prevClose = seriesPrevClose;
+  else if (plausible(metaPrevClose)) prevClose = metaPrevClose;
+  const candidates = [metaPrevClose, seriesPrevClose].filter((v): v is number => v != null && v > 0);
   // 그럴듯한 후보가 하나도 없으면(둘 다 비정상적으로 큰 변동) 데이터를 신뢰할 수 없다고 보고
   // 등락률 0%로 안전하게 처리한다 — 틀린 급등락을 그대로 보여주는 것보다 "변동 없음"이 실전 매매엔 덜 위험하다.
   if (prevClose == null) {
@@ -198,6 +216,10 @@ async function fetchNaverRealtime(ticker: StockTicker): Promise<Quote | null> {
     const changePct = Number(String(d.fluctuationsRatio).replace(/,/g, ""));
     const change = Number(String(d.compareToPreviousClosePrice).replace(/,/g, ""));
     if (!Number.isFinite(price) || !Number.isFinite(changePct) || !Number.isFinite(change) || price <= 0) return null;
+    // 마지막 체결 시각 — 네이버는 localTradedAt("2026-09-04T15:30:00+09:00")을 준다.
+    // 예전에는 new Date()를 넣어 주말·휴일에도 "방금 전 시세"로 표시됐고, 장전에는
+    // prevClose(=그저께 종가)로 상한가·VI가 하루 어긋났다(sessionPrevClose로 보정).
+    const traded = d.localTradedAt ? new Date(String(d.localTradedAt)) : null;
     return {
       symbol: ticker,
       name: STOCKS[ticker].name,
@@ -206,7 +228,7 @@ async function fetchNaverRealtime(ticker: StockTicker): Promise<Quote | null> {
       change,
       changePct,
       currency: "KRW",
-      time: new Date().toISOString(),
+      time: traded && Number.isFinite(traded.getTime()) ? traded.toISOString() : new Date().toISOString(),
     };
   } catch {
     return null;
@@ -251,31 +273,58 @@ async function fetchNaverDaily(ticker: StockTicker, days = 600): Promise<Candle[
 // 네이버 분봉 폴백 (야후 장중 데이터 수집 실패 시에만 사용). 형식이 불안정할 수 있어
 // 파싱 결과가 의심스러우면(캔들 3개 미만 등) 아예 버리고 "데이터 없음"으로 처리한다 —
 // 실전 매매 판단에는 틀린 데이터보다 데이터 없음이 낫다.
-async function fetchNaverIntraday(ticker: StockTicker): Promise<RawIntradayCandle[]> {
+export async function fetchNaverIntraday(ticker: StockTicker): Promise<RawIntradayCandle[]> {
   try {
     const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${ticker}&timeframe=minute&count=200&requestType=0`;
     const res = await fetch(url, { headers: { "User-Agent": UA }, cache: "no-store", signal: AbortSignal.timeout(8000) });
     if (!res.ok) return [];
     const text = await res.text();
     const rows = [...text.matchAll(/data="([^"]+)"/g)].map((m) => m[1]);
-    const out: RawIntradayCandle[] = [];
+    // 2026-09 감사에서 확인한 실제 응답: "202609041530|null|null|null|255500|14030754" —
+    // 1분봉인데 시·고·저가 null, 종가와 "누적" 거래량만 온다. 예전 파서는 null을 NaN으로 읽어
+    // 전 행을 버렸고(폴백이 한 번도 작동한 적 없음). 종가·누적거래량만으로 1분 시계열을 만들고
+    // 5분봉으로 묶는다(시가=첫 종가, 고저=종가 최대·최소, 거래량=누적 차분).
+    type Tick = { ms: number; close: number; cumVol: number; open?: number; high?: number; low?: number };
+    const ticks: Tick[] = [];
     for (const row of rows) {
       const parts = row.split("|");
       if (parts.length < 6) continue;
       const [ts, o, h, l, c, v] = parts;
-      const open = Number(o);
-      const high = Number(h);
-      const low = Number(l);
       const close = Number(c);
-      const volume = Number(v);
-      if ([open, high, low, close, volume].some((n) => Number.isNaN(n))) continue;
+      const cumVol = Number(v);
+      if (!Number.isFinite(close) || close <= 0 || !Number.isFinite(cumVol)) continue;
       // ts 형식: YYYYMMDDHHmm (KST) — KST 기준이므로 UTC로 9시간 빼서 ISO 생성
       const m = ts.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/);
       if (!m) continue;
       const [, yy, mo, dd, hh, mi] = m;
       const kstMs = Date.UTC(Number(yy), Number(mo) - 1, Number(dd), Number(hh), Number(mi));
-      const utcMs = kstMs - 9 * 3600_000;
-      out.push({ time: new Date(utcMs).toISOString(), open, high, low, close, volume });
+      const tick: Tick = { ms: kstMs - 9 * 3600_000, close, cumVol };
+      const open = Number(o);
+      const high = Number(h);
+      const low = Number(l);
+      if ([open, high, low].every((n) => Number.isFinite(n) && n > 0)) Object.assign(tick, { open, high, low });
+      ticks.push(tick);
+    }
+    ticks.sort((a, b) => a.ms - b.ms);
+    const out: RawIntradayCandle[] = [];
+    let prevCum: number | null = null;
+    let prevDay = "";
+    for (const t of ticks) {
+      const day = new Date(t.ms).toISOString().slice(0, 10);
+      if (day !== prevDay) prevCum = null; // 누적 거래량은 날짜마다 0에서 다시 시작
+      prevDay = day;
+      const vol = prevCum == null ? 0 : Math.max(0, t.cumVol - prevCum);
+      prevCum = t.cumVol;
+      const bucket = Math.floor(t.ms / (5 * 60_000)) * 5 * 60_000;
+      const last = out[out.length - 1];
+      if (last && new Date(last.time).getTime() === bucket) {
+        last.high = Math.max(last.high, t.high ?? t.close);
+        last.low = Math.min(last.low, t.low ?? t.close);
+        last.close = t.close;
+        last.volume += vol;
+      } else {
+        out.push({ time: new Date(bucket).toISOString(), open: t.open ?? t.close, high: t.high ?? t.close, low: t.low ?? t.close, close: t.close, volume: vol });
+      }
     }
     return out.length >= 3 ? out : [];
   } catch {
@@ -299,16 +348,42 @@ export async function getStockQuote(ticker: StockTicker): Promise<Quote | null> 
   return y ? { ...y, symbol: ticker } : null;
 }
 
+/**
+ * 진행 중인 "오늘" 일봉을 뗀다.
+ *
+ * 2026-09 감사에서 확인: 야후 일봉은 장중에 오늘 봉(시가~현재가, 거래량은 지금까지 누적)을 포함한다.
+ * 엔진은 마지막 봉을 "직전 완성 거래일"로 읽으므로, 오전에는 피벗 S1/R1이 오늘 자신의 부분 레인지로
+ * 계산되고, 거래량 Z점수는 늘 -3대(거래량 급증 보너스가 오전엔 구조적으로 불가능), 변동성 추정(σ)은
+ * 부분 봉 수익률과 작은 거래량 때문에 약 9% 과소평가됐다(10:09 σ 4.51% vs 16:20 4.97%, 09-04 로그).
+ * 검증 스크립트는 전부 완성 봉으로 돌렸으므로 엔진도 완성 봉만 봐야 한다. "오늘"은 분봉(intraday)이 맡는다.
+ */
+export function dropInProgressCandle(candles: Candle[], now: Date = new Date()): Candle[] {
+  if (candles.length === 0) return candles;
+  const last = candles[candles.length - 1];
+  if (last.date !== kstToday(now)) return candles;
+  const phase = getMarketPhase(now).phase;
+  // 정규장 마감(15:30) 이후에만 오늘 봉이 완성된 것이다. 휴장일에는 오늘 날짜 봉이 있을 수 없으니 그대로 둔다.
+  if (phase === "장마감" || phase.startsWith("휴장")) return candles;
+  return candles.slice(0, -1);
+}
+
 export async function getStockCandles(ticker: StockTicker): Promise<Candle[]> {
   const y = await fetchDailyCandles(STOCKS[ticker].yahoo, "2y");
-  if (y.length > 100) return y;
-  return fetchNaverDaily(ticker);
+  if (y.length > 100) return dropInProgressCandle(y);
+  return dropInProgressCandle(await fetchNaverDaily(ticker));
 }
 
 export async function getStockIntradayCandles(ticker: StockTicker): Promise<RawIntradayCandle[]> {
+  // 국내 종목은 네이버 1분봉(→5분봉 재구성)을 우선한다 — 2026-09 실측: 야후 KRX 5분봉은 15:00에서 끝나
+  // 마감 동시호가(15:20~15:30) 거래량이 빠지고 지연도 크다. 네이버는 15:30 마감 봉까지 온다
+  // (검증: 2026-09-04 마지막 봉 15:30 KST, 거래량 1,533,513주 = 동시호가 체결분).
+  if (STOCKS[ticker].market === "KR") {
+    const n = await fetchNaverIntraday(ticker);
+    if (n.length >= 3) return n;
+  }
   const y = await fetchIntradayCandles(STOCKS[ticker].yahoo, "5d", "5m");
   if (y.length >= 3) return y;
-  return fetchNaverIntraday(ticker);
+  return STOCKS[ticker].market === "KR" ? [] : fetchNaverIntraday(ticker);
 }
 
 // CNN 공포탐욕지수 (비공식 데이터 엔드포인트, 문서화되지 않은 API이므로 실패 시 조용히 null 반환).

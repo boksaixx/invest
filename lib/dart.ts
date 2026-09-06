@@ -110,7 +110,7 @@ export const RELATED_CORPS: { stockCode: string; name: string; role: string }[] 
   { stockCode: "064760", name: "티씨케이", role: "소모성 부품" },
 ];
 
-let disclosureCache: { data: Partial<Record<StockTicker, DartFiling[]>>; expiresAt: number } | null = null;
+let disclosureCache: { data: Partial<Record<StockTicker, DartFiling[]>>; expiresAt: number; error: string | null } | null = null;
 let relatedCache: { data: RelatedFiling[]; expiresAt: number } | null = null;
 
 export interface RelatedFiling extends DartFiling {
@@ -126,32 +126,41 @@ export async function fetchDartDisclosures(): Promise<{ data: Partial<Record<Sto
   if (!apiKey) return { data: {}, error: null };
 
   const now = Date.now();
-  if (disclosureCache && disclosureCache.expiresAt > now) return { data: disclosureCache.data, error: null };
+  if (disclosureCache && disclosureCache.expiresAt > now) return { data: disclosureCache.data, error: disclosureCache.error };
 
   try {
     const corpMap = await fetchCorpCodeMap(apiKey);
     const result: Partial<Record<StockTicker, DartFiling[]>> = {};
+    let failed = 0;
     for (const ticker of KR_TICKERS) {
       const corpCode = corpMap.get(ticker);
       if (!corpCode) {
         console.warn(`DART corp_code를 찾지 못함: ${ticker}`);
+        failed++;
         continue;
       }
       try {
         result[ticker] = await fetchRecentDisclosures(apiKey, corpCode);
       } catch (e) {
+        // 실패한 종목은 undefined로 둔다 — 호출부의 `?? 스냅샷값` 폴백이 실제로 타게(빈 배열은 nullish가 아니다)
         console.error(`DART 공시 조회 실패 (${ticker}):`, e);
-        result[ticker] = [];
+        failed++;
       }
       await new Promise((r) => setTimeout(r, 250)); // 연속 호출 간 짧은 간격 (배려)
     }
-    disclosureCache = { data: result, expiresAt: now + DISCLOSURE_CACHE_TTL_MS };
-    return { data: result, error: null };
+    if (failed >= KR_TICKERS.length) {
+      const msg = "DART 연동 실패: 전 종목 조회 실패(키·네트워크 확인)";
+      disclosureCache = { data: {}, expiresAt: now + 60_000, error: msg };
+      return { data: {}, error: msg };
+    }
+    const error = failed > 0 ? `DART 일부 종목(${failed}개) 조회 실패` : null;
+    disclosureCache = { data: result, expiresAt: now + DISCLOSURE_CACHE_TTL_MS, error };
+    return { data: result, error };
   } catch (e) {
     const msg = `DART 연동 실패: ${String(e).slice(0, 200)}`;
     console.error(msg);
-    // 실패해도 짧게 캐시해 연속 재시도로 API를 낭비하지 않음
-    disclosureCache = { data: {}, expiresAt: now + 60_000 };
+    // 실패해도 짧게 캐시해 연속 재시도로 API를 낭비하지 않음 — 단, 캐시된 결과도 "실패"로 읽혀야 한다
+    disclosureCache = { data: {}, expiresAt: now + 60_000, error: msg };
     return { data: {}, error: msg };
   }
 }

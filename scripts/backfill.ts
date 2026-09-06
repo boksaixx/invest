@@ -7,7 +7,7 @@
 // 이제 종목을 추가하면 자동으로 백필 대상이 되고, hasMissingHistory()가 그 사실을 알린다.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fetchDailyCandles } from "../lib/market";
+import { dropInProgressCandle, fetchDailyCandles } from "../lib/market";
 import type { Candle } from "../lib/types";
 import { STOCKS, TICKER_LIST } from "../lib/types";
 
@@ -57,13 +57,26 @@ async function main() {
     }
   }
   for (const { symbol, name } of SYMBOLS) {
-    if (out[symbol] && out[symbol].candles.length > 100) {
-      console.log(`${name} (${symbol}): 이미 있음, 건너뜀 (${out[symbol].candles.length}개)`);
-      continue;
+    const existing = out[symbol]?.candles ?? [];
+    if (existing.length > 100) {
+      // 2026-09 감사: 예전에는 "이미 있음"이면 건너뛰어 히스토리가 2026-07-31에서 영영 멈췄고,
+      // 매주 일요일 "재생성"되는 국면통계·도달확률·백테스트가 전부 낡은 데이터로 돌면서
+      // generatedAt만 갱신됐다. 이제 최근 1년치를 받아 날짜 기준으로 덧붙인다(진행 중인 오늘 봉 제외).
+      const recent = dropInProgressCandle(await fetchDailyCandles(symbol, "1y"));
+      const byDate = new Map(existing.map((c) => [c.date, c]));
+      let added = 0;
+      for (const c of recent) {
+        if (!byDate.has(c.date)) added++;
+        byDate.set(c.date, c); // 같은 날짜는 최신 응답으로 덮는다(수정 종가 반영)
+      }
+      const merged = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+      out[symbol] = { name, candles: merged };
+      console.log(`${name} (${symbol}): 갱신 +${added}개 (총 ${merged.length}개, 마지막 ${merged[merged.length - 1]?.date})`);
+    } else {
+      const candles = dropInProgressCandle(await fetchDailyCandles(symbol, "5y"));
+      console.log(`${name} (${symbol}): ${candles.length}개 일봉`);
+      out[symbol] = { name, candles };
     }
-    const candles = await fetchDailyCandles(symbol, "5y");
-    console.log(`${name} (${symbol}): ${candles.length}개 일봉`);
-    out[symbol] = { name, candles };
     await new Promise((r) => setTimeout(r, 800)); // 요청 간격 (rate limit 예방)
   }
   mkdirSync(dir, { recursive: true });

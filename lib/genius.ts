@@ -5,12 +5,15 @@
 // 정직한 전제 (scripts/validate-modes.ts 로 재현 가능):
 //  - "매일 최소 5% 수익"을 보장하는 규칙은 존재하지 않는다. 아래 플레이북들은 각 장세에서
 //    통계적 우위가 실측된 규칙일 뿐이며, 우위가 없는 날은 "오늘은 없음"이 정답이다.
-//  - 눌림목매수(변동성확대/보통): σ비례 지정가(-0.6σ/+1.0σ/-0.8σ) — 급변동 전/후반·2025·평온한
-//    2024 네 구간 모두 거래비용 차감 후 플러스 (+21.0/+7.1/+4.3/+10.7%).
+//  - 눌림목매수(변동성확대/보통): σ비례 지정가(-0.6σ/+1.0σ/-0.8σ). 2026-09 감사에서 검증 회계의
+//    선행 편향(고가가 체결보다 먼저 찍힌 날도 익절로 계산)을 발견해 "보수 회계"를 추가했고,
+//    보수 회계로는 네 구간 중 셋이 마이너스였다. 그래서 이 플레이북은 data/dip-stats.json의
+//    conservativeAllPositive 가 true일 때만 낸다(지금은 내지 않는다). 숫자는 그 파일에서 읽는다.
 //  - 폭락반등매수(폭락장): 당일 -7%↓ 종목 마감 동시호가 소액 매수 → 익일 종가 청산.
-//    실측 익일 평균 +1.4%(급변동장 +2.1%), 승률 64~65%. 익절/손절 변형은 급변동장에서 오히려
-//    성과를 망쳐(수익 상한만 막고 하방은 다 맞음) 쓰지 않는다. 대신 13.6% 확률의 "연속 폭락"
-//    꼬리를 소액(총자산 10% 이내)으로 감당한다.
+//    실측치(익일 평균·승률·연속 폭락 확률)는 data/scenarios.json playbook.crashRebound에서 읽어
+//    화면에 그대로 인용한다 — 코드에 숫자를 박아두면 데이터가 갱신될 때 낡은 값을 말하게 된다.
+//    익절/손절 변형은 급변동장에서 오히려 성과를 망쳐(수익 상한만 막고 하방은 다 맞음) 쓰지 않는다.
+//    "연속 폭락" 꼬리는 소액(총자산 10% 이내)으로 감당한다.
 //  - 급등익절(급등과열): +12%↑ 급등 보유 종목은 익일 시가 투매 대신 전일종가 +3% 지정가 분할
 //    매도. 실측 익일 고가 +3% 도달 64%, 고가 평균 +5.4% — 단 갭하락 출발도 42%라 전량 홀드 금물.
 //  - SOX 폭락 아침의 보유자: 시가 패닉 매도 후 재매수는 그냥 보유 대비 평균 -0.13%p로 무익.
@@ -18,14 +21,26 @@
 import type { Candle, HoldEdge, Holding, MarketRegime, Quote, StockTicker, TodayPlan, TodayTrade, VolForecast } from "./types";
 import { computeScenarioOutlook, type PlaybookStats, type ScenarioTable } from "./scenario";
 import { isSemiconductor, STOCKS } from "./types";
+import { CORRELATED_PAIR_MAX_WEIGHT } from "./volatility";
 
-// σ비례 눌림목 파라미터 — 그리드 최적화가 아니라 선험적 설계값(0.6/1.0/0.8)을 네 구간 검증으로 채택.
-// 바꾸려면 반드시 scripts/validate-modes.ts 를 다시 돌려 네 구간 모두 견디는지 확인할 것.
+// σ비례 눌림목 파라미터 — 그리드 최적화가 아니라 선험적 설계값(0.6/1.0/0.8).
+// 바꾸면 반드시 scripts/validate-modes.ts 를 다시 돌려 data/dip-stats.json 을 갱신할 것.
 export const GENIUS_DIP_SIGMA = 0.6;
 export const GENIUS_TARGET_SIGMA = 1.0;
 export const GENIUS_STOP_SIGMA = 0.8;
-export const GENIUS_RISK_PER_TRADE = 0.02; // 눌림목 1회 리스크 = 총자산의 2%
+// 눌림목 1회 리스크 — 엔진의 1% 규칙(lib/engine.ts RISK_PER_TRADE)과 같은 값. 예전 2%는 근거 없이 두 배였다.
+export const GENIUS_RISK_PER_TRADE = 0.01;
 export const GENIUS_MAX_TRADES = 2;
+// 눌림목 1건 최대 비중 — 상관 0.7+ 종목 쌍 합산 한도(50%)를 두 건이 나눠 쓴다
+export const GENIUS_MAX_WEIGHT_PER_TRADE = CORRELATED_PAIR_MAX_WEIGHT / GENIUS_MAX_TRADES;
+
+/** scripts/validate-modes.ts 가 쓰는 data/dip-stats.json 의 형태 — 엔진은 conservativeAllPositive만 본다 */
+export interface DipBuyStats {
+  generatedAt: string;
+  periods: { label: string; optimistic: { cum: number; winRate: number }; conservative: { cum: number; winRate: number } }[];
+  optimisticAllPositive: boolean;
+  conservativeAllPositive: boolean;
+}
 export const CRASH_REBOUND_MAX_WEIGHT = 0.1;
 // 폭락 반등 규칙의 진입 임계값 — 엔진과 검증 스크립트가 반드시 같은 값을 쓰도록 여기서 한 번만 정의한다.
 // (과거에 엔진 -7% / 검증 -8%로 어긋나 "검증되지 않은 조건으로 매수를 제안"하는 상태가 있었다.)
@@ -103,9 +118,16 @@ export function computeTodayPlan(
   holdings: Holding[],
   macro: { soxChangePct: number | null; kospiChangePct: number | null },
   scenarioTable?: ScenarioTable | null,
+  opts?: {
+    // 상관 종목 합산 한도에서 이 종목에 더 넣을 수 있는 금액(원). lib/volatility.ts computeCorrelationCap 결과.
+    headroom?: Partial<Record<string, number | null>>;
+    // 눌림목 규칙의 보수적 검증 결과 — 없거나 conservativeAllPositive가 아니면 눌림목을 내지 않는다
+    dipStats?: DipBuyStats | null;
+  },
 ): TodayPlan {
   const heldTickers = new Set(holdings.filter((h) => h.qty > 0).map((h) => h.ticker));
   const pb: PlaybookStats | null = scenarioTable?.playbook ?? null;
+  const dipValidated = opts?.dipStats?.conservativeAllPositive === true;
   const skipped: string[] = [];
   const holderGuide: string[] = [];
 
@@ -147,10 +169,10 @@ export function computeTodayPlan(
 
   // ---------- 2) 폭락장 플레이북 ----------
   if (regime === "폭락장") {
-    // 보유자 지침 — 실측 근거를 그대로 인용한다
+    // 보유자 지침 — 실측 근거를 그대로 인용한다 (395 = SOX -3.5%↓였던 79일 × 반도체 5종목의 종목-일 표본)
     if (soxCrash) {
       holderGuide.push(
-        `갭하락 시가에 패닉 매도하지 마세요 — 5년 실측(간밤 SOX -3.5%↓였던 395일)상 낙폭은 갭(-2.4%)에 이미 반영돼 있고, 시가 매도 후 저가 재매수 시도는 그냥 보유 대비 평균 -0.13%p로 이득이 없었습니다. 손절선 원칙만 지키세요.`,
+        `갭하락 시가에 패닉 매도하지 마세요 — 5년 실측(간밤 SOX -3.5%↓였던 79일, 5종목 395 종목-일)상 낙폭은 갭(-2.4%)에 이미 반영돼 있고, 시가 매도 후 저가 재매수 시도는 그냥 보유 대비 평균 -0.13%p로 이득이 없었습니다. 손절선 원칙만 지키세요.`,
       );
     }
     holderGuide.push("기존 손절선은 예외 없이 지키되, 손절선 위라면 장중 투매에 휩쓸리지 말 것 — 계획에 없던 매도가 최악의 매도입니다.");
@@ -233,7 +255,16 @@ export function computeTodayPlan(
   }
 
   // ---------- 4) 눌림목 플레이북 (변동성확대/보통 — 폭락/급등 장이 아닐 때) ----------
-  if (regime === "변동성확대" || regime === "보통") {
+  // 보수 회계 검증(data/dip-stats.json)에서 네 구간 모두 플러스일 때만 낸다. 아니면 "제안 없음"이 정답이다 —
+  // 검증 안 된 지정가를 화면 맨 위에 올려두는 것이 이 앱이 사용자 돈에 끼치는 가장 큰 해악이다.
+  if ((regime === "변동성확대" || regime === "보통") && !dipValidated) {
+    skipped.push(
+      opts?.dipStats
+        ? `눌림목 규칙 미제안 — 보수 회계 검증에서 ${opts.dipStats.periods.filter((p) => p.conservative.cum <= 0).length}/${opts.dipStats.periods.length}개 구간이 마이너스(우위 미확인)`
+        : "눌림목 규칙 미제안 — 검증 통계(data/dip-stats.json) 없음",
+    );
+  }
+  if ((regime === "변동성확대" || regime === "보통") && dipValidated) {
     const candidates: { setup: TodayTrade; sig: number }[] = [];
     for (const s of stocks) {
       const vf = s.volForecast;
@@ -268,9 +299,15 @@ export function computeTodayPlan(
       let budget: number | null = null;
       if (currency === "KRW" && totalAssetKrw > 0 && entry > stop) {
         const riskAmount = totalAssetKrw * GENIUS_RISK_PER_TRADE;
-        qty = Math.max(1, Math.floor(riskAmount / (entry - stop)));
-        const maxQty = Math.floor((totalAssetKrw * 0.4) / entry);
-        qty = Math.min(qty, Math.max(1, maxQty));
+        // 상한: 총자산 대비 1건 비중 + 상관 종목 합산 한도의 남은 여력(엔진과 같은 규칙). 0주면 제안하지 않는다.
+        const capWon = Math.min(totalAssetKrw * GENIUS_MAX_WEIGHT_PER_TRADE, opts?.headroom?.[s.ticker] ?? Infinity);
+        const byRisk = Math.floor(riskAmount / (entry - stop));
+        const byCap = Math.floor(capWon / entry);
+        qty = Math.max(0, Math.min(byRisk, byCap));
+        if (qty === 0) {
+          skipped.push(`${name}(상관·비중 한도로 담을 수 있는 수량 없음)`);
+          continue;
+        }
         budget = qty * entry;
       }
       const expectedRange = RANGE_PER_SIGMA * sigma;
@@ -320,7 +357,9 @@ export function computeTodayPlan(
 
   // 국면별 조건부 전망 — 종목마다 지금 어떤 국면이고 과거 같은 국면이 어떻게 흘렀는지.
   // "6개월 평균 수익률" 같은 뭉뚱그린 숫자 대신 조건부 분포를 쓴다.
+  // data/scenarios.json은 국내 반도체 5종목으로 만든 표라 반도체에만 적용한다(엔진의 drift와 같은 원칙).
   const scenarios = stocks
+    .filter((st) => isSemiconductor(st.ticker))
     .map((st) => {
       const o = computeScenarioOutlook(st.candles, scenarioTable ?? null);
       return o.available
@@ -330,11 +369,15 @@ export function computeTodayPlan(
     .filter((x): x is NonNullable<typeof x> => x != null);
   if (holdEdge?.available && holdEdge.verdict === "보유우위") {
     holderGuide.unshift(holdEdge.note);
-    // 단타 셋업이 있는데 보유가 유리했던 국면이면, 그 사실을 셋업 자체에 경고로 붙인다
-    for (const t of trades) {
-      if (t.kind === "눌림목매수") {
-        t.cautions.push("최근 이 종목은 사고파는 것보다 들고 있는 편이 유리했습니다 — 이 셋업은 소액으로만, 보유 물량을 팔아서 하지는 마세요.");
-      }
+  }
+  // 단타 셋업이 있는데 "그 종목"이 보유우위 국면이면, 그 사실을 셋업 자체에 경고로 붙인다
+  // (예전에는 삼성전자 기준 판정을 다른 종목 셋업에까지 붙였다)
+  for (const t of trades) {
+    if (t.kind !== "눌림목매수") continue;
+    const own = stocks.find((s) => s.ticker === t.ticker);
+    const edge = own ? computeHoldEdge(own.candles) : null;
+    if (edge?.available && edge.verdict === "보유우위") {
+      t.cautions.push("최근 이 종목은 사고파는 것보다 들고 있는 편이 유리했습니다 — 이 셋업은 소액으로만, 보유 물량을 팔아서 하지는 마세요.");
     }
   }
 

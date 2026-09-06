@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "반도체 트레이딩 AI",
-  description: "삼성전자·SK하이닉스 단기 트레이딩 어드바이스 에이전트",
+  title: "내 주식 비서",
+  description: "국내 10종목(반도체 5 + 방산·자동차·금융·바이오·통신) 단타 어드바이스 AI 에이전트",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "반도체 트레이딩 AI",
+    title: "내 주식 비서",
   },
 };
 

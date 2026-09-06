@@ -68,12 +68,21 @@ jobs:
           npx tsx scripts/validate-touch.ts || echo "도달확률 갱신 실패 — 기존 파일 유지"
           npx tsx scripts/validate-probability.ts || echo "상승률 갱신 실패 — 기존 파일 유지"
 
+      # 눌림목 플레이북의 우위는 데이터가 늘 때마다 다시 재야 한다 — 결과(data/dip-stats.json)가
+      # 보수적 회계에서 플러스가 아니면 엔진이 그 플레이북을 내지 않는다(lib/genius.ts).
+      - name: 눌림목 플레이북 재검증 (매주 일요일)
+        if: ${{ github.event.schedule == '0 11 * * 0' }}
+        run: npx tsx scripts/validate-modes.ts || echo "눌림목 검증 실패 — 기존 파일 유지"
+
+      # 국내 공휴일(설날·추석·대체공휴일 등)에는 collect.ts가 스스로 건너뛴다(lib/marketPhase.ts 휴장일 표).
+      # 수동 실행(Run workflow)은 사용자가 일부러 누른 것이므로 휴장일이어도 강제로 돌린다.
       - name: 시세·뉴스 수집 및 AI 분석
         run: npm run collect
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          FORCE_COLLECT: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
 
       - name: 데이터 커밋
         run: |

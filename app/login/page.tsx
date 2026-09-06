@@ -21,7 +21,9 @@ function LoginForm() {
         body: JSON.stringify({ password }),
       });
       if (res.ok) {
-        const next = params.get("next") || "/";
+        // 같은 사이트 안의 경로만 허용 — "?next=//evil.com" 같은 외부 이동(오픈 리다이렉트)을 막는다
+        const raw = params.get("next") || "/";
+        const next = raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\") ? raw : "/";
         router.replace(next);
         router.refresh();
       } else {
@@ -38,7 +40,7 @@ function LoginForm() {
   return (
     <main className="container" style={{ paddingTop: 100 }}>
       <div className="card">
-        <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>🔒 반도체 트레이딩 AI</div>
+        <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>🔒 내 주식 비서</div>
         <div className="hint" style={{ marginBottom: 20 }}>비밀번호를 입력하세요</div>
         <form onSubmit={submit}>
           <input

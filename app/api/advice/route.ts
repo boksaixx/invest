@@ -1,6 +1,7 @@
 // AI 정밀 분석: 시세/지표(일봉+장중) 수집 → 뉴스 수집(Gemini) → 룰 엔진 → Claude 최종 판단
 import { NextResponse } from "next/server";
-import { getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote } from "@/lib/market";
+import { getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote, sessionPrevClose } from "@/lib/market";
+import dipStatsData from "@/data/dip-stats.json";
 import { collectNews } from "@/lib/gemini";
 import { fetchDartDisclosures, fetchRelatedDisclosures } from "@/lib/dart";
 import { fetchInvestorFlows } from "@/lib/investorFlow";
@@ -30,12 +31,16 @@ export const maxDuration = 300;
  * 그대로 두면 STOCKS[ticker].currency에서 터져 500 + 내부 TypeError가 사용자에게 그대로 노출된다.
  * 값을 버릴지언정 분석 자체는 돌아가야 한다 — 사용자는 그때 화면에서 자산을 다시 입력하면 된다.
  */
-function normalizePortfolio(raw: unknown): Portfolio {
+function normalizePortfolio(raw: unknown): { portfolio: Portfolio; normalized: string | null } {
   const src = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const num = (v: unknown, dflt: number) => {
+  const notes: string[] = [];
+  const num = (v: unknown, dflt: number, label: string) => {
     const n = typeof v === "number" ? v : Number(v);
-    return Number.isFinite(n) && n >= 0 ? n : dflt;
+    if (Number.isFinite(n) && n >= 0) return n;
+    if (v != null) notes.push(`${label} 값이 잘못돼 기본값으로 대체`);
+    return dflt;
   };
+  if (!raw || typeof raw !== "object") notes.push("자산 정보를 받지 못해 기본값(현금 2,000만원)으로 계산");
   const rawHoldings = Array.isArray(src.holdings) ? src.holdings : [];
   const holdings = rawHoldings
     .filter((h): h is Record<string, unknown> => Boolean(h) && typeof h === "object")
@@ -43,17 +48,23 @@ function normalizePortfolio(raw: unknown): Portfolio {
     .filter((h) => typeof h.ticker === "string" && (h.ticker as string) in STOCKS)
     .map((h) => ({
       ticker: h.ticker as Portfolio["holdings"][number]["ticker"],
-      qty: Math.floor(num(h.qty, 0)),
-      avgPrice: num(h.avgPrice, 0),
-    }))
-    .filter((h) => h.qty > 0 && h.avgPrice > 0);
-  return { cash: num(src.cash, 20_000_000), cashUSD: num(src.cashUSD, 0), holdings };
+      qty: Math.floor(num(h.qty, 0, "보유 수량")),
+      avgPrice: num(h.avgPrice, 0, "평단가"),
+    }));
+  // 수량은 있는데 평단가가 0인 항목은 "보유"로 계산할 수 없다(손익·손절선 근거가 없다) — 버리되 알린다.
+  const incomplete = holdings.filter((h) => h.qty > 0 && !(h.avgPrice > 0)).map((h) => STOCKS[h.ticker].name);
+  if (incomplete.length) notes.push(`${incomplete.join("·")}: 평단가가 없어 미보유로 계산 — "내 자산 입력"에서 평단가를 넣으세요`);
+  const cash = num(src.cash, 20_000_000, "현금");
+  return {
+    portfolio: { cash, cashUSD: num(src.cashUSD, 0, "달러현금"), holdings: holdings.filter((h) => h.qty > 0 && h.avgPrice > 0) },
+    normalized: notes.length ? notes.join(" / ") : null,
+  };
 }
 
 export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => null)) as { portfolio?: unknown } | null;
-    const portfolio = normalizePortfolio(body?.portfolio);
+    const { portfolio, normalized: portfolioNotice } = normalizePortfolio(body?.portfolio);
 
     const [macro, snapshot, backtest, disclosureResult, relatedFilings, flowResult, creditTrend, ...stockData] = await Promise.all([
       getMacroSnapshot(),
@@ -77,21 +88,39 @@ export async function POST(req: Request) {
     // 그 캐시가 충분히 신선하면 그대로 재사용하고, 없거나 오래됐을 때만 라이브로 다시 호출한다.
     // Gemini 그라운딩 호출은 사용자 클릭마다 중복으로 쏘면 그만큼 과금이 배가되므로 여기서 아낀다.
     const NEWS_CACHE_FRESH_MS = 20 * 60_000; // 자동수집 간격(15분)보다 여유를 둔 신선도 기준
-    const snapshotAgeMs = snapshot?.collectedAt ? Date.now() - new Date(snapshot.collectedAt).getTime() : Infinity;
-    const cacheIsFresh = Boolean(snapshot) && (snapshot?.news.length ?? 0) > 0 && snapshotAgeMs < NEWS_CACHE_FRESH_MS;
+    // 뉴스 나이는 "뉴스가 실제 수집된 시각"(newsCollectedAt) 기준 — collectedAt은 Gemini가 실패해
+    // 직전 뉴스를 이어 쓴 스냅샷에서도 새로 찍히기 때문이다.
+    const newsAtIso = snapshot?.newsCollectedAt ?? snapshot?.collectedAt ?? null;
+    const newsAgeMs = newsAtIso ? Date.now() - new Date(newsAtIso).getTime() : Infinity;
+    const cacheIsFresh = Boolean(snapshot) && (snapshot?.news.length ?? 0) > 0 && newsAgeMs < NEWS_CACHE_FRESH_MS;
+
+    // 오래된 스냅샷 뉴스를 쓸 때는 "속보" 표시를 지우고 예정 이벤트 남은 시간을 경과분만큼 줄인다.
+    // 예전에는 며칠 된 [속보]가 그대로 살아 쇼크 오버레이(예산 70%)와 ×1.3 가중치를 켰다.
+    const ageNews = (items: NewsItem[], ageMs: number): NewsItem[] => {
+      const ageH = ageMs / 3_600_000;
+      if (!(ageH > 3)) return items;
+      return items.map((n) => ({
+        ...n,
+        isBreaking: false,
+        eventInHours: n.eventInHours != null ? n.eventInHours - ageH : undefined,
+      }));
+    };
 
     let news: NewsItem[];
     let newsError: string | null;
     let newsLive: boolean;
+    let newsCollectedAt: string | null;
     if (cacheIsFresh) {
       news = snapshot!.news;
       newsError = null;
       newsLive = false;
+      newsCollectedAt = newsAtIso;
     } else {
       const liveResult = await collectNews();
       newsLive = liveResult.news.length > 0;
-      news = newsLive ? liveResult.news : (snapshot?.news ?? []);
+      news = newsLive ? liveResult.news : ageNews(snapshot?.news ?? [], newsAgeMs);
       newsError = liveResult.news.length === 0 ? liveResult.error : null;
+      newsCollectedAt = newsLive ? new Date().toISOString() : newsAtIso;
     }
 
     // 상대강도 랭킹 — 국내/미국은 통화·거래시간대가 달라 직접 비교가 무의미하므로 그룹별로 따로 계산
@@ -172,7 +201,8 @@ export async function POST(req: Request) {
           backtest: backtest?.perTicker[sd.ticker] ?? null,
           portfolioTotalAsset: market === "KR" ? totalAssetKR : totalAssetUS,
           changePct: sd.quote.changePct,
-          prevClose: sd.quote.prevClose,
+          // 장전·휴일에는 마지막 체결이 전 거래일이라 quote.prevClose가 "그저께 종가"다 — 상한가·VI 기준은 현재가(=전일 종가)
+          prevClose: sessionPrevClose(sd.quote),
           dailyStopTriggered: dailyRisk.stopTriggered,
           creditTrend,
           scenarioTable: scenarioData as unknown as import("@/lib/scenario").ScenarioTable,
@@ -232,6 +262,12 @@ export async function POST(req: Request) {
       portfolio.holdings,
       { soxChangePct: macro.sox?.changePct ?? null, kospiChangePct: macro.kospi?.changePct ?? null },
       scenarioData as unknown as import("@/lib/scenario").ScenarioTable,
+      {
+        // 눌림목 수량도 엔진과 같은 상관 한도를 받는다(예전엔 총자산 40%×2종목까지 무제한이었다)
+        headroom: corrCap.available ? corrCap.headroom : undefined,
+        // 눌림목 규칙의 보수적 검증 결과 — 우위가 확인되지 않으면 플레이북을 내지 않는다
+        dipStats: dipStatsData as unknown as import("@/lib/genius").DipBuyStats,
+      },
     );
 
     const { advice, error: adviceError, usage: adviceUsage } = await generateAdvice({
@@ -269,6 +305,9 @@ export async function POST(req: Request) {
       backtestDisclaimer: backtest?.disclaimer ?? null,
       aiAvailable: Boolean(process.env.ANTHROPIC_API_KEY),
       newsLive,
+      newsCollectedAt,
+      // 보낸 자산 정보가 손상돼 기본값으로 계산했으면 화면에 알린다 — 조용히 2,000만원으로 수량을 내면 안 된다
+      portfolioNotice,
       generatedAt: new Date().toISOString(),
     });
   } catch (e) {

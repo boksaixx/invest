@@ -60,6 +60,9 @@ export async function fetchCreditBalanceTrend(): Promise<CreditBalanceTrend | nu
     const rows = (json.ds1 ?? json.ds2 ?? []) as Record<string, unknown>[];
     if (!Array.isArray(rows) || rows.length < 21) throw new Error(`행 부족 (${Array.isArray(rows) ? rows.length : "형식 오류"})`);
 
+    // 2026-09 감사: 실제 응답은 "백만원" 단위였다(TMPV2 97,761,496 ≈ 97.8조원). 예전 필터(> 1천억 "원")는
+    // 모든 행을 버려 이 신호가 한 번도 켜진 적이 없었다. 단위를 값의 자릿수로 판별한다 —
+    // 1e11 이상이면 원 단위, 1e6 이상이면 백만원 단위. 둘 다 아니면 다른 컬럼을 읽은 것.
     const parsed = rows
       .map((r) => {
         let date = "";
@@ -72,14 +75,17 @@ export async function fetchCreditBalanceTrend(): Promise<CreditBalanceTrend | nu
         }
         return { date, value: best };
       })
-      .filter((r) => r.date && r.value > 1e11); // 신용잔고는 수십조 원 — 백억 미만이면 다른 컬럼을 잘못 읽은 것
+      .filter((r) => r.date && r.value >= 1e6);
     if (parsed.length < 21) throw new Error("유효 행 부족");
 
     parsed.sort((a, b) => a.date.localeCompare(b.date));
     const latest = parsed[parsed.length - 1];
     const past = parsed[parsed.length - 21]; // 20영업일 전
     const change20dPct = ((latest.value - past.value) / past.value) * 100;
-    const trillion = latest.value / 1e12;
+    const unitDivisor = latest.value >= 1e11 ? 1e12 : 1e6; // 원 → 조원 / 백만원 → 조원
+    const trillion = latest.value / unitDivisor;
+    // 신용융자 잔고는 역사상 수조~수백조 원 범위다. 벗어나면 컬럼을 잘못 읽은 것이니 신호를 끈다.
+    if (!(trillion >= 1 && trillion <= 500)) throw new Error(`잔고 규모 비정상(${trillion.toFixed(1)}조원) — 컬럼 해석 실패`);
 
     const note =
       change20dPct >= 10

@@ -15,8 +15,8 @@
 // 넘지 않도록 두고, 사람과 Claude가 판단에 쓰도록 그대로 보여준다.
 import type { NewsItem } from "./types";
 
-/** 뉴스가 어느 축을 건드리는지 — 축마다 영향 경로가 다르다 */
-const AXES: { axis: string; match: RegExp; note: string }[] = [
+/** 뉴스가 어느 축을 건드리는지 — 축마다 영향 경로가 다르다. 화면 문서 탭도 이 표에서 그대로 그린다(숫자·목록 불일치 방지). */
+export const AXES: { axis: string; match: RegExp; note: string }[] = [
   { axis: "업황", match: /반도체업황|D램|낸드|HBM|현물가|가동률|파운드리/, note: "메모리 사이클 — 국내 반도체 전반" },
   { axis: "지정학", match: /지정학|전쟁|중동|이란|미중|우크라|대만|북한|휴전/, note: "리스크 프리미엄 — 지수 전체에 하방 압력, 방산은 반대" },
   { axis: "미국정책", match: /미국정책|관세|수출규제|트럼프|백악관|반도체법|FDA/, note: "관세·규제 — 수출주(반도체·자동차) 직격" },

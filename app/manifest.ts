@@ -5,9 +5,9 @@ import type { MetadataRoute } from "next";
 // 훨씬 안정적으로 유지된다(브라우저의 "인터넷 사용기록 삭제" 등에 영향을 덜 받음).
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "반도체 트레이딩 AI",
-    short_name: "반도체AI",
-    description: "삼성전자·SK하이닉스 등 반도체 5종목 단기 매매 어드바이스 AI 에이전트",
+    name: "내 주식 비서",
+    short_name: "주식비서",
+    description: "국내 10종목(반도체 5 + 방산·자동차·금융·바이오·통신) 단타 어드바이스 AI 에이전트",
     start_url: "/",
     display: "standalone",
     background_color: "#f2f4f6",
