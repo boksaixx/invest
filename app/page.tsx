@@ -104,6 +104,50 @@ function saveJSON(key: string, v: unknown) {
   }
 }
 
+// 자산 정보 불러오기 — 이전 버전(portfolio-v1, 쿠키 백업 포함)에 넣어 둔 값이 있으면 2종목만 옮겨 온다.
+// iOS 홈 화면 앱은 저장소가 예고 없이 비는 일이 있어 1년짜리 쿠키를 이중 백업으로 둔다(이전 버전과 같은 방식).
+const PF_COOKIE = "my-portfolio-v2-backup";
+function readCookie(name: string): string | null {
+  try {
+    const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+    return m ? decodeURIComponent(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+function loadPortfolio(): Portfolio {
+  const empty: Portfolio = { cash: 0, holdings: {}, known: false };
+  const v2 = loadJSON<Portfolio | null>(PF_KEY, null) ?? (() => {
+    try {
+      const c = readCookie(PF_COOKIE);
+      return c ? (JSON.parse(c) as Portfolio) : null;
+    } catch {
+      return null;
+    }
+  })();
+  if (v2 && typeof v2.cash === "number") return { cash: v2.cash, holdings: v2.holdings ?? {}, known: v2.known !== false };
+  try {
+    const raw = localStorage.getItem("portfolio-v1") ?? readCookie("portfolio-v1-backup");
+    if (!raw) return empty;
+    const old = JSON.parse(raw) as { cash?: number; holdings?: { ticker: string; qty: number; avgPrice: number }[] };
+    const holdings: Portfolio["holdings"] = {};
+    for (const h of old.holdings ?? []) {
+      if ((h.ticker === "005930" || h.ticker === "000660") && h.qty > 0 && h.avgPrice > 0) holdings[h.ticker] = { qty: Math.floor(h.qty), avgPrice: h.avgPrice };
+    }
+    return { cash: Math.max(0, Number(old.cash) || 0), holdings, known: true };
+  } catch {
+    return empty;
+  }
+}
+function persistPortfolio(p: Portfolio) {
+  saveJSON(PF_KEY, p);
+  try {
+    document.cookie = `${PF_COOKIE}=${encodeURIComponent(JSON.stringify(p))}; max-age=31536000; path=/; SameSite=Lax`;
+  } catch {
+    // 쿠키 실패는 무시
+  }
+}
+
 const Ico = {
   refresh: (p: { spin?: boolean }) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" className={p.spin ? "spin" : undefined}>
@@ -505,7 +549,7 @@ export default function Home() {
   const inflight = useRef(false);
 
   useEffect(() => {
-    setPf(loadJSON<Portfolio>(PF_KEY, { cash: 0, holdings: {}, known: false }));
+    setPf(loadPortfolio());
     setLog(loadJSON<LogEntry[]>(LOG_KEY, []));
     setReady(true);
   }, []);
@@ -600,7 +644,7 @@ export default function Home() {
 
   const savePf = (p: Portfolio) => {
     setPf(p);
-    saveJSON(PF_KEY, p);
+    persistPortfolio(p);
     setEditing(false);
   };
 
