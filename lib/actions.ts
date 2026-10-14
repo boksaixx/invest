@@ -1,6 +1,7 @@
 // 화면이 따를 "최종 행동"을 한 곳에서 정한다 — 오늘 나의 행동 카드, 비서 브리핑, 계좌 리포트, 종목 카드가
 // 전부 이 규칙을 공유한다. 예전에는 page.tsx 안 IIFE에 묻혀 있어 브리핑이 같은 결론을 낼 방법이 없었다.
 import type { AiAdvice, EngineSignal, Portfolio, Quote, TodayTrade } from "./types";
+import { AI_BUY_MIN_ENGINE_SCORE } from "./aiRules";
 import { fmtQty, STOCKS } from "./types";
 
 /** "실제로 보유 중"의 단 하나의 정의 — 수량과 평단가가 모두 있어야 한다. 서버(normalizePortfolio)와 같은 기준. */
@@ -16,6 +17,9 @@ export function isHeld(h: { qty: number; avgPrice: number } | undefined | null):
 export function effectiveAction(sig: EngineSignal | undefined, ai: AiAdvice["stocks"][number] | undefined): string | undefined {
   const a = ai?.action ?? sig?.action;
   if (sig?.entryBlocked && (a === "신규매수" || a === "추가매수")) return sig.action;
+  // 엔진 점수가 매수 근접(58) 미만인데 AI가 매수를 낸 경우 — 서버 보정(AI_BUY_MIN_ENGINE_SCORE)과 같은 규칙.
+  // 2026-10 이전에 캐시된 AI 결과에도 적용되도록 화면에서 한 번 더 건다.
+  if (sig && (a === "신규매수" || a === "추가매수") && sig.score < AI_BUY_MIN_ENGINE_SCORE) return sig.action;
   return a;
 }
 

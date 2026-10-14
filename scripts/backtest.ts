@@ -1,19 +1,22 @@
 // 5개년 일봉 데이터만으로 재현하는 단순 백테스트.
 // 장중(분봉)/뉴스/매크로는 과거 시점 재현이 불가능하므로 제외하고,
-// 룰 엔진의 일봉 기술적 점수(technicalScore)가 68점 이상이었던 과거 시점을
+// 룰 엔진의 일봉 기술적 점수(technicalScore)가 TECH_BACKTEST_THRESHOLD(60) 이상이었던 과거 시점을
 // "진입 신호"로 보고 5/10거래일 후 종가 수익률을 집계한다.
 // 참고용 통계이며, 미래 수익을 보장하지 않는다 (README 참고).
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { computeIndicators } from "../lib/indicators";
-import { technicalScore } from "../lib/engine";
+import { technicalScore, TECH_BACKTEST_THRESHOLD, TECH_BACKTEST_THRESHOLD_CRYPTO } from "../lib/engine";
 import type { BacktestStats, Candle, StockTicker } from "../lib/types";
 import { STOCKS, TICKER_LIST } from "../lib/types";
 
-const ENTRY_SCORE_THRESHOLD = 68; // 룰 엔진의 신규매수 임계값과 동일
+// 2026-10: 국내 주식은 기술점수에서 추세 가중치를 뺀 뒤 단독 분포가 좁아져 68 → 60 (lib/engine.ts 주석 참조).
+// 가상자산은 예전 가중치를 그대로 쓰므로 68 유지.
+const thresholdFor = (market: "KR" | "US" | "CRYPTO") => (market === "CRYPTO" ? TECH_BACKTEST_THRESHOLD_CRYPTO : TECH_BACKTEST_THRESHOLD);
 const MIN_HISTORY_FOR_INDICATORS = 65; // ma60 등 계산에 필요한 최소 일봉 수
 
-function backtestTicker(candles: Candle[]): BacktestStats | null {
+function backtestTicker(candles: Candle[], market: "KR" | "US" | "CRYPTO"): BacktestStats | null {
+  const ENTRY_SCORE_THRESHOLD = thresholdFor(market);
   if (candles.length < MIN_HISTORY_FOR_INDICATORS + 15) return null;
 
   const rets5: number[] = [];
@@ -23,7 +26,7 @@ function backtestTicker(candles: Candle[]): BacktestStats | null {
     const history = candles.slice(0, i + 1);
     const ind = computeIndicators(history);
     if (Number.isNaN(ind.rsi14) || Number.isNaN(ind.ma20)) continue;
-    const { score } = technicalScore(ind, candles[i].close);
+    const { score } = technicalScore(ind, candles[i].close, market);
     if (score < ENTRY_SCORE_THRESHOLD) continue;
 
     const entryPrice = candles[i].close;
@@ -74,7 +77,7 @@ async function main() {
       console.warn(`${STOCKS[ticker].name} (${yahoo}): market-history.json에 데이터 없음, 건너뜀`);
       continue;
     }
-    const stats = backtestTicker(entry.candles);
+    const stats = backtestTicker(entry.candles, STOCKS[ticker].market);
     if (stats) {
       perTicker[ticker] = stats;
       console.log(
@@ -90,7 +93,8 @@ async function main() {
         generatedAt: new Date().toISOString(),
         disclaimer:
           "5개년 일봉 종가 기준 단순 재현 통계입니다. 장중 변동성·뉴스·매크로 이벤트는 과거 시점으로 재현할 수 없어 제외했으며, 실제 체결가·슬리피지·거래비용도 반영하지 않았습니다. 과거 승률이 미래 수익을 보장하지 않습니다 — 참고 지표로만 사용하세요.",
-        entryScoreThreshold: ENTRY_SCORE_THRESHOLD,
+        entryScoreThreshold: TECH_BACKTEST_THRESHOLD, // 국내 주식 기준 (가상자산은 entryScoreThresholdCrypto)
+        entryScoreThresholdCrypto: TECH_BACKTEST_THRESHOLD_CRYPTO,
         perTicker,
       },
       null,

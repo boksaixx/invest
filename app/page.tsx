@@ -27,6 +27,7 @@ import analogStats from "@/data/analog-stats.json";
 import touchStats from "@/data/touch-stats.json";
 import probStats from "@/data/probability-stats.json";
 import powerStats from "@/data/power-stats.json";
+import reversalStats from "@/data/reversal-stats.json";
 
 const TICKERS = TICKER_LIST.map((ticker) => ({ ticker, name: STOCKS[ticker].name }));
 // 화면 탭 분리 — "내 종목"(주식)과 "코인"(가상자산)은 지갑·시간대·수량 단위가 달라 따로 보여준다
@@ -2190,12 +2191,12 @@ export default function Home() {
               ["거래량", "20일 평균 대비 증감, Z점수 — 움직임에 실체가 있는지 확인"],
             ]},
             { g: "해외·매크로", items: [
-              ["미 반도체지수(SOX)", "★가장 중요. 전일 미국장 SOX와 국내 반도체주의 상관이 같은 날짜보다 2배 강함(0.33~0.43 vs 0.18~0.22). 밤사이 갭으로 거의 그대로 전이됨"],
+              ["미 반도체지수(SOX)", "전일 미국장 SOX는 국내 반도체주 시가 갭으로 거의 그대로 전이됨(상관 0.56~0.69). 그래서 종목 점수에는 더하지 않습니다 — 갭이 뜬 뒤 장중엔 오히려 되돌림이 더 많았기 때문(2026-10 검증). 변동성 추정·장세 판별에만 씁니다"],
               ["원/달러 환율", "급등 시 외국인 이탈 압력"],
               ["국제유가(WTI)", "급등이든 급락이든 방향과 무관하게 매크로 리스크 확대 신호"],
               ["VIX·공포탐욕지수", "시장 전체 공포 수준 — 포지션 축소 판단"],
               ["미 10년물 국채금리", "기술주 밸류에이션(할인율) 리스크. ※점수에는 반영하지 않고 맥락으로만 씁니다 — 자체 데이터가 아직 없어 기여도를 실측하지 못했고, 검증 안 된 변수는 점수에 넣지 않는 것이 이 엔진의 원칙입니다"],
-              ["나스닥·S&P500 선물", "장 시작 전 방향성 참고"],
+              ["나스닥·S&P500 선물", "장 시작 전 시가 갭 예상 참고 — 종목 점수에는 더하지 않음"],
               ["코스피", "국내장 전반 리스크"],
             ]},
             { g: "수급·공시", items: [
@@ -2376,7 +2377,7 @@ export default function Home() {
               {
                 src: "간밤 미국 SOX 지수",
                 rel: "국내 반도체주와 상관 0.33~0.43 (같은 날짜 SOX보다 2배 강함)",
-                into: "① 변동성 추정에서 예상 등락폭을 넓히고 → ② 장세 판별(폭락장/급등과열) 기준이 되며 → ③ 매크로 점수로 개별 종목 점수에 직접 가산·감산",
+                into: "① 변동성 추정에서 예상 등락폭을 넓히고 → ② 장세 판별(폭락장/급등과열) 기준이 된다. ③ 종목 점수에는 더하지 않는다 — 시가 갭에 이미 반영되고, 갭 뒤 장중엔 되돌림이 더 많았다(2026-10 검증)",
               },
               {
                 src: `뉴스 (최대 60건 수집 → ${NEWS_AXES.length}개 축 집계 → 업종별 방향 번역)`,
@@ -2486,6 +2487,35 @@ export default function Home() {
             <tr><th>감시주문(하루 이상 방치)</th><td>최악 -34.0% → -20.0%, -10% 넘는 손실 비율 4.8% → 2.4%</td></tr>
             <tr><th>감시주문(당일 재확인 가능)</th><td>오히려 불리 — 스치고 되돌아와 손해 94회 &gt; 손실 줄인 66회</td></tr>
           </tbody></table>
+          {/* 2026-10 정확도 진단 — 숫자는 data/reversal-stats.json(npm run validate:reversal)에서 읽는다 */}
+          {(() => {
+            const all = (rows: { year: string }[]) => rows.find((r) => r.year === "전체") as
+              | { icScore: number | null; hi: { n: number; win: number | null } }
+              | undefined;
+            const yrs = (rows: { year: string; icScore: number | null }[]) =>
+              rows.filter((r) => r.year !== "전체").map((r) => `${r.year.slice(2)}년 ${r.icScore != null && r.icScore >= 0 ? "+" : ""}${r.icScore ?? "-"}`).join(" · ");
+            const b = reversalStats.before;
+            const a = reversalStats.after;
+            if (!b || !a) return null;
+            const bo = all(b.open), ao = all(a.open), bc = all(b.close), ac = all(a.close);
+            const sg = (x: number | null | undefined) => (x == null ? "-" : `${x >= 0 ? "+" : ""}${x}`);
+            return (
+              <div style={{ marginTop: 12 }}>
+                <div className="doc-cap" style={{ fontWeight: 800 }}>2026-10 개정: 점수가 거꾸로 가던 문제를 고쳤습니다</div>
+                <div className="doc-cap">
+                  엔진 점수 함수를 5개년 일봉 10종목에 그대로 적용해 &quot;점수가 높을수록 실제로 더 올랐나&quot;(순위상관, 0이면 무관·음수면 반대)를 쟀더니,
+                  예전 점수는 다섯 해 대부분 <b>음수</b>였습니다 — 간밤 미국장·갭·추세를 따라가는 가중치가 단타 시계에선 반대로 맞았기 때문입니다.
+                  매년 같은 방향이 확인된 단기 되돌림(전일 종가 위치·갭 되돌림·5일 과열·마감 직전 레인지 위치)으로 바꾼 뒤의 결과입니다.
+                </div>
+                <table className="doc-tbl" style={{ marginTop: 4 }}><tbody>
+                  <tr><th>개장 직후 → 당일 종가</th><td>예전 {sg(bo?.icScore)} ({yrs(b.open)}) → <b>지금 {sg(ao?.icScore)}</b> ({yrs(a.open)})</td></tr>
+                  <tr><th>마감 직전 → 익일 종가</th><td>예전 {sg(bc?.icScore)} ({yrs(b.close)}) → <b>지금 {sg(ac?.icScore)}</b> ({yrs(a.close)})</td></tr>
+                  <tr><th>&quot;매수권(68+)&quot; 신호</th><td>예전 개장 직후 {bo?.hi.n.toLocaleString()}회·당일 승률 {bo?.hi.win?.toFixed(1)}% → 지금 {ao?.hi.n.toLocaleString()}회·{ao?.hi.win?.toFixed(1)}% — 신호는 훨씬 드물어지고, 나오는 신호는 덜 틀립니다</td></tr>
+                </tbody></table>
+                <div className="doc-chk">효과는 작습니다(순위상관 0.02~0.10). &quot;확실히 오른다&quot;가 아니라 &quot;어느 쪽이 조금 더 나은가&quot; 수준이고, 수익을 지키는 장치는 여전히 손절선입니다. 분봉·뉴스·선물은 과거 값이 없어 이 검증에서 빠졌습니다.</div>
+              </div>
+            );
+          })()}
         </details>
 
         <div className="doc-sec doc-warn">
@@ -2504,6 +2534,8 @@ export default function Home() {
 
         <details className="doc-sec">
           <summary className="doc-h">⑨ 직접 확인하기</summary>
+          <div className="doc-code">npm run validate:reversal</div>
+          <div className="doc-cap">엔진 점수의 방향 정확도 — 개장 직후·마감 직전 판단을 5개년 일봉으로 재현(개정 전/후 비교)</div>
           <div className="doc-code">npx tsx scripts/validate-volatility.ts</div>
           <div className="doc-cap">변동성 모델 적중률 — 실제 배포 코드를 그대로 호출해 검증</div>
           <div className="doc-code">npx tsx scripts/validate-modes.ts</div>

@@ -162,36 +162,60 @@ function investorFlowScore(
   return { score, notes, warnings };
 }
 
-function macroScore(macro: MacroSnapshot, marketPhase: MarketPhaseInfo): { score: number; notes: string[]; warnings: string[] } {
+// ── 오버나이트 매크로의 방향 가중치 (2026-10 정확도 진단) ─────────────────────────────────
+//
+// 예전에는 간밤 SOX +3.5%면 +16점처럼 미국장 등락을 "오늘 오를 근거"로 하루 종일 더했다.
+// 5개년 실측(scripts/validate-reversal.ts)은 반대였다:
+//   · SOX 전일 등락은 국내 반도체 시가 갭에 이미 반영된다(상관 0.56~0.69, 2022~2026 매년).
+//   · 갭이 뜬 뒤 시가→종가는 오히려 반대로 움직였다 — SOX +3.5% 이상인 날 반도체주는 평균 +2.8%
+//     갭 출발 후 장중 -0.47%, SOX -3.5% 이하인 날은 -2.3% 갭 출발 후 장중 +0.09%·익일 +1.06%.
+//   · 이 점수만 떼어 재면 개장 직후 판단의 IC가 2022~2026 다섯 해 모두 음수(-0.02~-0.08)였다.
+//     즉 "미국이 올랐으니 사라"가 매년 반대로 맞았다.
+//   · VIX·유가·환율 감점까지 포함한 매크로 점수 전체도 연도마다 부호가 바뀌었다(-0.03~+0.04).
+// 그래서 국내 종목에는 매크로를 방향 점수로 더하지 않는다(0배). 정보는 근거·경고 문장과
+// "매크로 영향도"(tone, 화면·AI 참고용)로 그대로 남기고, 갭 자체의 되돌림은 intradayScore 의
+// "갭 되돌림" 항목이 맡는다. 위험 크기는 변동성 모델(포지션 축소)과 리스크 오버레이가 이미 다룬다.
+// 가상자산(24시간)은 같은 시간대에 움직여 이 근거가 성립하지 않으므로 예전 가중치를 그대로 쓴다.
+export const MACRO_DIRECTION_WEIGHT_KR = 0;
+
+export function macroScore(
+  macro: MacroSnapshot,
+  marketPhase: MarketPhaseInfo,
+  market: "KR" | "US" | "CRYPTO" = "KR",
+): { score: number; tone: number; notes: string[]; warnings: string[] } {
   let score = 0;
+  // 미국 지수·선물·코스피처럼 "이미 가격(갭)에 반영된 방향"
+  let overnight = 0;
   const notes: string[] = [];
   const warnings: string[] = [];
+  const kr = market === "KR";
+  const priced = kr ? " — 시가 갭에 이미 반영된 정보라 '더 오를/내릴 근거'로 쓰지 않음" : "";
   if (macro.sox) {
-    // 폭등/폭락(±3.5% 이상) 구간은 요즘처럼 SOX가 하루에도 크게 흔들리는 장세를 반영해 별도 최상위
-    // 티어로 훨씬 강하게 가중치를 준다 — 간밤 SOX 급변동은 다음날 국내 반도체주 갭(시가 급등/급락)으로
-    // 거의 그대로 이어지는 경우가 많다.
+    // 폭등/폭락(±3.5% 이상) 구간은 별도 최상위 티어. 국내 종목에는 방향 점수로 쓰지 않는다(위 주석).
     if (macro.sox.changePct >= 3.5) {
-      score += 16;
-      notes.push(`미 반도체지수(SOX) 폭등 +${macro.sox.changePct.toFixed(1)}% — 초강세, 오늘 국내 반도체주 갭상승 가능성 큼`);
+      overnight += 16;
+      notes.push(`미 반도체지수(SOX) 폭등 +${macro.sox.changePct.toFixed(1)}%${kr ? " — 오늘 반도체주 갭상승 요인. 5년 실측상 이런 날은 갭 뒤 장중에 되밀리는 경우가 많아 시가 추격은 불리" : " — 초강세"}`);
     } else if (macro.sox.changePct >= 1.5) {
-      score += 10;
-      notes.push(`미 반도체지수(SOX) 강세 +${macro.sox.changePct.toFixed(1)}%`);
-    } else if (macro.sox.changePct >= 0.3) score += 5;
+      overnight += 10;
+      notes.push(`미 반도체지수(SOX) 강세 +${macro.sox.changePct.toFixed(1)}%${priced}`);
+    } else if (macro.sox.changePct >= 0.3) overnight += 5;
     else if (macro.sox.changePct <= -3.5) {
-      score -= 16;
-      warnings.push(`미 반도체지수(SOX) 폭락 ${macro.sox.changePct.toFixed(1)}% — 초약세, 오늘 국내 반도체주 갭하락 위험 큼, 신규 진입 보수적으로`);
+      overnight -= 16;
+      warnings.push(
+        `미 반도체지수(SOX) 폭락 ${macro.sox.changePct.toFixed(1)}%${kr ? " — 오늘 반도체주 갭하락 요인. 5년 실측상 이런 날은 갭 뒤 장중·익일에 되돌림이 더 많았으니 시가 투매는 피하고 손절선 기준으로만 판단" : " — 초약세, 신규 진입 보수적으로"}`,
+      );
     } else if (macro.sox.changePct <= -1.5) {
-      score -= 10;
-      notes.push(`미 반도체지수(SOX) 급락 ${macro.sox.changePct.toFixed(1)}%`);
-    } else if (macro.sox.changePct <= -0.3) score -= 5;
+      overnight -= 10;
+      notes.push(`미 반도체지수(SOX) 급락 ${macro.sox.changePct.toFixed(1)}%${priced}`);
+    } else if (macro.sox.changePct <= -0.3) overnight -= 5;
   }
   if (macro.nasdaq) {
-    if (macro.nasdaq.changePct >= 1) score += 4;
-    else if (macro.nasdaq.changePct <= -1) score -= 4;
+    if (macro.nasdaq.changePct >= 1) overnight += 4;
+    else if (macro.nasdaq.changePct <= -1) overnight -= 4;
   }
   if (macro.kospi) {
-    if (macro.kospi.changePct >= 0.5) score += 3;
-    else if (macro.kospi.changePct <= -0.5) score -= 3;
+    if (macro.kospi.changePct >= 0.5) overnight += 3;
+    else if (macro.kospi.changePct <= -0.5) overnight -= 3;
   }
   if (macro.usdkrw && Math.abs(macro.usdkrw.changePct) >= 0.7) {
     score -= 3;
@@ -215,15 +239,15 @@ function macroScore(macro: MacroSnapshot, marketPhase: MarketPhaseInfo): { score
   const futuresWeight = isPreOrEarlyMarket ? 1.5 : 0.6;
   if (macro.nasdaqFutures) {
     if (macro.nasdaqFutures.changePct >= 0.7) {
-      score += 6 * futuresWeight;
-      notes.push(`나스닥100 선물 +${macro.nasdaqFutures.changePct.toFixed(2)}% — 개장 전 우호적 신호`);
+      overnight += 6 * futuresWeight;
+      notes.push(`나스닥100 선물 +${macro.nasdaqFutures.changePct.toFixed(2)}%${kr ? priced : " — 개장 전 우호적 신호"}`);
     } else if (macro.nasdaqFutures.changePct <= -0.7) {
-      score -= 6 * futuresWeight;
-      warnings.push(`나스닥100 선물 ${macro.nasdaqFutures.changePct.toFixed(2)}% — 개장 전 부정적 신호`);
+      overnight -= 6 * futuresWeight;
+      warnings.push(`나스닥100 선물 ${macro.nasdaqFutures.changePct.toFixed(2)}%${kr ? priced : " — 개장 전 부정적 신호"}`);
     }
   }
   if (macro.spFutures && Math.abs(macro.spFutures.changePct) >= 0.7) {
-    score += macro.spFutures.changePct > 0 ? 3 * futuresWeight : -3 * futuresWeight;
+    overnight += macro.spFutures.changePct > 0 ? 3 * futuresWeight : -3 * futuresWeight;
   }
 
   // VIX(변동성지수) — 시장 전체의 공포 수준. 높을수록 리스크오프 국면.
@@ -249,34 +273,81 @@ function macroScore(macro: MacroSnapshot, marketPhase: MarketPhaseInfo): { score
     }
   }
 
-  return { score, notes, warnings };
+  // tone = 예전 방식 그대로 합산한 "매크로 분위기"(화면의 매크로 영향도·AI 참고용)
+  const tone = score + overnight;
+  return { score: kr ? tone * MACRO_DIRECTION_WEIGHT_KR : tone, tone, notes, warnings };
 }
+
+// ── 단기 되돌림 (2026-10 정확도 진단) ───────────────────────────────────────────────────
+// 5개년 일봉 10종목 실측(scripts/validate-reversal.ts, 2022~2026 연도별):
+//   · 전일 종가 위치(CLV)와 오늘 시가→종가 등락의 순위상관 -0.038 ~ -0.078 — 다섯 해 모두 음수.
+//     저가 근처로 마감한 다음날은 반등, 고가 근처 마감 다음날은 되밀림이 더 많았다.
+//   · 전일까지 5일 등락(변동성으로 나눈 값)도 2022~2025 매년 -0.03~-0.04 (2026은 0).
+//   · 반대로 "20일선 위·MACD 상승" 같은 추세추종 점수는 하루~사흘 시계에서 2022~2025 매년 음수,
+//     2026만 양수였다 — 단타 시계에서 추세를 따라가는 가중치가 컸던 것이 "강할 때 사라고 하고
+//     다음날 밀리는" 오답의 주원인이었다.
+//   · "RSI 45~65 건전 +6, 거래량 급증+상승 +6" 같은 레짐 무관(neutral) 항목도 2022~2025 대부분 음수.
+//   · 단, 강세 쪽 되돌림(고가 마감·갭상승·5일 급등 감점)은 극단에서 깨졌다 — 세 가지가 겹친 급등주는
+//     다음날에도 더 오른 경우가 많았다(마감 직전 점수 ≤32 구간 176건, 익일 승률 57%). 반대로 약세 쪽
+//     되돌림(저가 마감·갭하락 반등)은 극단까지 일관됐다. 그래서 감점 쪽은 절반만 반영한다.
+// 그래서 단타 방향 점수에서 추세추종은 뺐고(TREND_WEIGHT 0 — 이평선·MACD는 손절·목표·지지저항 계산과
+// 근거 문장에만 쓴다), 레짐 무관 항목은 1/4로 줄였으며, 매년 같은 방향이 확인된 단기 되돌림을 더한다.
+// 크기는 IC 크기에 맞춘 설계값이다(±6, ±4). 추세·레짐무관·매크로 가중치는 2022~2024로 고르고 2025~2026에서
+// 확인했다(강세 쪽 절반 반영은 5년 전체의 극단 구간을 보고 정한 설계값).
+// 데이터가 쌓이면 같은 하니스(npm run validate:reversal)로 재검증할 것.
+export const TREND_WEIGHT = 0;
+export const NEUTRAL_WEIGHT = 0.25;
+export const REVERSAL_CLV_POINTS = 6;
+export const REVERSAL_RET5_POINTS = 2; // z(±2 상한) × 2 = ±4
+/** 강세 쪽(감점) 되돌림 반영 비율 — 극단 급등은 되돌림보다 지속이 많았다 */
+export const STRENGTH_SIDE_REVERSAL_WEIGHT = 0.5;
+/**
+ * 주간 백테스트(scripts/backtest.ts)의 "일봉 기술점수만으로 본 진입 신호" 기준.
+ * 추세 가중치를 뺀 뒤 기술점수 단독 분포가 좁아져(5개년 상위 6.5% ≈ 60점) 예전 68점 기준으로는 표본이
+ * 거의 안 남는다. 실시간 종합점수의 신규매수 기준(68)은 장중·뉴스·공시·수급이 더해진 값이라 그대로 둔다.
+ * 5개년 실측(2026-10): 기술점수 60+ → 5일 승률 57.0%·평균 +1.30% (전체 50.9%·+0.84%).
+ */
+export const TECH_BACKTEST_THRESHOLD = 60;
+/** 가상자산은 예전 가중치(추세추종 포함)를 그대로 쓰므로 예전 기준 68점을 유지한다 */
+export const TECH_BACKTEST_THRESHOLD_CRYPTO = 68;
 
 // 기술적 점수를 "추세추종"(trend) / "역추세·저점매수"(reversion) / "레짐 무관 리스크 신호"(neutral)
 // 세 갈래로 나눠 합산한다. 추세추종만 있으면 "오를 때만 올라타는" 편향이 생기므로, ADX(추세 강도)로
 // 지금이 추세장인지 횡보장인지 판단해 두 갈래의 가중치를 반대로 조정한다 — 추세장이면 추세추종을,
 // 횡보장이면 저점매수/되돌림을 더 신뢰한다. 과열/거래량 급변 같은 리스크 신호는 장세와 무관하게
 // 항상 같은 가중치를 유지한다(어느 장세든 위험은 위험이므로).
-export function technicalScore(ind: Indicators, price: number): { score: number; reasons: string[]; warnings: string[] } {
+export function technicalScore(
+  ind: Indicators,
+  price: number,
+  // 가상자산은 예전 가중치를 그대로 쓴다 — 같은 5개년 검증에서 BTC·ETH·XRP는 추세추종 점수가 오히려
+  // 약간 나았다(익일 순위상관 예전 +0.016 vs 새 방식 -0.020). 되돌림 근거는 국내 주식에서만 확인됐다.
+  market: "KR" | "US" | "CRYPTO" = "KR",
+): { score: number; reasons: string[]; warnings: string[]; parts: { trend: number; reversion: number; neutral: number; shortReversal: number } } {
   let trendScore = 0;
   let reversionScore = 0;
   let neutralScore = 0;
   const reasons: string[] = [];
   const warnings: string[] = [];
 
-  // 추세추종 신호
+  const legacy = market === "CRYPTO";
+  const trendMult = legacy ? 1 : TREND_WEIGHT;
+  const neutralMult = legacy ? 1 : NEUTRAL_WEIGHT;
+  // 추세추종 신호 — 가중치가 0이면 방향 점수에 들어가지 않으므로 문장에 "참고"를 붙인다
+  const trendRef = trendMult === 0 ? "참고용·점수 미반영" : "";
+  const inParen = trendRef ? ` · ${trendRef}` : "";
+  const suffix = trendRef ? ` (${trendRef})` : "";
   if (price > ind.ma20) {
     trendScore += 8;
-    reasons.push("주가가 20일선 위 (단기 상승 추세)");
+    reasons.push(`주가가 20일선 위 (단기 상승 추세${inParen})`);
   } else {
     trendScore -= 8;
-    warnings.push("주가가 20일선 아래 (단기 추세 약세)");
+    warnings.push(`주가가 20일선 아래 (단기 추세 약세${inParen})`);
   }
   if (ind.ma5 > ind.ma20) trendScore += 5;
   else trendScore -= 5;
   if (ind.ma20SlopePct > 0.5) {
     trendScore += 5;
-    reasons.push("20일선 기울기 상승 중");
+    reasons.push(`20일선 기울기 상승 중${suffix}`);
   } else if (ind.ma20SlopePct < -0.5) trendScore -= 5;
 
   // 모멘텀(RSI) — 과열/건전 판정은 장세와 무관한 리스크 신호(neutral), 과매도 반등 기대는 저점매수(reversion)
@@ -325,14 +396,14 @@ export function technicalScore(ind: Indicators, price: number): { score: number;
       reasons.push(`스토캐스틱 %K ${ind.stochK.toFixed(0)} — 과매도 구간에서 %D 상향 돌파 (단기 반등 신호)`);
     } else if (ind.stochK > ind.stochD && ind.stochK < 80) {
       trendScore += 2;
-      reasons.push("스토캐스틱 %K가 %D 위 — 단기 모멘텀 양호");
+      reasons.push(`스토캐스틱 %K가 %D 위 — 단기 모멘텀 양호${suffix}`);
     }
   }
 
   // MACD
   if (ind.macdHist > 0 && ind.macdHist > ind.macdHistPrev) {
     trendScore += 7;
-    reasons.push("MACD 상승 전환 유지");
+    reasons.push(`MACD 상승 전환 유지${suffix}`);
   } else if (ind.macdHist < 0 && ind.macdHist < ind.macdHistPrev) {
     trendScore -= 7;
   }
@@ -385,7 +456,11 @@ export function technicalScore(ind: Indicators, price: number): { score: number;
     if (ind.adx14 >= 25) {
       trendWeight = 1.25;
       reversionWeight = 0.7;
-      reasons.push(`추세 강도(ADX ${ind.adx14.toFixed(0)}) 높음 — 추세추종 신호 우선, 역추세 저점매수는 신중히`);
+      reasons.push(
+        legacy
+          ? `추세 강도(ADX ${ind.adx14.toFixed(0)}) 높음 — 추세추종 신호 우선, 역추세 저점매수는 신중히`
+          : `추세 강도(ADX ${ind.adx14.toFixed(0)}) 높음 — 저점매수 신호는 신중히(떨어지는 칼날 위험)`,
+      );
     } else if (ind.adx14 < 20) {
       trendWeight = 0.7;
       reversionWeight = 1.3;
@@ -393,13 +468,57 @@ export function technicalScore(ind: Indicators, price: number): { score: number;
     }
   }
 
-  const score = 50 + trendScore * trendWeight + reversionScore * reversionWeight + neutralScore;
-  return { score: Math.max(0, Math.min(100, score)), reasons, warnings };
+  // 단기 되돌림 — ADX 레짐과 무관하게 매년 같은 방향이 확인된 신호라 별도로 더한다(위 주석).
+  let shortReversal = 0;
+  const clv = legacy ? NaN : ind.prevCloseLocation;
+  if (clv != null && Number.isFinite(clv)) {
+    const pts = -REVERSAL_CLV_POINTS * clv;
+    shortReversal += pts;
+    if (clv <= -0.6) reasons.push("전일 저가 부근 마감 — 5년 실측상 다음날 반등이 더 많았던 자리 (단기 되돌림 +)");
+    else if (clv >= 0.6) warnings.push("전일 고가 부근 마감 — 5년 실측상 다음날 되밀림이 더 많았던 자리 (추격 불리)");
+  }
+  const atrPct = !isNaN(ind.atr14) && price > 0 ? (ind.atr14 / price) * 100 : NaN;
+  if (!legacy && ind.ret5Pct != null && Number.isFinite(ind.ret5Pct) && atrPct > 0) {
+    const z = Math.max(-2, Math.min(2, ind.ret5Pct / (atrPct * Math.sqrt(5))));
+    shortReversal += -REVERSAL_RET5_POINTS * z;
+    if (z >= 1.5) warnings.push(`최근 5일 +${ind.ret5Pct.toFixed(1)}% — 평소 변동폭 대비 단기 급등, 되돌림 유의`);
+    else if (z <= -1.5) reasons.push(`최근 5일 ${ind.ret5Pct.toFixed(1)}% — 평소 변동폭 대비 단기 급락, 되돌림 반등 후보`);
+  }
+
+  const parts = {
+    trend: trendMult === 0 ? 0 : trendScore * trendWeight * trendMult,
+    reversion: reversionScore * reversionWeight,
+    neutral: neutralScore * neutralMult,
+    shortReversal: shortReversal < 0 ? shortReversal * STRENGTH_SIDE_REVERSAL_WEIGHT : shortReversal,
+  };
+  const score = 50 + parts.trend + parts.reversion + parts.neutral + parts.shortReversal;
+  return { score: Math.max(0, Math.min(100, score)), reasons, warnings, parts };
 }
 
 // 단타의 핵심: 일봉만으로는 "오늘 지금" 사야 할지 알 수 없다.
 // VWAP·갭·오프닝레인지·당일 모멘텀을 점수화한다.
-function intradayScore(id: IntradayInsight | null): { score: number; reasons: string[]; warnings: string[] } {
+//
+// 2026-10 개정 — 무엇이 실제로 맞았나:
+//  · 갭: 예전엔 "갭상승 후 시가 지지 +6"처럼 갭 방향을 따라갔다. 5개년 실측에서 갭과 그날 시가→종가의
+//    순위상관은 2022~2026 매년 음수(-0.03~-0.11, 반도체는 SOX 갭까지 같은 방향) — 갭은 따라가기보다
+//    되돌림 쪽이 맞았다. 그래서 갭 크기(하루 변동폭 대비)에 비례해 반대 방향 점수를 준다(±8 상한).
+//  · 마감 직전 당일 레인지 위치: 그날 종가 위치(CLV)와 익일 등락의 상관이 매년 -0.06~-0.08로 가장
+//    안정적이었다. 마감임박·동시호가에는 고가권이면 감점, 저가권이면 가점(±6) — "넘길 거면 저가권".
+//  · VWAP·오프닝레인지·30분 모멘텀: 실전 로그 1,600건에서 당일 마감 등락과의 상관이 0 근처
+//    (8~9월 -0.02, 9~10월 +0.01)였다. 실행 타이밍(지정가 위치) 정보로는 유용하지만 방향 근거로는
+//    검증되지 않아 점수 비중을 절반으로 낮췄다. 지정가·추격 판정 로직은 그대로다.
+export const GAP_FADE_POINTS = 4; // 갭(σ 단위, ±2 상한) × 4 = ±8
+export const CLOSE_RANGE_REVERSAL_POINTS = 6;
+const UNVALIDATED_INTRADAY_WEIGHT = 0.5;
+
+export function intradayScore(
+  id: IntradayInsight | null,
+  marketPhase?: MarketPhaseInfo,
+  sigmaDailyPct?: number | null,
+  // 가상자산은 예전 규칙 그대로(갭 따라가기·모멘텀 전체 가중) — 위 실측은 국내 주식에서만 했다
+  market: "KR" | "US" | "CRYPTO" = "KR",
+): { score: number; reasons: string[]; warnings: string[] } {
+  const legacy = market === "CRYPTO";
   const reasons: string[] = [];
   const warnings: string[] = [];
   if (!id || !id.available) {
@@ -410,59 +529,76 @@ function intradayScore(id: IntradayInsight | null): { score: number; reasons: st
     warnings.push(`장중 데이터가 오늘 것이 아닙니다(기준일: ${id.sessionDate}) — 휴장 중이거나 개장 전일 수 있습니다`);
   }
 
-  let score = 0;
+  // 방향 근거로 검증되지 않은 장중 모멘텀 항목 (UNVALIDATED_INTRADAY_WEIGHT 배)
+  let momentumPts = 0;
+  // 5개년 실측으로 방향이 확인된 되돌림 항목
+  let reversalPts = 0;
 
   // VWAP 위/아래
   if (id.distanceFromVwapPct > 0.15) {
-    score += 8;
+    momentumPts += 8;
     reasons.push(`VWAP(${Math.round(id.vwap).toLocaleString()}원) 위 +${id.distanceFromVwapPct.toFixed(2)}% — 당일 매수세 우위`);
   } else if (id.distanceFromVwapPct < -0.15) {
-    score -= 8;
+    momentumPts -= 8;
     warnings.push(`VWAP(${Math.round(id.vwap).toLocaleString()}원) 아래 ${id.distanceFromVwapPct.toFixed(2)}% — 당일 매도세 우위`);
   }
 
-  // 갭 방향 + 갭 유지/실패 여부
-  if (id.gapType === "갭상승") {
-    if (id.current >= id.todayOpen) {
-      score += 6;
-      reasons.push(`갭상승(+${id.gapPct.toFixed(2)}%) 출발 후 시가 지지 — 상승 갭 유지 중`);
+  // 갭 되돌림 — 갭 크기를 하루 변동폭(σ)으로 나눠 종목 간 비교 가능하게 만든다
+  const sigma = sigmaDailyPct && sigmaDailyPct > 0 ? sigmaDailyPct : 2.5;
+  if (legacy) {
+    // 예전 규칙: 갭 방향 + 갭 유지/실패 여부 (업비트는 09:00 세션 경계라 갭이 거의 없다)
+    if (id.gapType === "갭상승") momentumPts += id.current >= id.todayOpen ? 6 : -6;
+    else if (id.gapType === "갭하락") momentumPts += id.current <= id.todayOpen ? -6 : 4;
+  } else if (id.gapType !== "보합") {
+    const gz = Math.max(-2, Math.min(2, id.gapPct / sigma));
+    reversalPts += -GAP_FADE_POINTS * gz;
+    if (id.gapType === "갭상승") {
+      if (id.current >= id.todayOpen) {
+        warnings.push(`갭상승(+${id.gapPct.toFixed(2)}%) 출발 후 시가 위 — 5년 실측상 갭은 장중에 되밀리는 경우가 더 많아 시가 추격은 불리`);
+      } else {
+        warnings.push(`갭상승(+${id.gapPct.toFixed(2)}%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행 중`);
+      }
     } else {
-      score -= 6;
-      warnings.push(`갭상승(+${id.gapPct.toFixed(2)}%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행, 상승 실패 신호`);
-    }
-  } else if (id.gapType === "갭하락") {
-    if (id.current <= id.todayOpen) {
-      score -= 6;
-      warnings.push(`갭하락(${id.gapPct.toFixed(2)}%) 출발 후 반등 없이 약세 지속`);
-    } else {
-      score += 4;
-      reasons.push(`갭하락(${id.gapPct.toFixed(2)}%) 출발했지만 시가 위로 반등 — 낙폭과대 반발매수 유입`);
+      if (id.current <= id.todayOpen) {
+        reasons.push(`갭하락(${id.gapPct.toFixed(2)}%) 출발 — 5년 실측상 갭하락은 장중·익일 되돌림이 더 많았던 자리(손절선은 지킬 것)`);
+      } else {
+        reasons.push(`갭하락(${id.gapPct.toFixed(2)}%) 출발 후 시가 위로 반등 — 갭 메우기 진행 중`);
+      }
     }
   }
 
   // 오프닝레인지 브레이크아웃
   if (id.orbStatus === "상단돌파") {
-    score += 7;
+    momentumPts += 7;
     reasons.push(`오프닝레인지 상단(${id.openingRangeHigh ? Math.round(id.openingRangeHigh).toLocaleString() : "-"}원) 돌파 — 상승 전환 시그널`);
   } else if (id.orbStatus === "하단이탈") {
-    score -= 7;
+    momentumPts -= 7;
     warnings.push(`오프닝레인지 하단(${id.openingRangeLow ? Math.round(id.openingRangeLow).toLocaleString() : "-"}원) 이탈 — 하락 전환 시그널`);
   }
 
   // 당일 모멘텀 (최근 약 30분)
   if (id.momentum === "강한상승") {
-    score += 6;
+    momentumPts += 6;
     reasons.push("최근 30분 캔들 대부분 양봉 — 강한 단기 상승 모멘텀");
-  } else if (id.momentum === "상승") score += 3;
+  } else if (id.momentum === "상승") momentumPts += 3;
   else if (id.momentum === "강한하락") {
-    score -= 6;
+    momentumPts -= 6;
     warnings.push("최근 30분 캔들 대부분 음봉 — 강한 단기 하락 모멘텀");
-  } else if (id.momentum === "하락") score -= 3;
+  } else if (id.momentum === "하락") momentumPts -= 3;
 
-  // 당일 레인지 내 위치 (과열/과매도, 일봉 RSI와 별개로 "오늘" 기준)
-  if (id.rangePositionPct >= 95) warnings.push("당일 고가권 — 단기 눌림 유의, 추격 매수 자제");
+  // 당일 레인지 내 위치 — 마감 직전에는 그날 종가 위치(CLV)와 같아져 익일 되돌림을 예고한다
+  const nearClose = !legacy && (marketPhase?.phase === "마감임박" || marketPhase?.phase === "동시호가");
+  if (nearClose) {
+    const loc = (id.rangePositionPct - 50) / 50; // -1(저가) ~ +1(고가)
+    reversalPts += -CLOSE_RANGE_REVERSAL_POINTS * loc;
+    if (id.rangePositionPct >= 80) warnings.push("마감 직전 당일 고가권 — 5년 실측상 고가권 마감 다음날은 되밀림이 더 많았음(오버나이트 신규 진입 불리)");
+    else if (id.rangePositionPct <= 20) reasons.push("마감 직전 당일 저가권 — 5년 실측상 저가권 마감 다음날은 반등이 더 많았음");
+  } else if (id.rangePositionPct >= 95) warnings.push("당일 고가권 — 단기 눌림 유의, 추격 매수 자제");
   else if (id.rangePositionPct <= 5) reasons.push("당일 저가권 — 단기 반등 시도 가능 구간");
 
+  const score = legacy
+    ? momentumPts
+    : momentumPts * UNVALIDATED_INTRADAY_WEIGHT + (reversalPts < 0 ? reversalPts * STRENGTH_SIDE_REVERSAL_WEIGHT : reversalPts);
   return { score, reasons, warnings };
 }
 
@@ -868,16 +1004,33 @@ export function runEngine(params: {
   // 왕복 거래비용 — 주식은 세금 0.15%+수수료(0.18%), 가상자산은 수수료만(0.10%)
   const costPct = crypto ? CRYPTO_ROUND_TRIP_COST_PCT : ROUND_TRIP_COST_PCT;
   const ind = computeIndicators(candles);
+  // 일봉 최신성 점검 — 2026-10-13 장중 로그에서 일봉 마지막 봉이 10-12가 아니라 10-08이었다(야후 지연).
+  // 이때 "전일 종가 위치·5일 등락"은 엉뚱한 날을 가리키므로 되돌림 점수에서 빼고 경고한다.
+  // 기대값: 장중·장전엔 전일 종가(prevClose), 장 마감 후엔 오늘 종가(현재가). 둘 다 아니면 낡은 일봉이다.
+  const lastDaily = candles[candles.length - 1];
+  const dailyStale =
+    market === "KR" &&
+    lastDaily != null &&
+    params.prevClose != null &&
+    params.prevClose > 0 &&
+    Math.abs(lastDaily.close / params.prevClose - 1) > 0.003 &&
+    Math.abs(lastDaily.close / price - 1) > 0.003;
+  if (dailyStale) {
+    ind.prevCloseLocation = NaN;
+    ind.ret5Pct = NaN;
+  }
 
-  const tech = technicalScore(ind, price);
-  const mac = macroScore(macro, marketPhase);
+  const tech = technicalScore(ind, price, market);
+  const mac = macroScore(macro, marketPhase, market);
   // 대외변수(자사주·중국·미국·전쟁·관세·금리환율…)를 업종별 방향·강도로 번역한 뉴스 점수(±15)
   const issues = computeIssueImpacts(news, ticker);
   const sent = { score: issues.score, notes: issues.warnings };
   // 이벤트·쇼크 오버레이 — 방향이 아니라 신규 진입 "크기"만 줄인다
   const riskOverlay = computeRiskOverlay(news, macro, ticker);
   const overlayMultiplier = riskOverlay?.sizeMultiplier ?? 1;
-  const intra = intradayScore(intraday);
+  // 갭 되돌림 점수는 갭을 하루 변동폭(σ)으로 나눠 쓴다 — 여기서는 ATR로 근사(변동성 모델은 아래에서 계산)
+  const atrSigmaPct = !isNaN(ind.atr14) && price > 0 ? ((ind.atr14 / price) * 100) / 1.2 : null;
+  const intra = intradayScore(intraday, marketPhase, atrSigmaPct, market);
   const disc = disclosureScore(params.disclosures);
   const flow = investorFlowScore(params.investorFlow, ind.avgVolume20);
 
@@ -894,6 +1047,11 @@ export function runEngine(params: {
   const reasons = [...intra.reasons, ...tech.reasons, ...mac.notes, ...issues.notes, ...disc.notes, ...flow.notes];
   const warnings = [...intra.warnings, ...tech.warnings, ...mac.warnings, ...sent.notes, ...disc.warnings, ...flow.warnings];
   if (riskOverlay) warnings.push(...riskOverlay.notes);
+  if (dailyStale) {
+    warnings.push(
+      `일봉 데이터가 최신이 아닙니다(마지막 봉 ${lastDaily.date} 종가 ${Math.round(lastDaily.close).toLocaleString()} ≠ 전일 종가 ${Math.round(params.prevClose!).toLocaleString()}) — 이동평균·RSI가 하루 이상 늦을 수 있어 전일 종가 위치·5일 등락 점수는 뺐습니다`,
+    );
+  }
   if (phaseDampener < 1) {
     warnings.push(`현재 시간대(${marketPhase.phase})는 신호 신뢰도가 평소보다 낮습니다 — ${marketPhase.note}`);
   }
@@ -1383,7 +1541,8 @@ export function runEngine(params: {
     sellStrength,
     actionSummary,
     verdict,
-    macroScore: Math.round(mac.score),
+    // 화면 "매크로 영향도"는 분위기(tone)를 보여준다 — 국내 종목 점수에는 더하지 않는다(MACRO_DIRECTION_WEIGHT_KR)
+    macroScore: Math.round(mac.tone),
     disclosures: params.disclosures ?? [],
     investorFlow: params.investorFlow ?? [],
     volForecast: volForecast.available ? volForecast : null,

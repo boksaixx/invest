@@ -78,6 +78,11 @@ export interface Indicators {
   obvDivergence: boolean; // 최근 20일 가격 추세와 OBV(누적거래량) 추세가 엇갈림 — 거래량 뒷받침 없는 "약한" 움직임
   hammerReversal: boolean; // 최근 하락 흐름 중 해머형 캔들 발생 — 저가권 매도세 흡수(단기 반전 시도) 신호
   volatilityRatio: number; // 최근(atr14) 변동폭 ÷ 장기(120일) 평소 변동폭. 1.0=평소 수준, 1.6 이상이면 "변동성 급확대" 국면으로 취급
+  // 직전 완성 일봉의 종가 위치(CLV) — (종가-저가)-(고가-종가) / (고가-저가), -1=저가 마감 ~ +1=고가 마감.
+  // 5개년 실측에서 다음 거래일 등락과 매년 음의 상관(저가 마감 → 반등, 고가 마감 → 되밀림). 없으면 NaN
+  prevCloseLocation?: number;
+  // 직전 완성 일봉 기준 최근 5거래일 등락률(%). 단기 과열/과매도(되돌림) 판단용. 없으면 NaN
+  ret5Pct?: number;
 }
 
 // 장중(인트라데이) 인사이트 — "오늘 지금" 판단의 핵심 데이터
@@ -335,7 +340,7 @@ export interface VolForecast {
 }
 
 // 5개년 일봉만으로 재현한 단순 백테스트 통계 (장중/뉴스/매크로는 과거 재현 불가하므로 제외).
-// 룰 엔진의 technicalScore(일봉 기술적 점수)가 68점 이상이었던 과거 시점들을
+// 룰 엔진의 technicalScore(일봉 기술적 점수)가 기준(TECH_BACKTEST_THRESHOLD, 현재 60) 이상이었던 과거 시점들을
 // "진입 신호"로 보고, N거래일 후 종가 기준 수익률을 집계한 값이다.
 export interface BacktestStats {
   periodStart: string;

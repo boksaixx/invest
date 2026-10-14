@@ -375,6 +375,12 @@ export function computeIndicators(candles: Candle[]): Indicators {
     bearishDivergence: div.bearish,
     obvDivergence: obvDiverges(candles),
     hammerReversal: hammerReversalSignal(candles),
+    prevCloseLocation: (() => {
+      const last = candles[candles.length - 1];
+      if (!last || !(last.high > last.low)) return NaN;
+      return (last.close - last.low - (last.high - last.close)) / (last.high - last.low);
+    })(),
+    ret5Pct: closes.length > 5 && closes[closes.length - 6] > 0 ? (closes[closes.length - 1] / closes[closes.length - 6] - 1) * 100 : NaN,
     volatilityRatio: (() => {
       const currentAtr = atr(candles);
       const baseline = simpleAvgTrueRange(candles, 120);
