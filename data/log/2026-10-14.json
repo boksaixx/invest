@@ -11958,5 +11958,972 @@
    "strongestTicker": "012450",
    "strongestName": "한화에어로스페이스"
   }
+ },
+ {
+  "collectedAt": "2026-10-14T11:41:22.764Z",
+  "newsCollectedAt": "2026-10-14T11:29:20.553Z",
+  "quotes": {
+   "005930": {
+    "symbol": "005930",
+    "name": "삼성전자",
+    "price": 234500,
+    "prevClose": 232000,
+    "change": 2500,
+    "changePct": 1.08,
+    "currency": "KRW",
+    "time": "2026-10-14T11:00:00.000Z"
+   },
+   "000660": {
+    "symbol": "000660",
+    "name": "SK하이닉스",
+    "price": 1425000,
+    "prevClose": 1443000,
+    "change": -18000,
+    "changePct": -1.25,
+    "currency": "KRW",
+    "time": "2026-10-14T11:00:00.000Z"
+   }
+  },
+  "macro": {
+   "usdkrw": {
+    "symbol": "KRW=X",
+    "name": "원/달러 환율",
+    "price": 1336.35,
+    "prevClose": 1334.1300048828125,
+    "change": 2.219995117187409,
+    "changePct": 0.16640020905476968,
+    "currency": "KRW",
+    "time": "2026-10-14T11:40:58.000Z"
+   },
+   "kospi": {
+    "symbol": "^KS11",
+    "name": "코스피",
+    "price": 6008.81,
+    "prevClose": 6035.35009765625,
+    "change": -26.5400976562496,
+    "changePct": -0.4397441279596374,
+    "currency": "KRW",
+    "time": "2026-10-14T11:05:40.000Z"
+   },
+   "nasdaq": {
+    "symbol": "^IXIC",
+    "name": "나스닥",
+    "price": 27204.38,
+    "prevClose": 27245.900390625,
+    "change": -41.52039062499898,
+    "changePct": -0.1523913323829286,
+    "currency": "USD",
+    "time": "2026-10-13T21:15:59.000Z"
+   },
+   "sox": {
+    "symbol": "^SOX",
+    "name": "필라델피아 반도체",
+    "price": 12208.795,
+    "prevClose": 12236.7900390625,
+    "change": -27.995039062499927,
+    "changePct": -0.22877763672608306,
+    "currency": "USD",
+    "time": "2026-10-13T21:15:59.000Z"
+   },
+   "nikkei": {
+    "symbol": "^N225",
+    "name": "니케이225",
+    "price": 67744.29,
+    "prevClose": 67777.5234375,
+    "change": -33.2334375000064,
+    "changePct": -0.04903312457359423,
+    "currency": "JPY",
+    "time": "2026-10-14T06:45:03.000Z"
+   },
+   "shanghai": {
+    "symbol": "000001.SS",
+    "name": "상해종합",
+    "price": 3767.227,
+    "prevClose": 3800.864990234375,
+    "change": -33.63799023437514,
+    "changePct": -0.8850088156459591,
+    "currency": "CNY",
+    "time": "2026-10-14T07:00:20.000Z"
+   },
+   "vix": {
+    "symbol": "^VIX",
+    "name": "변동성지수(VIX)",
+    "price": 15.32,
+    "prevClose": 15.270000457763672,
+    "change": 0.04999954223632841,
+    "changePct": 0.32743641609327734,
+    "currency": "USD",
+    "time": "2026-10-14T11:26:01.000Z"
+   },
+   "spFutures": {
+    "symbol": "ES=F",
+    "name": "S&P500 선물",
+    "price": 7867,
+    "prevClose": 7855.75,
+    "change": 11.25,
+    "changePct": 0.1432072049135983,
+    "currency": "USD",
+    "time": "2026-10-14T11:31:03.000Z"
+   },
+   "nasdaqFutures": {
+    "symbol": "NQ=F",
+    "name": "나스닥100 선물",
+    "price": 30745.25,
+    "prevClose": 30791.5,
+    "change": -46.25,
+    "changePct": -0.15020379000698245,
+    "currency": "USD",
+    "time": "2026-10-14T11:31:03.000Z"
+   },
+   "fearGreed": {
+    "value": 45,
+    "ratingKo": "중립",
+    "ratingRaw": "neutral",
+    "source": "CNN Fear & Greed Index (미국 시장 기준)"
+   },
+   "oil": {
+    "symbol": "CL=F",
+    "name": "WTI 원유",
+    "price": 95.92,
+    "prevClose": 94.13999938964844,
+    "change": 1.7800006103515642,
+    "changePct": 1.8908015953814545,
+    "currency": "USD",
+    "time": "2026-10-14T11:31:04.000Z"
+   },
+   "us10y": {
+    "symbol": "^TNX",
+    "name": "^TNX",
+    "price": 5.217,
+    "prevClose": 5.239999771118164,
+    "change": -0.022999771118164425,
+    "changePct": -0.4389269489081772,
+    "currency": "USD",
+    "time": "2026-10-13T18:59:55.000Z"
+   }
+  },
+  "news": [
+   {
+    "title": "삼성전자, SEDEX 2026서 HBM4E·차세대 베이스다이 및 zHBM 기술 공개",
+    "summary": "삼성전자는 SEDEX 2026에서 HBM4E와 4나노 베이스다이 등 AI 반도체 솔루션을 대거 선보였다.",
+    "sentiment": "긍정",
+    "impact": "높음",
+    "relatedTo": "삼성전자",
+    "source": "뉴데일리경제",
+    "publishedAt": "3시간 전",
+    "isBreaking": true,
+    "topic": "업황",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "코스피, 외국인 매도세에 반등 실패하며 6거래일 연속 하락 마감",
+    "summary": "코스피는 외국인 순매도 지속과 대형 반도체주 차별화 장세 속에서 약세로 마감했다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "지수",
+    "source": "인포스탁데일리",
+    "publishedAt": "2시간 전",
+    "isBreaking": true,
+    "topic": "지수",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "中 CXMT, 4F² D램 연말 출시 선언… 국내 반도체 업계 긴장감 고조",
+    "summary": "중국 CXMT가 차세대 4F² D램 서버용 반도체를 연내 출시하겠다고 밝혀 글로벌 메모리 판도가 흔들리고 있다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "반도체업황",
+    "source": "머니투데이",
+    "publishedAt": "14시간 전",
+    "isBreaking": false,
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "상장사 자사주 소각 62조원 역대급… KB금융·셀트리온 등 대거 포함",
+    "summary": "국내 상장사들의 자사주 소각 규모가 1년 새 156% 급증하며 주주환원 흐름이 강화되고 있다.",
+    "sentiment": "긍정",
+    "impact": "중간",
+    "relatedTo": "KB금융",
+    "source": "뉴스스페이스",
+    "publishedAt": "11시간 전",
+    "isBreaking": false,
+    "topic": "자사주",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "뉴욕증시, JP모건 어닝 미스 및 반도체주 약세 속 혼조 마감",
+    "summary": "뉴욕증시는 주요 은행의 실적 실망과 반도체주 부진 속에서 위험회피 심리가 확산됐다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "매크로",
+    "source": "연합인포맥스",
+    "publishedAt": "14시간 전",
+    "isBreaking": false,
+    "topic": "실적",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "미 연준 윌리엄스 총재 \"내년엔 추가 금리 인상 필요 없을 것\"",
+    "summary": "존 윌리엄스 뉴욕 연은 총재는 향후 금리 경로와 관련해 비둘기파적 발언을 내놓았다.",
+    "sentiment": "긍정",
+    "impact": "중간",
+    "relatedTo": "매크로",
+    "source": "연합인포맥스",
+    "publishedAt": "14시간 전",
+    "isBreaking": false,
+    "topic": "금리환율",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "사우디의 후티 반군 보복 공격 여파로 WTI 유가 4거래일 연속 상승",
+    "summary": "중동 지정학적 긴장이 고조되면서 서부텍사스산원유(WTI) 가격이 상승세를 이어갔다.",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "지정학",
+    "source": "연합인포맥스",
+    "publishedAt": "14시간 전",
+    "isBreaking": false,
+    "topic": "전쟁지정학",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "트럼프 \"중간선거 이전 이란 공격 없다\" 발언에 유가 상승폭 축소",
+    "summary": "도널드 트럼프 미국 대통령이 중간선거 전 군사 행동은 없을 것이라 밝혀 지정학적 우려가 일부 완화됐다.",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "미국정책",
+    "source": "연합인포맥스",
+    "publishedAt": "5시간 전",
+    "isBreaking": false,
+    "topic": "미국정책",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "골드만삭스·트렌드포스 \"내년에도 D램·낸드 사상 최대 공급 부족 지속\"",
+    "summary": "글로벌 기관들은 AI 수요 폭증으로 인해 메모리 반도체 공급 부족 현상이 내년에도 이어질 것으로 내다봤다.",
+    "sentiment": "긍정",
+    "impact": "높음",
+    "relatedTo": "반도체업황",
+    "source": "스마트투데이",
+    "publishedAt": "2일 전",
+    "isBreaking": false,
+    "topic": "업황",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "셀트리온, 기관 매수세 유입 속 소폭 상승 마감",
+    "summary": "바이오 업종 내에서 셀트리온은 기관의 우호적 수급 유입에 힘입어 완만한 오름세를 기록했다.",
+    "sentiment": "긍정",
+    "impact": "낮음",
+    "relatedTo": "셀트리온",
+    "source": "인포스탁데일리",
+    "publishedAt": "2시간 전",
+    "isBreaking": false,
+    "topic": "수급",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "현대차, 글로벌 판매 및 관세 불확실성 속 약보합세 기록",
+    "summary": "현대차는 완성차 업황을 둘러싼 대외 변수 경계감에 전일 대비 소폭 하락했다.",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "현대차",
+    "source": "인포스탁데일리",
+    "publishedAt": "2시간 전",
+    "isBreaking": false,
+    "topic": "업황",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "KT, AI 및 데이터센터 신사업 확장 본격화 속 주가 흐름 주목",
+    "summary": "KT는 통신 규제 환경 속에서 AI 및 데이터센터 중심의 미래 성장 동력 확보에 주력하고 있다.",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "KT",
+    "source": "연합뉴스",
+    "publishedAt": "1일 전",
+    "isBreaking": false,
+    "topic": "업황",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "한화에어로스페이스, 방산 수출 모멘텀 유지 속 완만한 주가 방어",
+    "summary": "지정학적 리스크 지속과 해외 수주 기대감이 방산 대형주의 하단을 지지하고 있다.",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "한화에어로스페이스",
+    "source": "인포스탁데일리",
+    "publishedAt": "2시간 전",
+    "isBreaking": false,
+    "topic": "전쟁지정학",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "가상자산 시장, 미 규제 동향 및 현물 ETF 자금 흐름 주시",
+    "summary": "비트코인을 비롯한 가상자산 시장은 주요국의 정책 변화와 기관 자금 유출입에 연동되며 변동성을 보이고 있다.",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "가상자산",
+    "source": "연합인포맥스",
+    "publishedAt": "12시간 전",
+    "isBreaking": false,
+    "topic": "기타",
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "미국 9월 소비자물가지수(CPI) 발표 대기 속 시장 경계감 팽팽",
+    "summary": "연방준비제도의 통화정책 향방을 가를 9월 CPI 발표를 앞두고 글로벌 금융시장이 관망세를 보이고 있다.",
+    "sentiment": "중립",
+    "impact": "높음",
+    "relatedTo": "매크로",
+    "source": "연합인포맥스",
+    "publishedAt": "14시간 전",
+    "isBreaking": false,
+    "topic": "금리환율",
+    "eventAt": "2026-10-15 21:30:00",
+    "eventInHours": 34,
+    "seenAt": "2026-10-14T11:28:41.641Z"
+   },
+   {
+    "title": "삼성전자·SK하이닉스, 과도한 낙폭에 따른 반발 매수 유입으로 동반 상승세",
+    "summary": "삼성전자와 SK하이닉스가 전일 급락 충격에서 벗어나 장중 반발 매수세로 나란히 상승세 기록.",
+    "sentiment": "긍정",
+    "impact": "높음",
+    "relatedTo": "삼성전자",
+    "source": "글로벌이코노믹",
+    "publishedAt": "1시간 전",
+    "isBreaking": false,
+    "topic": "업황",
+    "seenAt": "2026-10-14T02:44:26.344Z"
+   },
+   {
+    "title": "KB증권 \"삼성전자·SK하이닉스 내년 합산 영업익 1천조 원 전망, 메모리 부족 심화\"",
+    "summary": "KB증권은 2027년 양사 합산 영업이익이 1천조 원을 상회할 것이며 현재는 W자 반등의 저점이라고 분석.",
+    "sentiment": "긍정",
+    "impact": "높음",
+    "relatedTo": "SK하이닉스",
+    "source": "비즈니스포스트",
+    "publishedAt": "2시간 전",
+    "isBreaking": false,
+    "topic": "실적",
+    "seenAt": "2026-10-14T02:44:26.344Z"
+   },
+   {
+    "title": "필라델피아 반도체 지수 5거래일 연속 하락… 마이크론·SK하이닉스 ADR 약세",
+    "summary": "미 반도체주는 AI 투자 부담과 중국 CXMT 진입 우려로 5일 연속 하락하며 7.6% 누적 낙폭 기록.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "반도체업황",
+    "source": "연합뉴스",
+    "publishedAt": "4시간 전",
+    "isBreaking": false,
+    "topic": "업황",
+    "seenAt": "2026-10-14T02:44:26.344Z"
+   },
+   {
+    "title": "한미반도체, 美 세미콘 웨스트서 HBM4용 'TC 본더 4' 및 차세대 장비 공개",
+    "summary": "한미반도체가 미국 샌프란시스코 전시회에서 HBM4 생산용 TC 본더 4와 차세대 와이드 TC 본더를 선보임.",
+    "sentiment": "긍정",
+    "impact": "중간",
+    "relatedTo": "한미반도체",
+    "source": "데일리안",
+    "publishedAt": "2시간 전",
+    "isBreaking": false,
+    "topic": "업황",
+    "seenAt": "2026-10-14T02:44:26.344Z"
+   },
+   {
+    "title": "한화에어로스페이스, 美 AUSA 2026서 미 육군 차륜형 자주포 'XM1776' 명칭 공개",
+    "summary": "미 육군이 한화에어로의 K9 차륜형 자주포 시제품에 'XM1776' 제식번호를 부여하고 현지 협력을 강화함.",
+    "sentiment": "긍정",
+    "impact": "중간",
+    "relatedTo": "한화에어로스페이스",
+    "source": "조선일보",
+    "publishedAt": "어제",
+    "isBreaking": false,
+    "topic": "기타",
+    "seenAt": "2026-10-14T02:44:26.344Z"
+   },
+   {
+    "title": "신한투자증권 \"반도체 주가 하락은 이익 전망 악화보다 수급 공백 및 과도한 우려 반영\"",
+    "summary": "반도체 업종의 이익 훼손은 제한적이나 매크로 우려와 중국 경쟁 경계감으로 주가가 과도하게 조정을 받았다는 분석.",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "반도체업황",
+    "source": "비즈워치",
+    "publishedAt": "2시간 전",
+    "isBreaking": false,
+    "topic": "수급",
+    "seenAt": "2026-10-14T02:44:26.344Z"
+   }
+  ],
+  "signals": [
+   {
+    "ticker": "005930",
+    "name": "삼성전자",
+    "action": "관망",
+    "score": 62,
+    "confidence": "중간",
+    "reasons": [
+     "매수 근접 구간 — 아래 진입 트리거 충족 시까지 대기",
+     "주가가 20일선 아래 (단기 추세 약세 · 참고용·점수 미반영)",
+     "볼린저 하단 근접 — 낙폭 과대",
+     "추세 강도(ADX 12) 낮음(횡보 장세) — 저점매수·되돌림 신호에 더 무게",
+     "전일 저가 부근 마감 — 5년 실측상 다음날 반등이 더 많았던 자리 (단기 되돌림 +)",
+     "[속보] 호재(업황): 삼성전자, SEDEX 2026서 HBM4E·차세대 베이스다이 및 zHBM 기술 공개 — 이 종목이 직접 언급된 기사",
+     "호재(업황): 골드만삭스·트렌드포스 \"내년에도 D램·낸드 사상 최대 공급 부족 지속\" — 메모리 사이클이 곧 실적"
+    ],
+    "warnings": [
+     "VWAP(235,860원) 아래 -0.58% — 당일 매도세 우위",
+     "갭상승(+0.86%) 출발 후 시가 위 — 5년 실측상 갭은 장중에 되밀리는 경우가 더 많아 시가 추격은 불리",
+     "거래량 급증 + 하락 (매도세 강함)",
+     "악재 주의(업황): 中 CXMT, 4F² D램 연말 출시 선언… 국내 반도체 업계 긴장감 고조 — 메모리 사이클이 곧 실적",
+     "악재 주의(업황): 필라델피아 반도체 지수 5거래일 연속 하락… 마이크론·SK하이닉스 ADR 약세 — 메모리 사이클이 곧 실적",
+     "전일(2026-10-14) 외국인+기관 순매도 519,708주(20일평균거래량 대비 -3.0%) — 수급 이탈 주의"
+    ],
+    "targetPrice": 252500,
+    "stopPrice": 225500,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 234500,
+    "indicators": {
+     "ma5": 249000,
+     "ma20": 262000,
+     "ma60": 256433.33333333334,
+     "ma20SlopePct": -1.66088017265647,
+     "rsi14": 34.41206436024761,
+     "macd": -4013.728363757138,
+     "macdSignal": 545.9837499650214,
+     "macdHist": -4559.712113722159,
+     "macdHistPrev": -3539.755541978872,
+     "bollingerUpper": 290672.2862708923,
+     "bollingerLower": 233327.7137291077,
+     "percentB": -0.023153258804749905,
+     "atr14": 11952.095239692251,
+     "volumeZ": 1.0207420429819107,
+     "lastVolume": 21592423,
+     "avgVolume20": 17209320.4,
+     "high52w": 374500,
+     "low52w": 82400,
+     "stochK": 5.563607085346216,
+     "stochD": 18.053412593429396,
+     "pivotPP": 234500,
+     "pivotR1": 239000,
+     "pivotS1": 227500,
+     "pivotR2": 246000,
+     "pivotS2": 223000,
+     "adx14": 12.391752286379882,
+     "bullishDivergence": false,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "prevCloseLocation": -0.6521739130434783,
+     "ret5Pct": -14.70588235294118,
+     "volatilityRatio": 0.6475760469401617
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-10-14",
+     "isToday": true,
+     "todayOpen": 234000,
+     "todayHigh": 241000,
+     "todayLow": 230250,
+     "current": 234500,
+     "vwap": 235860.40033694802,
+     "distanceFromVwapPct": -0.5767820011348086,
+     "gapPct": 0.8620689655172413,
+     "gapType": "갭상승",
+     "rangePositionPct": 39.53488372093023,
+     "openingRangeHigh": 241000,
+     "openingRangeLow": 234000,
+     "orbStatus": "레인지내",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "장마감",
+     "kstTime": "20:41",
+     "note": "정규장이 마감되었습니다. 오늘 데이터를 복기하고 다음 거래일 전략을 준비하세요."
+    },
+    "entryTriggers": [
+     "VWAP(235,860원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(241,000원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(227,500원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(239,000원) 돌파 시 추세 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(234,000원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [],
+    "scaledExit": [],
+    "watchOrderNote": null,
+    "relativeStrengthNote": "반도체 2종목 중 등락률 1위(+1.08%) — 오늘 가장 강한 종목, 단타 우선순위 상위",
+    "estimatedRoundTripCostWon": null,
+    "entryBlocked": false,
+    "breakEvenPrice": 236500,
+    "priceLimits": {
+     "available": true,
+     "basePrice": 232000,
+     "upperLimit": 301500,
+     "lowerLimit": 162400,
+     "viUpper": 255000,
+     "viLower": 209000,
+     "note": "여기서 8.7% 더 오르면 255,000원에서, 10.9% 더 빠지면 209,000원에서 거래가 약 2분간 멈춥니다(VI). 오늘 체결 가능한 범위는 162,400원 ~ 301,500원입니다.",
+     "beyondVi": null
+    },
+    "backtest": {
+     "periodStart": "2021-07-16",
+     "periodEnd": "2026-10-08",
+     "sampleSignals": 95,
+     "winRate5d": 66.3,
+     "avgReturn5d": 1.6,
+     "winRate10d": 54.7,
+     "avgReturn10d": 2.16
+    },
+    "buyStrength": 4,
+    "sellStrength": null,
+    "actionSummary": "매수 대기 강도 4/10 — 234,500원 부근, 트리거 확인 필요",
+    "verdict": "⚪ 조건이 갖춰지면 매수를 고려하세요 — VWAP(235,860원) 아래 -0.58% — 당일 매도세 우위",
+    "macroScore": 0,
+    "disclosures": [],
+    "investorFlow": [
+     {
+      "date": "2026-09-29",
+      "foreignNet": -2508369,
+      "institutionNet": 53759
+     },
+     {
+      "date": "2026-09-30",
+      "foreignNet": -3191284,
+      "institutionNet": -1409182
+     },
+     {
+      "date": "2026-10-01",
+      "foreignNet": -758236,
+      "institutionNet": 46127
+     },
+     {
+      "date": "2026-10-02",
+      "foreignNet": -350942,
+      "institutionNet": 614278
+     },
+     {
+      "date": "2026-10-06",
+      "foreignNet": -2064174,
+      "institutionNet": -193422
+     },
+     {
+      "date": "2026-10-07",
+      "foreignNet": -118283,
+      "institutionNet": -819541
+     },
+     {
+      "date": "2026-10-08",
+      "foreignNet": -1307041,
+      "institutionNet": -4087636
+     },
+     {
+      "date": "2026-10-12",
+      "foreignNet": -2178086,
+      "institutionNet": -1719656
+     },
+     {
+      "date": "2026-10-13",
+      "foreignNet": -5943474,
+      "institutionNet": 1016744
+     },
+     {
+      "date": "2026-10-14",
+      "foreignNet": -829758,
+      "institutionNet": 310050
+     }
+    ],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 3.6700999125187868,
+     "annualizedPct": 58.26102993170772,
+     "range90": {
+      "lowPct": -5.772473329165071,
+      "highPct": 7.0603609325612915
+     },
+     "range98": {
+      "lowPct": -8.981544627020616,
+      "highPct": 11.205487855495166
+     },
+     "zQuantiles": {
+      "q05": -1.5728381969861487,
+      "q25": -0.5038888880655245,
+      "q75": 0.665073543746317,
+      "q95": 1.923751696371604
+     },
+     "regime": "보통",
+     "regimePercentile": 66.59793814432989,
+     "regimeRatio": 1.4469953251917018,
+     "skew": "상방",
+     "drivers": []
+    },
+    "forecastPath": null,
+    "upRate": {
+     "regime": "저변동/붕괴/단기급락",
+     "upRatePct": 50,
+     "sampleN": 116,
+     "overallPct": 48.8,
+     "distinguishable": false,
+     "headline": "지금은 \"저변동/붕괴/단기급락\" 국면입니다. 과거 같은 국면 116일 중 50%가 상승 마감했지만, 전체 평균 48.8%와 통계적으로 구분되지 않습니다 — 즉 오늘의 방향은 사실상 동전던지기입니다. 방향에 베팅하지 말고 \"얼마에 사고, 얼마나 사고, 어디서 자를지\"로 판단하세요."
+    },
+    "suggestedEntryPrice": 236000,
+    "entryPriceBasis": "VWAP(236,000원) 회복 + 거래량 증가 확인 시 진입",
+    "issueImpacts": [
+     {
+      "topic": "업황",
+      "title": "삼성전자, SEDEX 2026서 HBM4E·차세대 베이스다이 및 zHBM 기술 공개",
+      "direction": "호재",
+      "strength": 3,
+      "why": "이 종목이 직접 언급된 기사",
+      "isBreaking": true,
+      "flipped": false
+     },
+     {
+      "topic": "업황",
+      "title": "中 CXMT, 4F² D램 연말 출시 선언… 국내 반도체 업계 긴장감 고조",
+      "direction": "악재",
+      "strength": 3,
+      "why": "메모리 사이클이 곧 실적",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "업황",
+      "title": "골드만삭스·트렌드포스 \"내년에도 D램·낸드 사상 최대 공급 부족 지속\"",
+      "direction": "호재",
+      "strength": 3,
+      "why": "메모리 사이클이 곧 실적",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "업황",
+      "title": "삼성전자·SK하이닉스, 과도한 낙폭에 따른 반발 매수 유입으로 동반 상승세",
+      "direction": "호재",
+      "strength": 3,
+      "why": "이 종목이 직접 언급된 기사",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "실적",
+      "title": "KB증권 \"삼성전자·SK하이닉스 내년 합산 영업익 1천조 원 전망, 메모리 부족 심화\"",
+      "direction": "호재",
+      "strength": 3,
+      "why": "이 종목이 직접 언급된 기사",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "업황",
+      "title": "필라델피아 반도체 지수 5거래일 연속 하락… 마이크론·SK하이닉스 ADR 약세",
+      "direction": "악재",
+      "strength": 3,
+      "why": "메모리 사이클이 곧 실적",
+      "isBreaking": false,
+      "flipped": false
+     }
+    ],
+    "riskOverlay": null
+   },
+   {
+    "ticker": "000660",
+    "name": "SK하이닉스",
+    "action": "관망",
+    "score": 48,
+    "confidence": "낮음",
+    "reasons": [
+     "주가가 20일선 아래 (단기 추세 약세 · 참고용·점수 미반영)",
+     "볼린저 하단 근접 — 낙폭 과대",
+     "추세 강도(ADX 15) 낮음(횡보 장세) — 저점매수·되돌림 신호에 더 무게",
+     "[속보] 호재(업황): 삼성전자, SEDEX 2026서 HBM4E·차세대 베이스다이 및 zHBM 기술 공개 — 메모리 사이클이 곧 실적",
+     "호재(업황): 골드만삭스·트렌드포스 \"내년에도 D램·낸드 사상 최대 공급 부족 지속\" — 메모리 사이클이 곧 실적"
+    ],
+    "warnings": [
+     "VWAP(1,450,554원) 아래 -1.76% — 당일 매도세 우위",
+     "갭상승(+1.94%) 출발했지만 시가 아래로 밀림 — 갭 메우기(fade) 진행 중",
+     "오프닝레인지 하단(1,468,000원) 이탈 — 하락 전환 시그널",
+     "거래량 급증 + 하락 (매도세 강함)",
+     "악재 주의(업황): 中 CXMT, 4F² D램 연말 출시 선언… 국내 반도체 업계 긴장감 고조 — 메모리 사이클이 곧 실적",
+     "악재 주의(업황): 필라델피아 반도체 지수 5거래일 연속 하락… 마이크론·SK하이닉스 ADR 약세 — 이 종목이 직접 언급된 기사",
+     "전일(2026-10-14) 외국인+기관 순매도 363,829주(20일평균거래량 대비 -11.3%) — 수급 이탈 주의",
+     "일봉 데이터가 최신이 아닙니다(마지막 봉 2026-10-14 종가 1,419,000 ≠ 전일 종가 1,443,000) — 이동평균·RSI가 하루 이상 늦을 수 있어 전일 종가 위치·5일 등락 점수는 뺐습니다",
+     "손절선이 너무 가깝습니다 — 손절까지 1.8%인데 이 종목은 하루 평균 ±4.5% 움직입니다. 방향을 맞혀도 장중 흔들림만으로 손절에 걸릴 가능성이 높으니, 손절선을 더 넓히거나(그만큼 수량을 줄여서) 진입 자체를 미루세요."
+    ],
+    "targetPrice": 1477000,
+    "stopPrice": 1399000,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 1425000,
+    "indicators": {
+     "ma5": 1574200,
+     "ma20": 1737850,
+     "ma60": 1690383.3333333333,
+     "ma20SlopePct": -2.9621977776536936,
+     "rsi14": 30.458474189551552,
+     "macd": -49975.35937022255,
+     "macdSignal": -5306.16430008706,
+     "macdHist": -44669.19507013549,
+     "macdHistPrev": -35857.25569427769,
+     "bollingerUpper": 1983073.387954738,
+     "bollingerLower": 1492626.612045262,
+     "percentB": -0.15012151299950968,
+     "atr14": 91229.21403176515,
+     "volumeZ": 1.0708993975750996,
+     "lastVolume": 4101349,
+     "avgVolume20": 3210247.45,
+     "high52w": 2987000,
+     "low52w": 333000,
+     "stochK": 2.239635066033918,
+     "stochD": 3.3272540733085925,
+     "pivotPP": 1439333.3333333333,
+     "pivotR1": 1476666.6666666665,
+     "pivotS1": 1381666.6666666665,
+     "pivotR2": 1534333.3333333333,
+     "pivotS2": 1344333.3333333333,
+     "adx14": 14.778552534440726,
+     "bullishDivergence": false,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "prevCloseLocation": null,
+     "ret5Pct": null,
+     "volatilityRatio": 0.609481443258647
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-10-14",
+     "isToday": true,
+     "todayOpen": 1471000,
+     "todayHigh": 1495000,
+     "todayLow": 1405000,
+     "current": 1425000,
+     "vwap": 1450554.1085052292,
+     "distanceFromVwapPct": -1.7616790959671471,
+     "gapPct": 1.9404019404019404,
+     "gapType": "갭상승",
+     "rangePositionPct": 22.22222222222222,
+     "openingRangeHigh": 1488000,
+     "openingRangeLow": 1468000,
+     "orbStatus": "하단이탈",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "장마감",
+     "kstTime": "20:41",
+     "note": "정규장이 마감되었습니다. 오늘 데이터를 복기하고 다음 거래일 전략을 준비하세요."
+    },
+    "entryTriggers": [
+     "VWAP(1,450,554원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(1,488,000원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(1,381,667원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(1,476,667원) 돌파 시 추세 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(1,468,000원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [],
+    "scaledExit": [],
+    "watchOrderNote": null,
+    "relativeStrengthNote": "반도체 2종목 중 등락률 최하위(-1.25%) — 상대적으로 약세, 진입 시 더 보수적으로 접근",
+    "estimatedRoundTripCostWon": null,
+    "entryBlocked": false,
+    "breakEvenPrice": null,
+    "priceLimits": {
+     "available": true,
+     "basePrice": 1443000,
+     "upperLimit": 1875000,
+     "lowerLimit": 1011000,
+     "viUpper": 1587000,
+     "viLower": 1299000,
+     "note": "여기서 11.4% 더 오르면 1,587,000원에서, 8.8% 더 빠지면 1,299,000원에서 거래가 약 2분간 멈춥니다(VI). 오늘 체결 가능한 범위는 1,011,000원 ~ 1,875,000원입니다.",
+     "beyondVi": null
+    },
+    "backtest": {
+     "periodStart": "2021-07-16",
+     "periodEnd": "2026-10-08",
+     "sampleSignals": 66,
+     "winRate5d": 57.6,
+     "avgReturn5d": 1.87,
+     "winRate10d": 56.1,
+     "avgReturn10d": 3.49
+    },
+    "buyStrength": 1,
+    "sellStrength": null,
+    "actionSummary": "관망 강도(매수 아님) 1/10 — 아직 근거 부족",
+    "verdict": "⚪ 지금은 매수하지 마세요 — VWAP(1,450,554원) 아래 -1.76% — 당일 매도세 우위",
+    "macroScore": 0,
+    "disclosures": [],
+    "investorFlow": [
+     {
+      "date": "2026-09-29",
+      "foreignNet": -885722,
+      "institutionNet": 42641
+     },
+     {
+      "date": "2026-09-30",
+      "foreignNet": -342688,
+      "institutionNet": -135488
+     },
+     {
+      "date": "2026-10-01",
+      "foreignNet": -124087,
+      "institutionNet": 24251
+     },
+     {
+      "date": "2026-10-02",
+      "foreignNet": -115492,
+      "institutionNet": 76049
+     },
+     {
+      "date": "2026-10-06",
+      "foreignNet": -784946,
+      "institutionNet": -145641
+     },
+     {
+      "date": "2026-10-07",
+      "foreignNet": -787785,
+      "institutionNet": -107621
+     },
+     {
+      "date": "2026-10-08",
+      "foreignNet": -513008,
+      "institutionNet": -22595
+     },
+     {
+      "date": "2026-10-12",
+      "foreignNet": -618288,
+      "institutionNet": 121438
+     },
+     {
+      "date": "2026-10-13",
+      "foreignNet": -1613929,
+      "institutionNet": 414821
+     },
+     {
+      "date": "2026-10-14",
+      "foreignNet": -487662,
+      "institutionNet": 123833
+     }
+    ],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 4.470688754935668,
+     "annualizedPct": 70.96998380839659,
+     "range90": {
+      "lowPct": -6.987045958827028,
+      "highPct": 8.492473558668943
+     },
+     "range98": {
+      "lowPct": -11.087055087286203,
+      "highPct": 11.9151958620185
+     },
+     "zQuantiles": {
+      "q05": -1.5628567189145712,
+      "q25": -0.4952176328619819,
+      "q75": 0.7476083691974944,
+      "q95": 1.8995895317680525
+     },
+     "regime": "보통",
+     "regimePercentile": 66.18556701030927,
+     "regimeRatio": 1.2238858617723403,
+     "skew": "상방",
+     "drivers": []
+    },
+    "forecastPath": null,
+    "upRate": {
+     "regime": "저변동/붕괴/단기급락",
+     "upRatePct": 50,
+     "sampleN": 116,
+     "overallPct": 48.8,
+     "distinguishable": false,
+     "headline": "지금은 \"저변동/붕괴/단기급락\" 국면입니다. 과거 같은 국면 116일 중 50%가 상승 마감했지만, 전체 평균 48.8%와 통계적으로 구분되지 않습니다 — 즉 오늘의 방향은 사실상 동전던지기입니다. 방향에 베팅하지 말고 \"얼마에 사고, 얼마나 사고, 어디서 자를지\"로 판단하세요."
+    },
+    "suggestedEntryPrice": null,
+    "entryPriceBasis": null,
+    "issueImpacts": [
+     {
+      "topic": "업황",
+      "title": "삼성전자, SEDEX 2026서 HBM4E·차세대 베이스다이 및 zHBM 기술 공개",
+      "direction": "호재",
+      "strength": 3,
+      "why": "메모리 사이클이 곧 실적",
+      "isBreaking": true,
+      "flipped": false
+     },
+     {
+      "topic": "업황",
+      "title": "中 CXMT, 4F² D램 연말 출시 선언… 국내 반도체 업계 긴장감 고조",
+      "direction": "악재",
+      "strength": 3,
+      "why": "메모리 사이클이 곧 실적",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "업황",
+      "title": "골드만삭스·트렌드포스 \"내년에도 D램·낸드 사상 최대 공급 부족 지속\"",
+      "direction": "호재",
+      "strength": 3,
+      "why": "메모리 사이클이 곧 실적",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "업황",
+      "title": "삼성전자·SK하이닉스, 과도한 낙폭에 따른 반발 매수 유입으로 동반 상승세",
+      "direction": "호재",
+      "strength": 3,
+      "why": "이 종목이 직접 언급된 기사",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "실적",
+      "title": "KB증권 \"삼성전자·SK하이닉스 내년 합산 영업익 1천조 원 전망, 메모리 부족 심화\"",
+      "direction": "호재",
+      "strength": 3,
+      "why": "이 종목이 직접 언급된 기사",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "업황",
+      "title": "필라델피아 반도체 지수 5거래일 연속 하락… 마이크론·SK하이닉스 ADR 약세",
+      "direction": "악재",
+      "strength": 3,
+      "why": "이 종목이 직접 언급된 기사",
+      "isBreaking": false,
+      "flipped": false
+     }
+    ],
+    "riskOverlay": null
+   }
+  ],
+  "aiSummary": "📊 한국 주식 단타 브리핑 (2024년 정규장 마감)\n\n🔴 삼성전자 | 매수강도 4/10 | 👉 VWAP(235,860원) 돌파 + 거래량 확대 시 첫 진입 · 손절 225,500원 | 갭상승 후 시가 추격 불리 · 당일 매도세 우위\n\n🔴 SK하이닉스 | 매수강도 1/10 | 👉 VWAP(1,450,554원) 돌파 대기 또는 오프닝레인지 상단(1,488,000원) 되돌림 진입 · 손절 1,399,000원 | 갭 메우기 진행 중 · 진입 신호 약함\n\n⚠️ VIX 15.3 · 공포탐욕지수 45(중립) — 경계 수준 아님 · 정상 거래 환경\n\n📰 주요 뉴스 · 리스크: 삼성전자 HBM4E·zHBM 기술 공개(긍정) vs 中 CXMT 4F² D램 출시 위협(부정) · 코스피 6일 연속 하락 · 외국인 매도세 지속",
+  "masterScore": {
+   "attractivenessPct": 55,
+   "label": "중립/관망",
+   "tone": "neutral",
+   "headline": "뚜렷한 매수·매도 신호 없이 관망 우위 — 가장 근접한 종목은 삼성전자(62점)",
+   "buyCount": 0,
+   "sellCount": 0,
+   "strongestTicker": "005930",
+   "strongestName": "삼성전자"
+  },
+  "predictions": {
+   "005930": {
+    "checkpoint": null,
+    "dayProb": null,
+    "swingProb": 0.5238568441706162,
+    "price": 234500
+   },
+   "000660": {
+    "checkpoint": null,
+    "dayProb": null,
+    "swingProb": 0.5430466326312933,
+    "price": 1425000
+   }
+  }
  }
 ]
