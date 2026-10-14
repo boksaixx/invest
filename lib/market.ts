@@ -551,3 +551,51 @@ export async function getMacroSnapshot(): Promise<MacroSnapshot> {
   ]);
   return { usdkrw, kospi, nasdaq, sox, nikkei, shanghai, vix, spFutures, nasdaqFutures, fearGreed, oil, us10y };
 }
+
+// ── 2종목 예측 모델용: 간밤 미국 등락(엔비디아·SOX)과 60일 변동성 ─────────────────────────
+// 국내 D일 기준 "D 이전 날짜"의 마지막 미국 정규장만 쓴다 — 한국 저녁(미국장 진행 중)에 진행 중인
+// 미국 일봉이 섞이면 학습(scripts/train-model.ts)과 정의가 달라진다.
+export async function getUsOvernight(todayKst: string): Promise<{
+  nvdaPct: number | null; soxPct: number | null; nvdaSigma: number | null; soxSigma: number | null; usDate: string | null;
+}> {
+  const calc = (c: Candle[]) => {
+    const done = c.filter((x) => x.date < todayKst);
+    if (done.length < 62) return { pct: null as number | null, sigma: null as number | null, date: null as string | null };
+    const rets: number[] = [];
+    for (let i = done.length - 60; i < done.length; i++) rets.push((done[i].close / done[i - 1].close - 1) * 100);
+    const m = rets.reduce((a, b) => a + b, 0) / rets.length;
+    const sd = Math.sqrt(rets.reduce((a, b) => a + (b - m) ** 2, 0) / (rets.length - 1));
+    return { pct: rets[rets.length - 1], sigma: sd, date: done[done.length - 1].date };
+  };
+  const [nv, sx] = await Promise.all([fetchDailyCandles("NVDA", "6mo"), fetchDailyCandles("^SOX", "6mo")]);
+  const a = calc(nv);
+  const b = calc(sx);
+  return { nvdaPct: a.pct, soxPct: b.pct, nvdaSigma: a.sigma, soxSigma: b.sigma, usDate: a.date ?? b.date };
+}
+
+// ── 외국인·기관 일별 순매수 (네이버 증권) ─────────────────────────────────────────────
+// 예전 KRX 공개 엔드포인트는 2025년부터 로그인을 요구해("LOGOUT") 수급이 늘 빈값이었다.
+export async function fetchNaverFlows(ticker: StockTicker, pageSize = 20): Promise<{ d: string; foreign: number; inst: number; indiv: number }[]> {
+  try {
+    const res = await fetch(`https://m.stock.naver.com/api/stock/${ticker}/trend?pageSize=${pageSize}`, {
+      headers: { "User-Agent": UA, Accept: "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return [];
+    const rows = (await res.json()) as Record<string, unknown>[];
+    const num = (s: unknown) => {
+      const n = Number(String(s ?? "").replace(/[,+%]/g, ""));
+      return Number.isFinite(n) ? n : 0;
+    };
+    return rows
+      .map((r) => {
+        const d = String(r.bizdate ?? "");
+        return { d: `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`, foreign: num(r.foreignerPureBuyQuant), inst: num(r.organPureBuyQuant), indiv: num(r.individualPureBuyQuant) };
+      })
+      .filter((r) => r.d.length === 10)
+      .sort((a, b) => a.d.localeCompare(b.d));
+  } catch {
+    return [];
+  }
+}

@@ -341,7 +341,8 @@ export function technicalScore(
     reasons.push(`주가가 20일선 위 (단기 상승 추세${inParen})`);
   } else {
     trendScore -= 8;
-    warnings.push(`주가가 20일선 아래 (단기 추세 약세${inParen})`);
+    // 점수에 안 쓰는 참고 정보는 "경고"로 올리지 않는다 — 경고 칸은 실제로 판단을 바꾸는 것만
+    (trendRef ? reasons : warnings).push(`주가가 20일선 아래 (단기 추세 약세${inParen})`);
   }
   if (ind.ma5 > ind.ma20) trendScore += 5;
   else trendScore -= 5;

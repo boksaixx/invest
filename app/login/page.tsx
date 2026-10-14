@@ -38,26 +38,24 @@ function LoginForm() {
   }
 
   return (
-    <main className="container" style={{ paddingTop: 100 }}>
-      <div className="card">
-        <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>🔒 내 주식 비서</div>
-        <div className="hint" style={{ marginBottom: 20 }}>비밀번호를 입력하세요</div>
-        <form onSubmit={submit}>
-          <input
-            type="password"
-            autoFocus
-            inputMode="text"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="비밀번호"
-            className="login-input"
-          />
-          {error && <div style={{ color: "var(--red)", fontSize: 13, fontWeight: 700, margin: "10px 0" }}>{error}</div>}
-          <button className="btn btn-primary" type="submit" disabled={loading || !password} style={{ marginTop: 12 }}>
-            {loading ? "확인 중…" : "입장하기"}
-          </button>
-        </form>
-      </div>
+    <main className="login">
+      <h1>내 주식 비서</h1>
+      <p>삼성전자·SK하이닉스, 지금 할 일만 알려 드려요</p>
+      <form onSubmit={submit}>
+        <input
+          type="password"
+          autoFocus
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="비밀번호"
+          className="num-input"
+          aria-label="비밀번호"
+        />
+        {error && <div className="err">{error}</div>}
+        <button className="btn btn-primary" type="submit" disabled={loading || !password}>
+          {loading ? "확인 중…" : "들어가기"}
+        </button>
+      </form>
     </main>
   );
 }

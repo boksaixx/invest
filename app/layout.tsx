@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "내 주식 비서",
-  description: "국내 10종목(반도체 5 + 방산·자동차·금융·바이오·통신) 단타 어드바이스 AI 에이전트",
+  description: "삼성전자·SK하이닉스 2종목 — 지금 사야 할지, 기다릴지, 팔지 한 줄로",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -16,12 +16,19 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#3182f6",
+  themeColor: "#f2f4f6",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
+      <head>
+        {/* 토스와 같은 계열의 한글 글꼴(Pretendard). 못 불러오면 기기 기본 글꼴로 */}
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
+      </head>
       <body>
         {children}
         {/* 안드로이드 크롬의 "앱 설치" 배너가 뜨려면 서비스워커 등록이 필요하다.

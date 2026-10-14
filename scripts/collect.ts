@@ -2,7 +2,9 @@
 // 시세/환율/해외지수(일봉+장중)+VIX/선물/공포탐욕지수 + Gemini 뉴스 수집 → 룰 엔진 → Claude 요약 → data/ 저장
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote, sessionPrevClose } from "../lib/market";
+import { fetchNaverFlows, getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote, getUsOvernight, kstToday, sessionPrevClose } from "../lib/market";
+import { predict, type TwoStockModel } from "../lib/predict";
+import { kstMinutesNow } from "../lib/forecastPath";
 import { collectNews } from "../lib/gemini";
 import { fetchDartDisclosures } from "../lib/dart";
 import { fetchInvestorFlows } from "../lib/investorFlow";
@@ -159,6 +161,38 @@ async function main() {
     aiSummary = (await generateShortSummary({ signals, macro, news })) ?? aiSummary;
   }
 
+  // 2종목 예측 모델 판단을 함께 남긴다 — 나중에 "앱이 그때 뭐라고 했고 실제로 어땠나"를 채점한다
+  let predictions: CollectedSnapshot["predictions"] = undefined;
+  try {
+    const model = JSON.parse(readFileSync(join(DATA_DIR, "model.json"), "utf8")) as TwoStockModel;
+    const now = new Date();
+    const todayKst = kstToday(now);
+    const overnight = await getUsOvernight(todayKst);
+    predictions = {};
+    for (const sd of stockData) {
+      if (!sd.quote || sd.candles.length < 60) continue;
+      const pair = stockData.find((x) => x.ticker !== sd.ticker);
+      const id = computeIntradayInsight(sd.rawIntraday, sd.quote.prevClose, sd.quote.price);
+      const live = id.available && id.isToday;
+      const flows = await fetchNaverFlows(sd.ticker, 10);
+      const p = predict({
+        model,
+        candles: sd.candles,
+        pairCandles: pair?.candles ?? [],
+        flows,
+        overnight,
+        intraday: live ? { open: id.todayOpen, high: id.todayHigh, low: id.todayLow, price: sd.quote.price } : null,
+        kstMinutes: kstMinutesNow(now),
+        todayKst,
+        marketOpenToday: !marketPhaseKR.phase.startsWith("휴장"),
+      });
+      predictions[sd.ticker] = { checkpoint: p.checkpoint, dayProb: p.dayProb, swingProb: p.swingProb, price: sd.quote.price };
+      console.log(`${STOCKS[sd.ticker].name} 예측: 시점 ${p.checkpoint ?? "-"} 오늘 ${p.dayProb?.toFixed(3) ?? "-"} / ${model.swing.horizonDays}일 ${p.swingProb?.toFixed(3) ?? "-"}`);
+    }
+  } catch (e) {
+    console.warn("예측 모델 계산 생략:", String(e).slice(0, 160));
+  }
+
   const snapshot: CollectedSnapshot = {
     collectedAt: new Date().toISOString(),
     newsCollectedAt,
@@ -170,6 +204,7 @@ async function main() {
     signals: signals.length > 0 ? signals.map((s) => ({ ...s, forecastPath: null })) : null,
     aiSummary,
     masterScore: signals.length > 0 ? computeMasterScore(signals) : null,
+    predictions,
   };
 
   writeFileSync(join(DATA_DIR, "latest.json"), JSON.stringify(snapshot, null, 1));

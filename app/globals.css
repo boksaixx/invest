@@ -1,22 +1,22 @@
-/* 토스 스타일 디자인 시스템 */
+/* 내 주식 비서 — 밝고 단순한 화면 (2026-10 개편)
+   한국 증권 앱 관례: 오름 = 빨강, 내림 = 파랑. 사기 = 빨강, 팔기 = 파랑. */
 :root {
   --bg: #f2f4f6;
   --card: #ffffff;
   --text: #191f28;
-  --text-sub: #4e5968;
-  --text-weak: #8b95a1;
+  --sub: #4e5968;
+  --weak: #8b95a1;
+  --line: #e5e8eb;
+  --fill: #f2f4f6;
+  --red: #f04452;
+  --red-weak: #fff0f1;
   --blue: #3182f6;
   --blue-weak: #e8f3ff;
-  --red: #f04452;
-  --red-weak: #ffeef0;
-  --green: #04c75a;
-  --gray-weak: #f2f4f6;
-  --radius: 20px;
-  /* 별칭 — 작전/위험 카드 등 신규 컴포넌트가 쓰는 이름 (기존 팔레트에 매핑) */
-  --border: #e5e8eb;
-  --muted: #8b95a1;
-  --bg-weak: #f2f4f6;
-  --font-scale: 1; /* 글자 크기 조절 — 사용자가 "가+/가-"로 바꾸면 이 값만 바뀌고 전체 폰트에 곱해서 적용됨 */
+  --green: #00a661;
+  --green-weak: #e5f8ef;
+  --orange: #fe9800;
+  --orange-weak: #fff6e6;
+  --radius: 22px;
 }
 
 * {
@@ -25,2669 +25,757 @@
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
 }
-
 html,
 body {
   background: var(--bg);
   color: var(--text);
-  font-family:
-    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
-    "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", Roboto, sans-serif;
-  font-size: calc(16px * var(--font-scale));
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  font-size: 16px;
   line-height: 1.5;
+  letter-spacing: -0.2px;
   -webkit-font-smoothing: antialiased;
 }
-
-.container {
-  max-width: 560px;
-  margin: 0 auto;
-  padding: 20px 16px 80px;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  /* nowrap — 예전에는 wrap이라 설정 버튼이 둘째 줄로 밀려 헤더가 141px까지 늘어났다 */
-  flex-wrap: nowrap;
-  padding: 8px 4px 16px;
-}
-.header h1 {
-  font-size: calc(21px * var(--font-scale));
-  font-weight: 800;
-  letter-spacing: -0.3px;
-}
-.header .sub {
-  font-size: calc(12px * var(--font-scale));
-  color: var(--text-weak);
-}
-
-.storage-warning {
-  background: #fff4e5;
-  border: 1.5px solid #ffb020;
-  border-radius: 14px;
-  padding: 14px 16px;
-  margin-bottom: 14px;
-}
-.storage-warning-title {
-  font-size: calc(14px * var(--font-scale));
-  font-weight: 800;
-  color: #8a5a00;
-}
-.storage-warning-body {
-  font-size: calc(12.5px * var(--font-scale));
-  color: #8a5a00;
-  margin-top: 4px;
-  line-height: 1.5;
-}
-.storage-warning-list {
-  margin: 8px 0 0;
-  padding-left: 18px;
-}
-.storage-warning-list li {
-  font-size: calc(12px * var(--font-scale));
-  color: #7a4d00;
-  line-height: 1.55;
-  margin-bottom: 4px;
-}
-
-.font-size-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--card);
-  border-radius: 14px;
-  padding: 10px 14px;
-  margin-bottom: 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-.font-size-label {
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text-sub);
-}
-.font-size-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-/* 터치 타겟은 최소 40px — 모바일에서 손가락으로 정확히 누르기 위한 접근성 기준 */
-.font-size-btn {
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: 10px;
-  background: var(--gray-weak);
-  color: var(--text);
-  font-weight: 800;
-  font-size: 15px;
-  line-height: 1;
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
   cursor: pointer;
+}
+input {
+  font: inherit;
+}
+
+.wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 16px 120px;
+}
+
+/* ── 상단 ── */
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(242, 244, 246, 0.92);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  padding: 14px 0 10px;
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.top h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+}
+.top-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sub);
+  white-space: nowrap;
+}
+.pill .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--weak);
+}
+.pill .dot.on {
+  background: var(--red);
+  box-shadow: 0 0 0 3px rgba(240, 68, 82, 0.18);
+}
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--card);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--sub);
 }
-.font-size-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
+.icon-btn:active {
+  transform: scale(0.94);
 }
-.font-size-current {
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text);
-  min-width: 44px;
-  text-align: center;
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
+/* ── 시장 띠 ── */
+.strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 2px -16px 12px;
+  padding: 0 16px;
+}
+.strip::-webkit-scrollbar {
+  display: none;
+}
+.chip {
+  flex: 0 0 auto;
+  background: var(--card);
+  border-radius: 14px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--sub);
+  white-space: nowrap;
+}
+.chip b {
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+/* ── 카드 ── */
 .card {
   background: var(--card);
   border-radius: var(--radius);
-  padding: 22px 20px;
-  margin-bottom: 14px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  padding: 20px;
+  margin-bottom: 12px;
+}
+.card-tap {
+  width: 100%;
+  text-align: left;
+}
+.card-tap:active {
+  background: #fafbfc;
+}
+.label {
+  font-size: 13px;
+  color: var(--weak);
+  font-weight: 600;
+}
+.up {
+  color: var(--red);
+}
+.down {
+  color: var(--blue);
+}
+.flat {
+  color: var(--sub);
 }
 
-.master-score {
-  border: 1.5px solid transparent;
+/* 계좌 */
+.acct {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
-.master-score-buy { border-color: var(--red-weak); background: linear-gradient(180deg, var(--red-weak) 0%, var(--card) 60%); }
-.master-score-sell { border-color: var(--blue-weak); background: linear-gradient(180deg, var(--blue-weak) 0%, var(--card) 60%); }
-.master-score-neutral { border-color: var(--gray-weak); }
-.master-score-top {
+.acct-total {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  margin-top: 2px;
+}
+.acct-sub {
+  font-size: 13px;
+  color: var(--sub);
+  margin-top: 2px;
+}
+.acct-edit {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--blue);
+  background: var(--blue-weak);
+  padding: 8px 12px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+/* 알림 띠 */
+.notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.notice.warn {
+  background: var(--orange-weak);
+  color: #8a5300;
+}
+.notice.danger {
+  background: var(--red-weak);
+  color: #b0222e;
+}
+.notice.info {
+  background: var(--blue-weak);
+  color: #1b5fc1;
+}
+
+/* ── 종목 카드 ── */
+.stock-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.stock-name {
+  font-size: 17px;
+  font-weight: 700;
+}
+.stock-price {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+.stock-chg {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.mini-range {
+  text-align: right;
+  font-size: 12px;
+  color: var(--weak);
+  line-height: 1.6;
+}
+
+.verdict {
+  margin-top: 16px;
+  border-radius: 18px;
+  padding: 16px;
+}
+.verdict.buy {
+  background: var(--red-weak);
+}
+.verdict.sell,
+.verdict.danger {
+  background: var(--blue-weak);
+}
+.verdict.hold {
+  background: var(--green-weak);
+}
+.verdict.wait {
+  background: var(--fill);
+}
+.verdict-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+}
+.verdict.buy .verdict-title {
+  color: var(--red);
+}
+.verdict.sell .verdict-title,
+.verdict.danger .verdict-title {
+  color: var(--blue);
+}
+.verdict.hold .verdict-title {
+  color: var(--green);
+}
+.verdict.wait .verdict-title {
+  color: var(--text);
+}
+.verdict-sum {
+  font-size: 15px;
+  color: var(--sub);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.plan {
+  margin-top: 12px;
+  background: var(--card);
+  border-radius: 14px;
+  padding: 4px 14px;
+}
+.plan-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
 }
-.master-score-label {
-  font-size: calc(13px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
+.plan-row:last-child {
+  border-bottom: 0;
 }
-.master-score-pct {
-  font-size: calc(32px * var(--font-scale));
-  font-weight: 800;
-  letter-spacing: -0.5px;
-}
-.master-score-buy .master-score-pct { color: var(--red); }
-.master-score-sell .master-score-pct { color: var(--blue); }
-.master-score-tag {
-  display: inline-block;
-  margin-top: 4px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: calc(12px * var(--font-scale));
-  font-weight: 700;
-}
-.master-score-buy .master-score-tag { background: var(--red); color: #fff; }
-.master-score-sell .master-score-tag { background: var(--blue); color: #fff; }
-.master-score-neutral .master-score-tag { background: var(--gray-weak); color: var(--text-sub); }
-.master-score-headline {
-  margin-top: 10px;
-  font-size: calc(14px * var(--font-scale));
-  font-weight: 600;
-  color: var(--text-sub);
-  line-height: 1.4;
-}
-
-.asset-total {
-  font-size: calc(30px * var(--font-scale));
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  margin: 4px 0 2px;
-}
-.asset-label {
-  font-size: calc(13px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
-}
-.asset-pnl {
-  font-size: calc(14px * var(--font-scale));
-  font-weight: 700;
-}
-
-.up { color: var(--red); }
-.down { color: var(--blue); }
-.flat { color: var(--text-weak); }
-
-.macro-strip {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 4px 2px 14px;
-  scrollbar-width: none;
-}
-.macro-strip::-webkit-scrollbar { display: none; }
-.macro-chip {
-  flex: 0 0 auto;
-  background: var(--card);
-  border-radius: 14px;
-  padding: 10px 14px;
-  min-width: 108px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-.macro-chip .name {
-  font-size: calc(11px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
-}
-.macro-chip .val {
-  font-size: calc(14px * var(--font-scale));
-  font-weight: 700;
-  margin-top: 2px;
-}
-.macro-chip .pct {
-  font-size: calc(12px * var(--font-scale));
-  font-weight: 700;
-}
-
-.stock-name {
-  font-size: calc(17px * var(--font-scale));
-  font-weight: 800;
-}
-.stock-price {
-  font-size: calc(24px * var(--font-scale));
-  font-weight: 800;
-  letter-spacing: -0.4px;
-  margin-top: 2px;
-}
-.stock-change {
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 700;
-}
-
-.badge {
-  display: inline-block;
-  padding: 7px 14px;
-  border-radius: 999px;
-  font-size: calc(14px * var(--font-scale));
-  font-weight: 800;
+.plan-label {
+  font-size: 14px;
+  color: var(--sub);
   white-space: nowrap;
 }
-.badge-buy { background: var(--red-weak); color: var(--red); }
-.badge-sell { background: var(--blue-weak); color: var(--blue); }
-.badge-hold { background: var(--gray-weak); color: var(--text-sub); }
-.badge-danger { background: #191f28; color: #fff; }
-
-.kv-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 7px 0;
-  font-size: calc(14px * var(--font-scale));
-  border-bottom: 1px solid #f5f6f8;
-}
-.kv-row:last-child { border-bottom: none; }
-.kv-row .k { color: var(--text-weak); font-weight: 500; }
-.kv-row .v { font-weight: 700; }
-
-.reason-list {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.reason {
-  font-size: calc(13px * var(--font-scale));
-  color: var(--text-sub);
-  background: var(--gray-weak);
-  border-radius: 10px;
-  padding: 9px 12px;
-  line-height: 1.45;
-}
-.reason.warn {
-  background: var(--red-weak);
-  color: #c9353f;
-}
-.time-horizon-tag {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: calc(11px * var(--font-scale));
+.plan-val {
+  text-align: right;
+  font-size: 16px;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.6);
-  color: #1b64da;
-  vertical-align: middle;
+}
+.plan-hint {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--weak);
 }
 
-.input-row {
+.timing {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--sub);
+  display: flex;
+  gap: 8px;
+}
+
+/* 확률 막대 */
+.prob {
+  margin-top: 18px;
+}
+.prob + .prob {
+  margin-top: 14px;
+}
+.prob-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.prob-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+.prob-title small {
+  font-weight: 500;
+  color: var(--weak);
+  margin-left: 4px;
+}
+.prob-pct {
+  font-size: 15px;
+  font-weight: 800;
+}
+.bar {
+  position: relative;
+  height: 10px;
+  border-radius: 6px;
+  background: var(--fill);
+  margin-top: 8px;
+  overflow: hidden;
+}
+.bar-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 6px;
+  transition: width 0.4s ease;
+}
+.bar-mid {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 50%;
+  width: 2px;
+  background: #fff;
+}
+.prob-label {
+  font-size: 14px;
+  margin-top: 6px;
+  font-weight: 600;
+}
+.prob-stat {
+  font-size: 13px;
+  color: var(--weak);
+  margin-top: 2px;
+}
+.prob.weak .prob-title,
+.prob.weak .prob-pct {
+  color: var(--weak);
+}
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--fill);
+  color: var(--weak);
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
+/* 펼치기 */
+.more {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.more-btn {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sub);
+  padding: 2px 0;
+}
+.more-btn svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s;
+}
+.more-btn[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.list {
+  list-style: none;
   margin-top: 10px;
 }
-.input-row label {
-  flex: 0 0 76px;
-  font-size: calc(13px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
+.list li {
+  position: relative;
+  padding-left: 14px;
+  font-size: 14px;
+  color: var(--sub);
+  margin-top: 6px;
+  line-height: 1.45;
 }
-.input-row input {
-  flex: 1;
-  border: none;
-  background: var(--gray-weak);
-  border-radius: 12px;
-  padding: 13px 14px;
-  font-size: calc(16px * var(--font-scale));
+.list li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 9px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--weak);
+}
+.list li.caution {
+  color: #8a5300;
+}
+.list li.caution::before {
+  background: var(--orange);
+}
+.mypos {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--sub);
+}
+.mypos button {
+  font-size: 13px;
   font-weight: 700;
-  color: var(--text);
-  outline: none;
-  width: 100%;
-  text-align: right;
-  font-family: inherit;
+  color: var(--blue);
 }
-.input-row input:focus {
-  box-shadow: 0 0 0 2px var(--blue);
-  background: #fff;
+.news-item {
+  font-size: 14px;
+  margin-top: 8px;
+  color: var(--sub);
 }
-.input-suffix {
-  font-size: calc(14px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
-  flex: 0 0 auto;
+.news-item .badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 5px;
+  margin-right: 6px;
+}
+.badge.pos {
+  background: var(--red-weak);
+  color: var(--red);
+}
+.badge.neg {
+  background: var(--blue-weak);
+  color: var(--blue);
+}
+.badge.neu {
+  background: var(--fill);
+  color: var(--weak);
 }
 
-.login-input {
-  border: none;
-  background: var(--gray-weak);
-  border-radius: 12px;
-  padding: 14px 16px;
-  font-size: calc(16px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text);
-  width: 100%;
-  outline: none;
-  font-family: inherit;
+/* 성적표 */
+.trust-big {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -1px;
 }
-.login-input:focus {
-  box-shadow: 0 0 0 2px var(--blue);
+.trust-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.trust-row:last-child {
+  border-bottom: 0;
+}
+.trust-row span:first-child {
+  color: var(--sub);
+}
+.trust-row span:last-child {
+  font-weight: 700;
+  text-align: right;
+}
+.small {
+  font-size: 13px;
+  color: var(--weak);
+  line-height: 1.55;
+}
+.sec-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 24px 4px 10px;
+  letter-spacing: -0.4px;
+}
+
+/* 스켈레톤 */
+.skel {
+  background: linear-gradient(90deg, #eef0f3 25%, #f6f7f9 50%, #eef0f3 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  border-radius: 10px;
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ── 아래에서 올라오는 시트 ── */
+.sheet-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  z-index: 50;
+  animation: fade 0.18s ease;
+}
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 51;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--card);
+  border-radius: 24px 24px 0 0;
+  padding: 10px 20px calc(20px + env(safe-area-inset-bottom));
+  max-height: 88vh;
+  overflow-y: auto;
+  animation: up 0.22s ease;
+}
+.sheet-grip {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  margin: 0 auto 16px;
+}
+.sheet h2 {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+.sheet .desc {
+  font-size: 14px;
+  color: var(--sub);
+  margin-top: 4px;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+.field {
+  margin-top: 18px;
+}
+.field-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sub);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+.field-label small {
+  color: var(--weak);
+  font-weight: 500;
+}
+.num-input {
+  width: 100%;
+  height: 56px;
+  border-radius: 14px;
+  border: 0;
+  background: var(--fill);
+  padding: 0 16px;
+  font-size: 20px;
+  font-weight: 700;
+  outline: none;
+  color: var(--text);
+}
+.num-input:focus {
+  box-shadow: inset 0 0 0 2px var(--blue);
   background: #fff;
+}
+.num-input::placeholder {
+  color: #b0b8c1;
+  font-weight: 600;
+}
+.quick {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.quick button {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--fill);
+  color: var(--sub);
+}
+.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.stock-block {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.stock-block-name {
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .btn {
-  display: block;
   width: 100%;
-  border: none;
+  height: 56px;
   border-radius: 16px;
-  padding: 17px;
-  font-size: calc(17px * var(--font-scale));
-  font-weight: 800;
-  cursor: pointer;
-  font-family: inherit;
-  transition: transform 0.08s ease, opacity 0.15s;
+  font-size: 17px;
+  font-weight: 700;
+  margin-top: 22px;
 }
-.btn:active { transform: scale(0.98); }
-.btn-primary { background: var(--blue); color: #fff; }
-.btn-primary:disabled { opacity: 0.5; cursor: default; }
+.btn-primary {
+  background: var(--blue);
+  color: #fff;
+}
+.btn-primary:disabled {
+  background: #a8c9fb;
+}
 .btn-ghost {
-  background: var(--gray-weak);
-  color: var(--text-sub);
-  font-size: calc(14px * var(--font-scale));
-  padding: 12px;
-  border-radius: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.section-title {
-  font-size: calc(15px * var(--font-scale));
-  font-weight: 800;
-  margin: 22px 4px 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.section-title .meta {
-  font-size: calc(12px * var(--font-scale));
-  font-weight: 500;
-  color: var(--text-weak);
-}
-
-.phase-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  background: var(--card);
-  border-radius: 14px;
-  padding: 11px 14px;
-  margin-bottom: 10px;
-  font-size: calc(12px * var(--font-scale));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-.phase-tag {
-  background: #191f28;
-  color: #fff;
-  font-weight: 800;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: calc(12px * var(--font-scale));
-  flex: 0 0 auto;
-}
-.phase-time {
-  font-weight: 700;
-  color: var(--text-sub);
-  flex: 0 0 auto;
-}
-.phase-note {
-  color: var(--text-weak);
-  line-height: 1.4;
-}
-
-.rs-banner {
-  background: var(--blue-weak);
-  color: #1b64da;
-  border-radius: 14px;
-  padding: 11px 14px;
-  margin-bottom: 14px;
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 600;
-  line-height: 1.45;
-}
-
-/* 오늘의 작전 카드 — 레짐별 색상 */
-.plan-card {
-  background: var(--card);
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 14px;
-  border: 1.5px solid var(--border);
-}
-.plan-폭락장 { border-color: #c9353f; }
-.plan-급등과열 { border-color: #b26a00; }
-.plan-변동성확대 { border-color: #b26a00; }
-.plan-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 6px;
-}
-.plan-badge {
-  border-radius: 8px;
-  padding: 4px 10px;
-  font-weight: 800;
-  font-size: calc(13px * var(--font-scale));
-  white-space: nowrap;
-}
-.plan-badge-폭락장 { background: var(--red-weak); color: #c9353f; }
-.plan-badge-급등과열 { background: #fff3e0; color: #b26a00; }
-.plan-badge-변동성확대 { background: #fff3e0; color: #b26a00; }
-.plan-badge-보통 { background: var(--blue-weak); color: #1b64da; }
-.plan-regime-note {
-  font-size: calc(12px * var(--font-scale));
-  color: var(--muted);
-  font-weight: 600;
-  line-height: 1.4;
-}
-.plan-market-note {
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 700;
-  line-height: 1.5;
-  margin-bottom: 8px;
-}
-.plan-edge {
-  border-radius: 10px;
-  padding: 10px 11px;
-  margin-bottom: 10px;
-  background: var(--bg-weak);
-}
-.plan-edge-보유우위 { background: var(--blue-weak); }
-.plan-edge-title {
-  font-size: calc(12.5px * var(--font-scale));
-  font-weight: 800;
-  margin-bottom: 7px;
-}
-.plan-edge-보유우위 .plan-edge-title { color: #1b64da; }
-.plan-edge-bars {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-.plan-edge-bars > div {
-  background: var(--card);
-  border-radius: 8px;
-  padding: 7px 6px;
-  text-align: center;
-}
-.plan-edge-bars span {
-  display: block;
-  font-size: calc(10.5px * var(--font-scale));
-  color: var(--muted);
-  margin-bottom: 2px;
-}
-.plan-edge-bars strong { font-size: calc(14px * var(--font-scale)); }
-.plan-edge-note {
-  font-size: calc(11.5px * var(--font-scale));
-  line-height: 1.5;
-  color: var(--text-sub);
-}
-
-.plan-scen { margin-bottom: 10px; }
-.plan-scen-body {
-  margin-top: 7px;
-  background: var(--bg-weak);
-  border-radius: 10px;
-  padding: 10px 11px;
-}
-.plan-scen-item {
-  font-size: calc(12px * var(--font-scale));
-  line-height: 1.55;
-  color: var(--text-sub);
-  margin-bottom: 7px;
-}
-.plan-scen-foot {
-  font-size: calc(11px * var(--font-scale));
-  color: var(--muted);
-  line-height: 1.5;
-  border-top: 1px dashed var(--border);
-  padding-top: 7px;
-}
-
-.plan-trade {
-  border-top: 1px dashed var(--border);
-  padding: 10px 0;
-}
-.plan-trade-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-  font-size: calc(14px * var(--font-scale));
-  margin-bottom: 6px;
-}
-.plan-kind {
-  font-size: calc(11px * var(--font-scale));
-  font-weight: 700;
-  color: var(--muted);
-  background: var(--bg);
-  border-radius: 6px;
-  padding: 2px 7px;
-  white-space: nowrap;
-}
-.plan-headline {
-  font-size: calc(13.5px * var(--font-scale));
-  font-weight: 700;
-  line-height: 1.5;
-  margin-bottom: 7px;
-}
-.plan-qty {
-  font-size: calc(12px * var(--font-scale));
-  font-weight: 600;
-  margin: 5px 0;
-}
-.plan-rationale {
-  font-size: calc(12px * var(--font-scale));
-  color: var(--muted);
-  line-height: 1.5;
-}
-.plan-caution {
-  margin-top: 6px;
-  background: var(--red-weak);
-  color: #c9353f;
-  border-radius: 8px;
-  padding: 7px 9px;
-  font-size: calc(11.5px * var(--font-scale));
-  font-weight: 600;
-  line-height: 1.45;
-}
-.plan-why {
-  width: 100%;
+  background: var(--fill);
+  color: var(--sub);
   margin-top: 8px;
-  padding: 8px 0;
-  border: none;
-  background: var(--bg-weak);
-  border-radius: 8px;
-  font-size: calc(11.5px * var(--font-scale));
-  font-weight: 700;
-  color: var(--muted);
-  cursor: pointer;
-  min-height: 40px; /* 모바일 터치 타겟 최소 기준 */
 }
 
-.plan-holder {
-  border-top: 1px dashed var(--border);
-  padding-top: 9px;
-  margin-top: 4px;
-}
-.plan-holder-title {
-  font-size: calc(12px * var(--font-scale));
-  font-weight: 800;
-  margin-bottom: 4px;
-}
-.plan-holder-item {
-  font-size: calc(12px * var(--font-scale));
-  color: var(--muted);
-  line-height: 1.55;
-  margin-bottom: 3px;
-}
-.plan-skipped {
-  margin-top: 8px;
-  font-size: calc(11.5px * var(--font-scale));
-  color: var(--muted);
-  line-height: 1.5;
-}
-
-/* 분석 방식 탭 — 변수·예측방식·한계 공개 문서 */
-.doc-intro {
-  background: var(--blue-weak);
-  color: #1b64da;
-  border-radius: 14px;
-  padding: 13px 14px;
-  font-size: calc(13px * var(--font-scale));
-  line-height: 1.6;
-  margin-bottom: 14px;
-}
-.doc-sec {
-  background: var(--card);
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 12px;
-}
-.doc-warn { border: 1.5px solid #c9353f; }
-.doc-h {
-  font-size: calc(14.5px * var(--font-scale));
-  font-weight: 800;
-  margin-bottom: 10px;
-}
-.doc-grp { margin-bottom: 12px; }
-.doc-grp-t {
-  font-size: calc(12px * var(--font-scale));
-  font-weight: 800;
-  color: #1b64da;
-  background: var(--blue-weak);
-  display: inline-block;
-  border-radius: 6px;
-  padding: 3px 9px;
-  margin-bottom: 6px;
-}
-.doc-row {
-  display: grid;
-  grid-template-columns: 92px 1fr;
-  gap: 8px;
-  padding: 6px 0;
-  border-top: 1px solid var(--border);
-}
-.doc-k {
-  font-size: calc(11.5px * var(--font-scale));
-  font-weight: 700;
-  line-height: 1.4;
-}
-.doc-v {
-  font-size: calc(11.5px * var(--font-scale));
-  color: var(--text-sub);
-  line-height: 1.55;
-}
-/* ⓪ 전체 흐름 — 조각 설명 전에 큰 그림부터 */
-.doc-pipe-sec { background: linear-gradient(180deg, #f4f8ff 0%, var(--card) 55%); }
-.doc-pipe-lead {
-  font-size: calc(12.5px * var(--font-scale));
-  line-height: 1.6;
-  color: var(--text-sub);
-  margin-bottom: 4px;
-}
-.doc-pipe {
-  display: flex;
-  gap: 10px;
-  padding: 10px 0;
-  border-top: 1px solid var(--border);
-}
-.doc-pipe-t {
-  font-size: calc(13.5px * var(--font-scale));
-  font-weight: 800;
-}
-.doc-pipe-d {
-  font-size: calc(12.5px * var(--font-scale));
-  line-height: 1.6;
-  color: var(--text);
-  margin-top: 2px;
-}
-
-.doc-step {
-  display: flex;
-  gap: 10px;
-  padding: 9px 0;
-  border-top: 1px solid var(--border);
-  font-size: calc(12.5px * var(--font-scale));
-  line-height: 1.6;
-}
-.doc-num {
-  flex: 0 0 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #1b64da;
-  color: #fff;
-  font-weight: 800;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.doc-chk {
-  margin-top: 5px;
-  font-size: calc(11.5px * var(--font-scale));
-  color: #1b64da;
-  background: var(--blue-weak);
-  border-radius: 7px;
-  padding: 6px 9px;
-  font-weight: 600;
-}
-.doc-tbl {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: calc(11.5px * var(--font-scale));
-}
-.doc-tbl th {
-  text-align: left;
-  vertical-align: top;
-  padding: 7px 8px 7px 0;
-  width: 40%;
-  font-weight: 700;
-  border-top: 1px solid var(--border);
-  line-height: 1.45;
-}
-.doc-tbl td {
-  padding: 7px 0;
-  color: var(--text-sub);
-  border-top: 1px solid var(--border);
-  line-height: 1.5;
-}
-.doc-ul { margin: 0; padding-left: 17px; }
-.doc-ul li {
-  font-size: calc(12px * var(--font-scale));
-  line-height: 1.6;
-  margin-bottom: 7px;
-  color: var(--text-sub);
-}
-.doc-code {
-  background: #191f28;
-  color: #e8f3ff;
-  border-radius: 8px;
-  padding: 9px 11px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: calc(11px * var(--font-scale));
-  margin-top: 8px;
-  overflow-x: auto;
-  white-space: nowrap;
-}
-.doc-cap {
-  font-size: calc(11px * var(--font-scale));
-  color: var(--muted);
-  margin-top: 4px;
-  line-height: 1.5;
-}
-
-/* 하단 고정 탭바 */
+/* 하단 탭 */
 .tabbar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  display: flex;
-  background: var(--card);
-  border-top: 1px solid var(--border);
-  padding-bottom: env(safe-area-inset-bottom, 0);
-  z-index: 50;
-  max-width: 560px;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabbar-in {
+  max-width: 480px;
   margin: 0 auto;
-}
-.tabbar-btn {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 8px 2px 9px;
-  border: none;
-  background: none;
-  font-size: calc(10.5px * var(--font-scale));
-  white-space: nowrap;
-  font-weight: 700;
-  color: var(--muted);
-  cursor: pointer;
-  min-height: 48px;
-}
-.tabbar-btn.active { color: #1b64da; }
-.tabbar-icon { font-size: 17px; line-height: 1; }
-
-/* 천재 모드: 오늘의 공격 셋업 카드 */
-.genius-card {
-  background: var(--card);
-  border: 1.5px solid #c9353f;
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 14px;
-}
-.genius-title {
-  font-weight: 800;
-  font-size: calc(14px * var(--font-scale));
-  margin-bottom: 6px;
-}
-.genius-note {
-  font-size: calc(12.5px * var(--font-scale));
-  color: var(--muted);
-  line-height: 1.5;
-  margin-bottom: 10px;
-}
-.genius-setup {
-  border-top: 1px dashed var(--border);
-  padding: 10px 0;
-}
-.genius-setup-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-  font-size: calc(14px * var(--font-scale));
-  margin-bottom: 8px;
-}
-.genius-range {
-  font-size: calc(11.5px * var(--font-scale));
-  font-weight: 700;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.genius-range.big {
-  color: #c9353f;
-}
-.genius-prices {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-bottom: 7px;
 }
-.genius-prices > div {
-  background: var(--bg);
-  border-radius: 10px;
-  padding: 8px 6px;
-  text-align: center;
-}
-.genius-prices span {
-  display: block;
-  font-size: calc(10.5px * var(--font-scale));
-  color: var(--muted);
-  margin-bottom: 3px;
-}
-.genius-prices strong {
-  font-size: calc(13px * var(--font-scale));
-}
-.genius-qty {
-  font-size: calc(12px * var(--font-scale));
-  font-weight: 600;
-  margin-bottom: 5px;
-}
-.genius-rationale {
-  font-size: calc(12px * var(--font-scale));
-  color: var(--muted);
-  line-height: 1.5;
-}
-.genius-caution {
-  margin-top: 6px;
-  background: var(--red-weak);
-  color: #c9353f;
-  border-radius: 8px;
-  padding: 7px 9px;
-  font-size: calc(11.5px * var(--font-scale));
-  font-weight: 600;
-  line-height: 1.45;
-}
-.genius-skipped {
-  font-size: calc(11.5px * var(--font-scale));
-  color: var(--muted);
-  margin-top: 8px;
-}
-.genius-honest {
-  margin-top: 10px;
-  border-top: 1px dashed var(--border);
-  padding-top: 9px;
-  font-size: calc(11.5px * var(--font-scale));
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-/* 종목 카드 하단의 "내일 예상 등락폭" 띠 */
-.vol-strip {
+.tab {
+  height: 58px;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
-  gap: 7px;
-  margin-top: 11px;
-  padding-top: 10px;
-  border-top: 1px dashed var(--border);
-  font-size: calc(12px * var(--font-scale));
-  color: var(--muted);
-  font-weight: 600;
-  line-height: 1.45;
-}
-.vol-badge {
-  border-radius: 7px;
-  padding: 2px 7px;
-  font-weight: 800;
-  font-size: calc(11.5px * var(--font-scale));
-  white-space: nowrap;
-}
-.vol-평온 { background: var(--blue-weak); color: #1b64da; }
-.vol-보통 { background: var(--border); color: var(--muted); }
-.vol-높음 { background: #fff3e0; color: #b26a00; }
-.vol-극단 { background: var(--red-weak); color: #c9353f; }
-
-/* 보유 기준 하루 예상 변동 카드 — 종목별 %가 아니라 "내 계좌 금액"으로 위험을 보여준다 */
-.risk-sub {
-  font-weight: 600;
-  color: var(--muted);
-  font-size: calc(13px * var(--font-scale));
-}
-
-.intraday-box {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid #f0f1f3;
-}
-.intraday-box-title {
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 800;
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.stale-tag {
-  font-size: calc(10px * var(--font-scale));
-  font-weight: 700;
-  background: var(--gray-weak);
-  color: var(--text-weak);
-  padding: 2px 7px;
-  border-radius: 999px;
-}
-.intraday-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.intraday-cell {
-  background: var(--gray-weak);
-  border-radius: 12px;
-  padding: 10px 12px;
-}
-.ic-label {
-  font-size: calc(11px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
-}
-.ic-value {
-  font-size: calc(15px * var(--font-scale));
-  font-weight: 800;
-  margin-top: 2px;
-}
-.ic-sub {
-  font-size: calc(11px * var(--font-scale));
-  font-weight: 700;
-  margin-top: 2px;
-  color: var(--text-weak);
-}
-
-.plan-box {
-  margin-top: 14px;
-  padding: 14px;
-  background: #fff8ec;
-  border: 1px solid #ffe4ab;
-  border-radius: 14px;
-}
-.plan-title {
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 800;
-  margin-bottom: 10px;
-  color: #94660a;
-}
-.plan-block {
-  margin-bottom: 10px;
-}
-.plan-block:last-child { margin-bottom: 0; }
-.plan-block-title {
-  font-size: calc(12px * var(--font-scale));
-  font-weight: 700;
-  color: #7a5205;
-  margin-bottom: 4px;
-}
-.plan-item {
-  font-size: calc(13px * var(--font-scale));
-  color: #4e3c0f;
-  line-height: 1.5;
-  padding: 2px 0;
-}
-.plan-invalidation {
-  background: var(--red-weak);
-  margin: 10px -14px -14px;
-  padding: 10px 14px;
-  border-radius: 0 0 13px 13px;
-}
-.plan-invalidation .plan-block-title { color: #c9353f; }
-.plan-invalidation .plan-item { color: #9c1f28; font-weight: 600; }
-
-.exit-plan-box {
-  margin-top: 10px;
-  padding: 14px;
-  background: var(--blue-weak);
-  border: 1px solid #bcdcff;
-  border-radius: 14px;
-}
-.exit-plan-title {
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 800;
-  margin-bottom: 10px;
-  color: #144ea8;
-}
-.exit-plan-item {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 5px 0;
-  border-top: 1px solid rgba(20, 78, 168, 0.12);
-}
-.exit-plan-item:first-of-type { border-top: none; }
-.exit-plan-price {
-  font-size: calc(14px * var(--font-scale));
-  font-weight: 800;
-  color: #144ea8;
-}
-.exit-plan-qty {
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 700;
-  color: #1b64da;
-}
-.exit-plan-note {
-  font-size: calc(12px * var(--font-scale));
-  color: #3a68a8;
-  flex-basis: 100%;
-}
-
-/* 뉴스 종합 — 개별 기사보다 "어느 축에 몇 건이 쏠렸나"를 먼저 보여준다 */
-.nsig-tone {
-  font-size: calc(17px * var(--font-scale));
-  font-weight: 800;
-  line-height: 1.35;
-}
-.nsig-tone.pos { color: var(--red); }
-.nsig-tone.neg { color: var(--blue); }
-.nsig-tone.neu { color: var(--text); }
-.nsig-counts {
-  display: flex;
-  gap: 6px;
-  margin-top: 10px;
-}
-.nsig-counts > div {
-  flex: 1 1 0;
-  min-width: 0;
-  background: var(--bg-sub);
-  border-radius: 8px;
-  padding: 8px 2px;
-  text-align: center;
-}
-.nsig-counts b {
-  display: block;
-  font-size: calc(16px * var(--font-scale));
-  font-weight: 800;
-}
-.nsig-counts span {
-  display: block;
-  font-size: calc(11px * var(--font-scale));
-  color: var(--text-sub);
-  margin-top: 1px;
-}
-.nsig-counts .pos b { color: var(--red); }
-.nsig-counts .neg b { color: var(--blue); }
-.nsig-thin {
-  margin-top: 10px;
-  background: #fff8e6;
-  border-radius: 8px;
-  padding: 9px 10px;
-  font-size: calc(12.5px * var(--font-scale));
-  line-height: 1.5;
-  color: #7a5a12;
-}
-.nsig-axes { margin-top: 12px; }
-.nsig-axis {
-  padding: 9px 0;
-  border-top: 1px solid #f2f4f6;
-}
-.nsig-axis-h {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.nsig-axis-n { font-size: calc(13.5px * var(--font-scale)); font-weight: 800; }
-.nsig-axis-c { font-size: calc(12px * var(--font-scale)); color: var(--text-sub); }
-.nsig-axis-p {
-  font-size: calc(11.5px * var(--font-scale));
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--bg-sub);
-  color: var(--text-sub);
-}
-.nsig-axis-p.pos { background: var(--red-weak); color: var(--red); }
-.nsig-axis-p.neg { background: var(--blue-weak); color: var(--blue); }
-.nsig-axis-note {
-  font-size: calc(12px * var(--font-scale));
-  color: var(--text-sub);
-  margin-top: 3px;
-  line-height: 1.45;
-}
-.nsig-foot {
-  margin-top: 12px;
-  font-size: calc(12px * var(--font-scale));
-  color: var(--text-sub);
-  line-height: 1.5;
-}
-.news-raw-sum {
-  cursor: pointer;
-  list-style: none;
-  font-size: calc(13.5px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text-sub);
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-}
-.news-raw-sum::-webkit-details-marker { display: none; }
-.news-raw-sum::after { content: " ▾"; margin-left: 4px; }
-.news-raw[open] .news-raw-sum::after { content: " ▴"; }
-
-.news-item {
-  padding: 12px 0;
-  border-bottom: 1px solid #f5f6f8;
-}
-.news-item:last-child { border-bottom: none; }
-.news-title {
-  font-size: calc(14px * var(--font-scale));
-  font-weight: 700;
-  line-height: 1.4;
-}
-.news-summary {
-  font-size: calc(13px * var(--font-scale));
-  color: var(--text-sub);
-  margin-top: 3px;
-  line-height: 1.45;
-}
-.news-meta {
-  font-size: calc(11px * var(--font-scale));
-  color: var(--text-weak);
-  margin-top: 4px;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.tag {
-  display: inline-block;
-  font-size: calc(11px * var(--font-scale));
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-.tag-pos { background: var(--red-weak); color: var(--red); }
-.tag-neg { background: var(--blue-weak); color: var(--blue); }
-.tag-neu { background: var(--gray-weak); color: var(--text-weak); }
-
-.ai-box {
-  background: linear-gradient(135deg, #1b2743, #23406e);
-  color: #fff;
-  border-radius: var(--radius);
-  padding: 22px 20px;
-  margin-bottom: 14px;
-}
-.ai-box .ai-label {
-  font-size: calc(12px * var(--font-scale));
-  font-weight: 700;
-  opacity: 0.72;
-  letter-spacing: 0.5px;
-}
-.ai-box .ai-headline {
-  font-size: calc(17px * var(--font-scale));
-  font-weight: 800;
-  margin: 6px 0 8px;
-  line-height: 1.45;
-}
-.ai-box .ai-body {
-  font-size: calc(14px * var(--font-scale));
-  opacity: 0.92;
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-.ai-check {
-  font-size: calc(13px * var(--font-scale));
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 8px 12px;
-  margin-top: 6px;
-  line-height: 1.45;
-}
-
-.insight-report {
-  padding: 6px 18px;
-}
-.insight-section {
-  padding: 14px 0;
-  border-bottom: 1px solid #f0f1f3;
-}
-.insight-section:last-child { border-bottom: none; }
-.insight-section-title {
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 800;
-  margin-bottom: 6px;
-  color: var(--text);
-}
-.insight-section-body {
-  font-size: calc(13.5px * var(--font-scale));
-  color: var(--text-sub);
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-.insight-risk .insight-section-title { color: #c9353f; }
-.insight-risk .insight-section-body { color: #9c1f28; }
-.insight-action {
-  background: var(--blue-weak);
-  margin: 0 -18px -6px;
-  padding: 14px 18px;
-  border-radius: 0 0 var(--radius) var(--radius);
-}
-.insight-action .insight-section-title { color: #1b64da; }
-.insight-action .insight-section-body { color: #144ea8; font-weight: 600; }
-
-.disclaimer {
-  font-size: calc(11px * var(--font-scale));
-  color: var(--text-weak);
-  line-height: 1.6;
-  padding: 18px 8px 0;
-  text-align: center;
-}
-
-.spinner {
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  border: 2.5px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  vertical-align: -4px;
-  margin-right: 8px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 0;
-}
-.hint {
-  font-size: calc(12px * var(--font-scale));
-  color: var(--text-weak);
-  margin-top: 8px;
-  line-height: 1.5;
-}
-
-/* 0~10점 매수/매도 강도 — 앱을 처음 보는 사람도 바로 알아보는 핵심 지표 */
-/* 강도 패널 — 원형 배지 + 텍스트 가로 배치였으나, 눈금 방식으로 바꾸면서
-   세로 흐름(제목 → 눈금 → 뜻풀이)이 되어 block으로 되돌린다.
-   flex가 남아 있으면 자식들이 옆으로 밀려 글자가 세로로 짜부라진다. */
-.score-panel {
-  display: block;
-  margin: 4px 0 16px;
-}
-
-.score-text { flex: 1; min-width: 0; }
-.score-action {
-  font-size: calc(16px * var(--font-scale));
-  font-weight: 800;
-  line-height: 1.35;
-}
-.score-sub {
-  font-size: calc(12px * var(--font-scale));
-  color: var(--text-weak);
-  margin-top: 3px;
-  line-height: 1.45;
-}
-.score-bar-fill.buy { background: var(--red); }
-.score-bar-fill.sell { background: var(--blue); }
-.score-bar-fill.danger { background: #191f28; }
-.score-bar-fill.neutral { background: var(--text-weak); }
-
-/* 지금 뭘 해야 하는지 — 5종목 랭킹 요약 (맨 위) */
-.summary-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 11px 0;
-  border-bottom: 1px solid #f5f6f8;
-  gap: 10px;
-}
-.summary-row:last-child { border-bottom: none; }
-.summary-name {
-  font-weight: 800;
-  font-size: calc(14px * var(--font-scale));
-  white-space: nowrap;
-}
-.summary-name .held-tag {
-  font-size: calc(10px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text-weak);
-  background: var(--gray-weak);
-  padding: 2px 6px;
-  border-radius: 999px;
-  margin-left: 5px;
-}
-.summary-action {
-  flex: 1;
-  font-size: calc(12px * var(--font-scale));
-  color: var(--text-sub);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.summary-score-badge {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: baseline;
+  justify-content: center;
   gap: 2px;
-  font-weight: 900;
-  font-size: calc(16px * var(--font-scale));
-  padding: 4px 10px;
-  border-radius: 999px;
-  color: #fff;
-}
-.summary-score-badge .denom { font-size: calc(10px * var(--font-scale)); font-weight: 700; opacity: 0.85; }
-.summary-score-badge.buy { background: var(--red); }
-.summary-score-badge.sell { background: var(--blue); }
-.summary-score-badge.danger { background: #191f28; }
-.summary-score-badge.neutral { background: var(--text-weak); }
-
-/* 뉴스 속보 태그 */
-.tag-breaking {
-  background: var(--red);
-  color: #fff;
-}
-
-.detail-toggle-btn {
-  margin-top: 12px;
-  width: 100%;
-  background: var(--gray-weak);
-  color: var(--text-sub);
-  border: none;
-  border-radius: 12px;
-  padding: 11px;
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 700;
-  cursor: pointer;
-  font-family: inherit;
-}
-.detail-toggle-btn:active { transform: scale(0.99); }
-
-/* ── 예상 경로 팬 차트 (app/ForecastChart.tsx) ──────────────────────────────
-   "지금부터 마감까지, 그리고 내일·모레"의 확률 구간을 그린다. 글로만 된 예상 등락폭은
-   초보자가 감을 못 잡아서 시각화했다. 눈금 글자는 SVG가 아니라 DOM으로 겹쳐 놓아
-   화면 폭이 달라져도 글자 크기가 일정하게 유지된다. */
-.fc {
-  margin-top: 11px;
-  padding-top: 11px;
-  border-top: 1px dashed var(--border);
-}
-.fc-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-.fc-head strong {
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 800;
-  color: var(--text-sub);
-}
-.fc-asof {
-  font-size: calc(11.5px * var(--font-scale));
-  color: var(--text-weak);
+  font-size: 11px;
   font-weight: 600;
+  color: var(--weak);
 }
-.fc-plot {
-  position: relative;
-  width: 100%;
+.tab svg {
+  width: 22px;
+  height: 22px;
 }
-.fc-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-.fc-ylabels span,
-.fc-xlabels span {
-  position: absolute;
-  font-size: calc(10.5px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.fc-ylabels span {
-  right: 0;
-  transform: translateY(-50%);
-}
-.fc-ylabels span.cur {
-  color: var(--text-sub);
-  font-weight: 800;
-}
-.fc-xlabels span {
-  bottom: 0;
-  transform: translateX(-50%);
-}
-/* 첫 라벨은 왼쪽 끝에 붙어 잘리므로 안쪽으로 정렬 */
-.fc-xlabels span:first-child {
-  transform: none;
-}
-.fc-xlabels span.b {
-  color: var(--text-sub);
-  font-weight: 800;
-}
-.fc-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  margin-top: 6px;
-  font-size: calc(11px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
-}
-.fc-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.fc-legend .sw {
-  width: 12px;
-  height: 9px;
-  border-radius: 2px;
-  display: inline-block;
-}
-.fc-legend .sw-in { background: rgba(49, 130, 246, 0.4); }
-.fc-legend .sw-out { background: rgba(49, 130, 246, 0.17); }
-.fc-legend .sw-stop { height: 0; border-top: 2px dashed var(--red); border-radius: 0; }
-.fc-legend .sw-target { height: 0; border-top: 2px dashed var(--green); border-radius: 0; }
-.fc-readout {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: var(--bg-weak);
-  border-radius: 10px;
-}
-.fc-readout > div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-.fc-readout .k {
-  font-size: calc(11.5px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
-}
-.fc-readout .v {
-  font-size: calc(12.5px * var(--font-scale));
-  color: var(--text);
-  font-weight: 800;
-  text-align: right;
-}
-.fc-note {
-  margin-top: 6px;
-  font-size: calc(11px * var(--font-scale));
-  line-height: 1.5;
-  color: var(--text-weak);
-}
-.fc-note b {
-  color: var(--text-sub);
-}
-
-/* 예약(감시)주문 안내 블록 — 확인 시간이 불규칙한 사용자를 위한 조건부 지침 */
-.plan-watch {
-  border-left-color: #b26a00;
-}
-.plan-watch .plan-block-title {
-  color: #b26a00;
-}
-
-/* 지정가 후보 — 이 카드에서 사용자가 실제로 주문창에 옮겨 적는 숫자 */
-.fc-orders {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 10px;
-}
-.fc-order {
-  padding: 10px;
-  border-radius: 12px;
-  text-align: center;
-}
-.fc-order.buy { background: var(--blue-weak); }
-.fc-order.sell { background: var(--red-weak); }
-.fc-order-k {
-  font-size: calc(11.5px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text-weak);
-}
-.fc-order-v {
-  font-size: calc(17px * var(--font-scale));
-  font-weight: 800;
-  letter-spacing: -0.3px;
-  margin: 2px 0 3px;
-}
-.fc-order.buy .fc-order-v { color: #1b64da; }
-.fc-order.sell .fc-order-v { color: #c9353f; }
-.fc-order-p {
-  font-size: calc(11px * var(--font-scale));
-  color: var(--text-sub);
-  font-weight: 600;
-}
-.fc-table { margin-top: 8px; }
-.fc-table > summary {
-  cursor: pointer;
-  list-style: none;
-  padding: 10px 0;
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-  font-size: calc(12.5px * var(--font-scale));
-  font-weight: 700;
-  color: var(--blue);
-}
-.fc-table > summary::-webkit-details-marker { display: none; }
-.fc-table > summary::after { content: " ▾"; }
-.fc-table[open] > summary::after { content: " ▴"; }
-.fc-table-scroll { overflow-x: auto; }
-.fc-table table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: calc(11.5px * var(--font-scale));
-  white-space: nowrap;
-}
-.fc-table th, .fc-table td {
-  padding: 5px 6px;
-  text-align: right;
-  border-bottom: 1px solid var(--border);
-}
-.fc-table th:first-child, .fc-table td:first-child { text-align: left; }
-.fc-table th { color: var(--text-weak); font-weight: 700; }
-.fc-table tr.b td { font-weight: 800; background: var(--bg-weak); }
-
-/* 변수 간 상관관계·반영 경로 (분석 방식 탭) */
-.doc-flow { display: flex; flex-direction: column; gap: 10px; }
-.doc-flow-item {
-  padding: 10px 12px;
-  background: var(--bg-weak);
-  border-radius: 12px;
-  border-left: 3px solid var(--blue);
-}
-.doc-flow-src { font-weight: 800; font-size: calc(13px * var(--font-scale)); margin-bottom: 4px; }
-.doc-flow-rel, .doc-flow-into {
-  font-size: calc(12px * var(--font-scale));
-  line-height: 1.55;
-  color: var(--text-sub);
-}
-.doc-flow-rel { margin-bottom: 2px; }
-.doc-flow-into { color: var(--text); }
-/* 실패 기록 — 시도했다가 버린 접근 */
-.doc-fail { margin-bottom: 12px; font-size: calc(12.5px * var(--font-scale)); line-height: 1.6; }
-.doc-fail-t { font-weight: 800; margin-bottom: 3px; color: #9c1f28; }
-
-/* 종목 카드 접기 — 5개를 다 펼치면 스크롤이 1만 픽셀을 넘는다. 볼 이유가 있는 것만 펼친다 */
-.cc-score.buy { background: var(--blue-weak); color: #1b64da; }
-.cc-score.sell { background: var(--red-weak); color: #c9353f; }
-.cc-score.neutral { background: var(--gray-weak); color: var(--text-sub); }
-.cc-item { color: var(--text-weak); }
-
-/* 분석 방식 탭 — 참고 문서라 기본은 접어둔다 (다 펼치면 6천 픽셀) */
-details.doc-sec > summary.doc-h {
-  cursor: pointer;
-  list-style: none;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-details.doc-sec > summary.doc-h::-webkit-details-marker { display: none; }
-details.doc-sec > summary.doc-h::after { content: "▾"; color: var(--text-weak); font-weight: 700; }
-details.doc-sec[open] > summary.doc-h::after { content: "▴"; }
-.fc-orders.one { grid-template-columns: 1fr; }
-.fc-warn {
-  margin-top: 6px;
-  font-size: calc(11.5px * var(--font-scale));
-  line-height: 1.5;
-  color: #9c1f28;
-  font-weight: 600;
-}
-
-/* "오늘 상승 확률" — 방향 예측이 실패했다는 사실을 숨기지 않고 그대로 보여주는 블록 */
-.uprate {
-  margin-top: 11px;
-  padding: 10px 12px;
-  background: var(--bg-weak);
-  border-radius: 12px;
-  border-left: 3px solid var(--text-weak);
-}
-.uprate.sig { border-left-color: var(--blue); background: var(--blue-weak); }
-.uprate-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.uprate-k { font-size: calc(12.5px * var(--font-scale)); font-weight: 700; color: var(--text-sub); }
-.uprate-v { font-size: calc(20px * var(--font-scale)); font-weight: 800; letter-spacing: -0.4px; }
-.uprate-base { font-size: calc(11.5px * var(--font-scale)); color: var(--text-weak); font-weight: 600; }
-.uprate-note {
-  margin-top: 4px;
-  font-size: calc(11.5px * var(--font-scale));
-  line-height: 1.55;
-  color: var(--text-sub);
-}
-
-/* ⭐ 오늘 나의 행동 — 앱에서 가장 먼저 읽어야 하는 블록.
-   "사라는 건지 팔라는 건지 모르겠다"는 피드백에 대한 답이라, 동사를 맨 앞에 크게 둔다 */
-.doit {
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: 16px;
-  margin-bottom: 14px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-}
-.doit-title {
-  font-size: calc(17px * var(--font-scale));
-  font-weight: 800;
-  letter-spacing: -0.3px;
-  margin-bottom: 10px;
-}
-.doit-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 8px;
-  padding: 11px 12px;
-  border-radius: 12px;
-  margin-bottom: 7px;
-}
-.doit-verb {
-  font-size: calc(15px * var(--font-scale));
-  font-weight: 800;
-  white-space: nowrap;
-}
-.doit-name { font-size: calc(14px * var(--font-scale)); font-weight: 700; }
-.doit-detail {
-  flex-basis: 100%;
-  font-size: calc(12.5px * var(--font-scale));
-  color: var(--text-sub);
-  font-weight: 600;
-  line-height: 1.5;
-}
-.doit-sell { background: var(--red-weak); }
-.doit-sell .doit-verb { color: #c9353f; }
-.doit-buy { background: var(--blue-weak); }
-.doit-buy .doit-verb { color: #1b64da; }
-.doit-hold { background: #fff8e1; }
-.doit-hold .doit-verb { color: #b26a00; }
-.doit-wait { background: var(--gray-weak); }
-.doit-wait .doit-verb { color: var(--text-weak); }
-/* 지정가 대기 — "사세요"(즉시)와 구분되는 "이 가격에 걸어두세요". 매수 계열이라 파란 톤이되 연하게 */
-.doit-limit { background: #eef4ff; }
-.doit-limit .doit-verb { color: #2f6fd6; }
-
-/* 오늘의 대외변수 보드 — 축별 건수·방향 칩 + 예정 이벤트 한 줄 */
-.issue-board { background: var(--card-bg, #fff); border: 1px solid var(--border, #e5e7eb); border-radius: 14px; padding: 12px 14px; margin: 10px 0; }
-.issue-board-title { font-weight: 800; font-size: 0.95em; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: baseline; }
-.issue-board-title small { font-weight: 400; color: var(--text-weak); font-size: 0.8em; }
-.issue-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.issue-chip { border-radius: 999px; padding: 4px 10px; font-size: 0.82em; font-weight: 700; background: var(--gray-weak); color: var(--text-weak); white-space: nowrap; }
-.issue-chip.neg { background: var(--red-weak); color: #c9353f; }
-.issue-chip.pos { background: var(--blue-weak); color: #1b64da; }
-.issue-chip.breaking { box-shadow: inset 0 0 0 1.5px #c9353f; }
-.issue-upcoming { margin-top: 8px; font-size: 0.85em; color: var(--text-weak); line-height: 1.5; }
-.issue-upcoming b { color: var(--text, #111); }
-.issue-note { margin-top: 6px; font-size: 0.78em; color: var(--text-weak); }
-
-/* 종목 카드 — 이 종목에 영향 주는 이슈 목록 */
-.impact-list { margin: 8px 0; display: grid; gap: 4px; }
-.impact-item { display: grid; grid-template-columns: auto auto 1fr; gap: 6px; align-items: baseline; font-size: 0.86em; line-height: 1.4; }
-.impact-dir { font-weight: 800; }
-.impact-dir.pos { color: #1b64da; }
-.impact-dir.neg { color: #c9353f; }
-.impact-dir.flat { color: var(--text-weak); }
-.impact-topic { font-size: 0.78em; background: var(--gray-weak); color: var(--text-weak); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
-.impact-why { color: var(--text-weak); font-size: 0.92em; }
-/* 미보유 + 매도신호 = "사지 마세요". 파란 계열이지만 매수(doit-buy)와 헷갈리지 않게 톤을 낮춘다 */
-.doit-avoid { background: var(--gray-weak); }
-.doit-avoid .doit-verb { color: #8a5a5f; }
-.doit-more > summary {
-  cursor: pointer;
-  list-style: none;
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-  font-size: calc(12.5px * var(--font-scale));
-  font-weight: 700;
-  color: var(--blue);
-}
-.doit-more > summary::-webkit-details-marker { display: none; }
-.doit-more > summary::after { content: " ▾"; }
-.doit-more[open] > summary::after { content: " ▴"; }
-.doit-foot {
-  margin-top: 8px;
-  padding-top: 9px;
-  border-top: 1px dashed var(--border);
-  font-size: calc(11.5px * var(--font-scale));
-  line-height: 1.55;
-  color: var(--text-weak);
-}
-
-/* 하루 손실 한도 — "멈추라"는 신호는 눈에 확 띄어야 한다 */
-.dstop {
-  border-radius: 16px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
-}
-.dstop-hit { background: #ffeef0; border: 2px solid #e5646e; }
-.dstop-warn { background: #fff8e6; border: 1px solid #f0c14b; }
-.dstop-h {
-  font-size: calc(16px * var(--font-scale));
-  font-weight: 800;
-  line-height: 1.35;
-}
-.dstop-hit .dstop-h { color: #c9353f; }
-.dstop-warn .dstop-h { color: #8a6410; }
-.dstop-b {
-  margin-top: 6px;
-  font-size: calc(13px * var(--font-scale));
-  line-height: 1.6;
+.tab.on {
   color: var(--text);
 }
 
-/* 오늘 거래가 멈추는 지점 (상하한가 · 정적VI) */
-.vi-box {
-  margin: 10px 0 4px;
-  background: var(--bg-sub);
-  border-radius: 10px;
-  padding: 10px;
-}
-.vi-bar {
-  display: flex;
-  justify-content: space-between;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-.vi-t {
-  font-size: calc(11.5px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text-sub);
-  white-space: nowrap;
-}
-.vi-t.vi-up { color: var(--red); }
-.vi-t.vi-down { color: var(--blue); }
-.vi-note {
-  margin-top: 6px;
-  font-size: calc(12px * var(--font-scale));
-  line-height: 1.55;
-  color: var(--text-sub);
-}
-
-/* 추천 성적표 (매매일지) */
-.jn-head { font-size: calc(15px * var(--font-scale)); font-weight: 800; line-height: 1.4; }
-.jn-stats { display: flex; gap: 6px; margin-top: 10px; }
-.jn-stats > div {
-  flex: 1 1 0;
-  min-width: 0;
-  background: var(--bg-sub);
-  border-radius: 8px;
-  padding: 8px 2px;
-  text-align: center;
-}
-.jn-stats b { display: block; font-size: calc(15px * var(--font-scale)); font-weight: 800; }
-.jn-stats span { display: block; font-size: calc(10.5px * var(--font-scale)); color: var(--text-sub); margin-top: 1px; }
-.jn-stats .pos b { color: var(--red); }
-.jn-stats .neg b { color: var(--blue); }
-.jn-caution {
-  margin-top: 10px;
-  font-size: calc(11.5px * var(--font-scale));
-  line-height: 1.55;
-  color: var(--text-sub);
-  background: #fff8e6;
-  border-radius: 8px;
-  padding: 8px 10px;
-}
-.jn-more > summary {
-  cursor: pointer;
-  list-style: none;
-  margin-top: 10px;
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text-sub);
-}
-.jn-more > summary::-webkit-details-marker { display: none; }
-.jn-more > summary::after { content: " ▾"; margin-left: 4px; }
-.jn-more[open] > summary::after { content: " ▴"; }
-.jn-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 0;
-  border-top: 1px solid #f2f4f6;
-  font-size: calc(12.5px * var(--font-scale));
-}
-.jn-date { color: var(--text-weak); flex: 0 0 auto; }
-.jn-name { font-weight: 700; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jn-act { color: var(--text-sub); flex: 0 0 auto; }
-.jn-res { font-weight: 800; flex: 0 0 auto; color: var(--text-weak); }
-.jn-res.pos { color: var(--red); }
-.jn-res.neg { color: var(--blue); }
-
-/* ========================================================================
-   토스식 압축 레이아웃 — 보이는 것만 단순하게.
-   원칙: 한 화면에 답 하나 / 숫자는 크게, 설명은 작게 / 나머지는 탭하면 나온다
-   ======================================================================== */
-
-/* 헤더 — 예전에는 제목·부제·접속주소·버튼 2개가 첫 화면의 1/4을 먹었다 */
-.hd-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
-.hd-left h1 { flex: 0 0 auto; }
-.hd-chip {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: calc(11.5px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text-weak);
-  background: var(--gray-weak);
-  border-radius: 999px;
-  padding: 3px 9px;
-  white-space: nowrap;
-}
-.hd-chip-stale { background: var(--red-weak); color: #c9353f; }
-.hd-icon {
-  /* 44px — 애플·구글 접근성 가이드의 최소 터치 크기. 설정 진입점이라 넉넉히 잡는다 */
-  width: 44px;
-  height: 44px;
-  border: none;
-  background: var(--card);
-  border-radius: 12px;
-  font-size: 18px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  flex: 0 0 auto;
-}
-
-/* 설정 시트 — 자주 안 쓰는 것은 전부 여기로 */
-.set-sheet { padding: 8px 8px 12px; }
-.set-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 48px;
-  padding: 0 12px;
-  border: none;
-  background: none;
-  font-size: calc(14.5px * var(--font-scale));
-  font-weight: 600;
-  color: var(--text);
-  cursor: pointer;
-  text-align: left;
-}
-.set-row + .set-row { border-top: 1px solid #f2f4f6; }
-.set-arrow { color: var(--text-weak); font-size: 18px; }
-.set-meta {
-  padding: 10px 12px 2px;
-  font-size: calc(11px * var(--font-scale));
-  color: var(--text-weak);
-  border-top: 1px solid #f2f4f6;
-  margin-top: 4px;
-  word-break: break-all;
-}
-
-/* 경고 칩 — 중요하지만 이 앱의 목적이 아니므로 한 줄로 접는다 */
-.warn-chip {
-  background: #fff8e6;
-  border-radius: 12px;
-  margin-bottom: 10px;
-}
-.warn-chip > summary {
-  cursor: pointer;
-  list-style: none;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  padding: 0 14px;
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 700;
-  color: #8a5a00;
-}
-.warn-chip > summary::-webkit-details-marker { display: none; }
-.warn-chip > summary::after { content: " ▾"; margin-left: auto; padding-left: 8px; }
-.warn-chip[open] > summary::after { content: " ▴"; }
-.warn-body {
-  padding: 0 14px 14px;
-  font-size: calc(12.5px * var(--font-scale));
-  line-height: 1.6;
-  color: #7a4d00;
-}
-.warn-list { margin: 8px 0 0; padding-left: 18px; }
-.warn-list li { margin-bottom: 4px; }
-
-/* 자산 카드 — 큰 숫자 하나가 먼저 눈에 들어와야 한다 */
-.asset-card .asset-label { font-size: calc(12.5px * var(--font-scale)); }
-.asset-more > summary {
-  cursor: pointer;
-  list-style: none;
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-  font-size: calc(12.5px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text-weak);
-  margin-top: 4px;
-}
-.asset-more > summary::-webkit-details-marker { display: none; }
-.asset-more > summary::after { content: " ▾"; margin-left: 4px; }
-.asset-more[open] > summary::after { content: " ▴"; }
-.asset-more-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 0;
-  font-size: calc(13px * var(--font-scale));
-  color: var(--text-sub);
-  border-top: 1px solid #f5f6f8;
-}
-
-/* 종목 행 — 10개 카드를 다 펼치면 6,000px이 넘는다. 기본은 한 줄. */
-.stock-card { padding: 0 20px; }
-.stock-card.open { padding: 0 20px 22px; }
-.stock-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 64px;
-  padding: 12px 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-}
-.sr-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.sr-name {
-  font-size: calc(16px * var(--font-scale));
-  font-weight: 800;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sr-sub {
-  font-size: calc(12px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sr-right { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
-.sr-price { font-size: calc(15px * var(--font-scale)); font-weight: 800; white-space: nowrap; }
-.sr-chg { font-size: calc(12.5px * var(--font-scale)); font-weight: 700; }
-.sr-badge {
-  flex: 0 0 auto;
-  padding: 5px 10px !important;
-  font-size: calc(12px * var(--font-scale)) !important;
-}
-.sr-caret { flex: 0 0 auto; color: var(--text-weak); font-size: 13px; }
-
-/* 오늘의 작전 — 접힘 상태의 요약 줄 */
-.plan-sum {
-  cursor: pointer;
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 48px;
-}
-.plan-sum::-webkit-details-marker { display: none; }
-.plan-sum::after { content: "▾"; margin-left: auto; color: var(--text-weak); font-size: 13px; }
-.plan-card[open] .plan-sum::after { content: "▴"; }
-.plan-sum-note {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: calc(12.5px * var(--font-scale));
-  font-weight: 600;
-  color: var(--text-sub);
-  line-height: 1.4;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-/* 예상 경로 — 탭하면 그 시점 가격을 읽어주는 창.
-   예전에는 오른쪽 눈금 3개만 있어 "이 지점이 얼마인지"를 눈대중해야 했다. */
-.fc-hint-tap {
-  margin-top: 8px;
-  text-align: center;
-  font-size: calc(12px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
-}
-.fc-read {
-  margin-top: 10px;
-  background: var(--blue-weak);
-  border-radius: 12px;
-  padding: 10px 12px;
-}
-.fc-read-h {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: calc(13px * var(--font-scale));
-  color: #1b64da;
-}
-.fc-read-x {
-  border: none;
-  background: none;
-  color: #1b64da;
+/* FAQ */
+.faq-q {
   font-size: 15px;
-  cursor: pointer;
-  width: 28px;
-  height: 28px;
-  line-height: 1;
+  font-weight: 700;
+  margin-top: 18px;
 }
-.fc-read-now { margin-top: 4px; font-size: calc(14px * var(--font-scale)); }
-.fc-read-band {
+.faq-a {
+  font-size: 14px;
+  color: var(--sub);
+  margin-top: 4px;
+  line-height: 1.6;
+}
+
+/* 로그인 */
+.login {
+  min-height: 100vh;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 6px;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.login h1 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+}
+.login p {
+  color: var(--sub);
   margin-top: 6px;
 }
-.fc-read-band .lo,
-.fc-read-band .hi {
-  font-size: calc(16px * var(--font-scale));
-  font-weight: 800;
-  white-space: nowrap;
+.login .num-input {
+  margin-top: 28px;
+  font-size: 18px;
 }
-.fc-read-band .lo { color: var(--blue); }
-.fc-read-band .hi { color: var(--red); }
-.fc-read-band .mid {
-  flex: 1 1 auto;
-  text-align: center;
-  font-size: calc(11px * var(--font-scale));
-  color: var(--text-sub);
-  white-space: nowrap;
-}
-.fc-read-sub {
-  margin-top: 5px;
-  font-size: calc(11.5px * var(--font-scale));
-  color: var(--text-sub);
-  line-height: 1.5;
-}
-
-/* 매수·매도 강도 눈금 — "7점"이 높은 건지 낮은 건지 알 수 있게 한다 */
-.score-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.score-label { font-size: calc(12.5px * var(--font-scale)); color: var(--text-weak); font-weight: 700; }
-.score-band {
-  font-size: calc(14px * var(--font-scale));
-  font-weight: 800;
-  padding: 3px 11px;
-  border-radius: 999px;
-  background: var(--gray-weak);
-  color: var(--text-sub);
-}
-.score-band.buy { background: var(--red-weak); color: var(--red); }
-.score-band.sell { background: var(--blue-weak); color: var(--blue); }
-.score-band.danger { background: #191f28; color: #fff; }
-
-.score-scale { margin-top: 14px; }
-.score-scale-track {
-  position: relative;
-  display: flex;
-  gap: 3px;
-  height: 10px;
-}
-.ss-seg { flex: 1 1 0; background: var(--gray-weak); border-radius: 3px; }
-.ss-seg.on { background: var(--text-weak); }
-.ss-seg.on.buy { background: var(--red); }
-.ss-seg.on.sell { background: var(--blue); }
-.ss-seg.on.danger { background: #191f28; }
-.ss-seg.on.neutral { background: var(--text-weak); }
-.ss-pin {
-  position: absolute;
-  top: -9px;
-  transform: translateX(-50%);
-  min-width: 28px;
-  height: 28px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--text);
-  color: #fff;
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
-}
-.ss-pin.buy { background: var(--red); }
-.ss-pin.sell { background: var(--blue); }
-.ss-pin.danger { background: #191f28; }
-.score-scale-ticks {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 14px;
-  font-size: calc(10.5px * var(--font-scale));
-  color: var(--text-weak);
+.err {
+  color: var(--red);
+  font-size: 14px;
   font-weight: 600;
-}
-.score-mean {
   margin-top: 10px;
-  font-size: calc(15px * var(--font-scale));
-  font-weight: 800;
-  line-height: 1.4;
 }
-
-/* 보유 종목 3택 — 팔기 / 지키기 / 더 사기.
-   "매도 강도 3/10"처럼 한 축만 보여주면 지키라는 건지 사라는 건지 알 수 없다. */
-.hv { margin: 4px 0 14px; }
-.hv-seg {
-  display: flex;
-  gap: 4px;
-  background: var(--gray-weak);
-  border-radius: 12px;
-  padding: 4px;
-}
-.hv-item {
-  flex: 1 1 0;
-  text-align: center;
-  padding: 10px 4px;
-  border-radius: 9px;
-  font-size: calc(14px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text-weak);
-}
-.hv-item.on { font-weight: 800; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1); }
-.hv-item.on.hv-sell { background: var(--blue); color: #fff; }
-.hv-item.on.hv-keep { background: var(--card); color: var(--text); }
-.hv-item.on.hv-buy { background: var(--red); color: #fff; }
-.hv-why {
-  margin-top: 9px;
-  font-size: calc(13.5px * var(--font-scale));
-  line-height: 1.5;
-  color: var(--text);
-  font-weight: 600;
-}
-.hv-pos {
-  margin-top: 5px;
-  font-size: calc(12px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
-}
-
-/* 섹션 제목 — 보유 / 관심 종목을 갈라준다 */
-.sec-h {
-  font-size: calc(13px * var(--font-scale));
-  font-weight: 800;
-  color: var(--text-sub);
-  padding: 14px 4px 8px;
-}
-
-/* 종합 리포트 — 흩어진 카드 대신 "내 계좌 상태"를 한 카드에 */
-.rep-title { font-size: calc(15px * var(--font-scale)); font-weight: 800; margin-bottom: 12px; }
-.rep-grid { display: flex; gap: 6px; }
-.rep-cell {
-  flex: 1 1 0;
-  background: var(--bg-sub);
-  border-radius: 12px;
-  padding: 12px 4px;
-  text-align: center;
-}
-.rep-cell b { display: block; font-size: calc(22px * var(--font-scale)); font-weight: 800; color: var(--text-weak); }
-.rep-cell span { display: block; font-size: calc(11.5px * var(--font-scale)); color: var(--text-weak); margin-top: 2px; font-weight: 600; }
-.rep-cell.on.rep-sell b, .rep-cell.on.rep-sell span { color: var(--blue); }
-.rep-cell.on.rep-sell { background: var(--blue-weak); }
-.rep-cell.on.rep-buy b, .rep-cell.on.rep-buy span { color: var(--red); }
-.rep-cell.on.rep-buy { background: var(--red-weak); }
-.rep-cell.on.rep-keep b, .rep-cell.on.rep-keep span { color: var(--text); }
-.rep-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-  padding: 9px 0;
-  border-bottom: 1px solid #f5f6f8;
-  font-size: calc(13px * var(--font-scale));
-}
-.rep-row:first-of-type { margin-top: 8px; }
-.rep-row span { color: var(--text-weak); font-weight: 600; }
-.rep-row b { font-weight: 800; white-space: nowrap; }
-.rep-more > summary {
-  cursor: pointer;
-  list-style: none;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  font-size: calc(12.5px * var(--font-scale));
-  font-weight: 700;
-  color: var(--text-weak);
-}
-.rep-more > summary::-webkit-details-marker { display: none; }
-.rep-more > summary::after { content: " ▾"; margin-left: 4px; }
-.rep-more[open] > summary::after { content: " ▴"; }
-.rep-warn {
-  margin-top: 8px;
-  background: var(--red-weak);
-  border-radius: 8px;
-  padding: 9px 10px;
-  font-size: calc(12px * var(--font-scale));
-  line-height: 1.5;
-  color: #c9353f;
-  font-weight: 600;
-}
-.rep-note {
-  margin-top: 10px;
-  font-size: calc(11.5px * var(--font-scale));
-  color: var(--text-weak);
-  line-height: 1.55;
-}
-
-/* AI와 엔진이 반대를 말할 때 — 두 문장을 나란히 두면 어느 쪽을 따를지 알 수 없다 */
-.score-conflict {
-  margin-top: 10px;
-  background: #fff8e6;
-  border-radius: 9px;
-  padding: 10px 11px;
-  font-size: calc(12.5px * var(--font-scale));
-  line-height: 1.55;
-  color: #7a5a12;
-  font-weight: 600;
-}
-
-/* ===== 자산 입력 모달 =====
-   어느 탭에서 열어도 동작해야 하므로 화면 전체를 덮는 오버레이로 띄운다.
-   (예전에는 "종목" 탭 안에 그려져 다른 탭에서는 열려도 보이지 않았다) */
-.modal-back {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 100;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-.modal-sheet {
-  width: 100%;
-  max-width: 560px;
-  max-height: 92vh;
-  background: var(--card);
-  border-radius: 20px 20px 0 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.modal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 18px 12px;
-  border-bottom: 1px solid var(--border);
-  flex: 0 0 auto;
-}
-.modal-title { font-size: calc(17px * var(--font-scale)); font-weight: 800; }
-.modal-done {
-  border: none;
-  background: none;
-  color: #1b64da;
-  font-size: calc(15px * var(--font-scale));
-  font-weight: 700;
-  cursor: pointer;
-  padding: 6px 4px;
-  min-height: 40px;
-}
-.modal-body {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 14px 18px 18px;
-}
-.modal-foot {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 18px calc(14px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--border);
-  background: var(--card);
-}
-.save-chip {
-  flex: 0 0 auto;
-  font-size: calc(12px * var(--font-scale));
-  font-weight: 700;
-  color: #0f9d58;
-  white-space: nowrap;
-}
-.modal-close-btn { flex: 1 1 auto; margin: 0; }
-
-/* ===== 연결 상태 확인 결과 ===== */
-.diag-card { padding: 14px 16px; }
-.diag-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 800;
-  font-size: calc(14px * var(--font-scale));
-  margin-bottom: 8px;
-}
-.diag-close {
-  border: none;
-  background: none;
-  color: var(--text-weak);
-  font-size: 16px;
-  cursor: pointer;
-  min-width: 32px;
-  min-height: 32px;
-}
-.diag-loading {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: calc(13px * var(--font-scale));
-  color: var(--text-sub);
-  font-weight: 600;
-  padding: 4px 0;
-}
-.diag-v {
-  font-size: calc(12px * var(--font-scale));
-  text-align: right;
-  max-width: 62%;
-  font-weight: 600;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   비서 UI (2026-09) — 브리핑 카드 · 하단 행동 바 · 첫 사용 안내 · 헤더 아바타
-   카드 나열형 대시보드에서 "비서가 먼저 말을 거는" 구조로 바꾸면서 추가된 스타일.
-   ═══════════════════════════════════════════════════════════════════════════ */
-.sec-card {
-  position: relative;
-  background: linear-gradient(160deg, #ffffff 0%, #f5f9ff 100%);
-  border: 1px solid #e3ecfb;
-  border-radius: var(--radius);
-  padding: 18px 18px 14px;
-  margin-bottom: 14px;
-  box-shadow: 0 6px 24px rgba(49, 130, 246, 0.08);
-  overflow: hidden;
-}
-.sec-card::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: var(--blue);
-}
-.sec-alert { border-left: 3px solid transparent; }
-.sec-card.mood-alert::before { background: #f0a020; }
-.sec-card.mood-danger::before { background: var(--red); }
-.sec-card.mood-danger { background: linear-gradient(160deg, #ffffff 0%, #fff4f5 100%); border-color: #ffd6da; }
-.sec-card.mood-alert { background: linear-gradient(160deg, #ffffff 0%, #fff9ee 100%); border-color: #ffe4b8; }
-.sec-head { display: flex; align-items: center; gap: 10px; }
-.sec-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #3182f6, #6aa6ff);
-  color: #fff;
-  font-weight: 900;
-  font-size: calc(15px * var(--font-scale));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 3px 8px rgba(49, 130, 246, 0.35);
-  flex: 0 0 auto;
-}
-.sec-head-text { min-width: 0; flex: 1 1 auto; }
-.sec-greet { font-size: calc(13px * var(--font-scale)); font-weight: 700; color: var(--text-sub); }
-.sec-when { font-size: calc(12px * var(--font-scale)); color: var(--text-weak); font-weight: 600; margin-top: 1px; }
-.sec-mood {
-  font-size: calc(11px * var(--font-scale));
-  font-weight: 800;
-  border-radius: 999px;
-  padding: 3px 9px;
-  background: var(--blue-weak);
-  color: #1b64da;
-  flex: 0 0 auto;
-}
-.sec-mood-alert { background: #fff3d6; color: #9a6200; }
-.sec-mood-danger { background: var(--red-weak); color: #c9353f; }
-.sec-headline {
-  font-size: calc(19px * var(--font-scale));
-  font-weight: 800;
-  letter-spacing: -0.4px;
-  line-height: 1.35;
-  margin: 14px 0 6px;
-  color: var(--text);
-}
-.sec-lines {
-  font-size: calc(13.5px * var(--font-scale));
-  color: var(--text-sub);
-  line-height: 1.6;
-  font-weight: 500;
-}
-.sec-alerts { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
-.sec-alert {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 9px 10px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.85);
-  font-size: calc(13px * var(--font-scale));
-}
-.sec-alert-danger { background: var(--red-weak); border-left-color: var(--red); }
-.sec-alert-warn { background: #fff7e6; border-left-color: #f0a020; }
-.sec-alert-info { background: var(--gray-weak); border-left-color: #c5cdd6; }
-.sec-alert.tappable { cursor: pointer; }
-.sec-alert.tappable:active { transform: scale(0.99); }
-.sec-alert-icon { flex: 0 0 auto; font-size: calc(15px * var(--font-scale)); line-height: 1.3; }
-.sec-alert-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
-.sec-alert-text { font-weight: 700; color: var(--text); line-height: 1.4; }
-.sec-alert-sub { font-size: calc(12px * var(--font-scale)); color: var(--text-sub); font-weight: 500; line-height: 1.4; }
-.sec-alert-go { color: var(--text-weak); font-weight: 800; align-self: center; }
-
-/* 하단 고정 행동 바 — 탭바 바로 위. 분석 버튼이 화면 중간에 묻혀 있던 문제를 해결한다. */
-.actionbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(56px + env(safe-area-inset-bottom, 0));
-  max-width: 560px;
-  margin: 0 auto;
-  padding: 8px 12px 10px;
-  background: linear-gradient(180deg, rgba(242, 244, 246, 0) 0%, var(--bg) 35%);
-  z-index: 49;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.actionbar-meta {
-  text-align: center;
-  font-size: calc(11.5px * var(--font-scale));
-  color: var(--text-weak);
-  font-weight: 600;
-}
-.actionbar-btn { margin: 0; box-shadow: 0 6px 18px rgba(49, 130, 246, 0.3); }
-.container.has-actionbar { padding-bottom: 150px; }
-
-/* 첫 사용 안내 */
-.onboard {
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: 18px 16px 14px;
-  margin-bottom: 14px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-}
-.onboard-title { font-size: calc(16px * var(--font-scale)); font-weight: 800; margin-bottom: 10px; letter-spacing: -0.3px; }
-.onboard-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.onboard-step {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-  border: none;
-  background: var(--gray-weak);
-  border-radius: 14px;
-  padding: 12px 12px;
-  cursor: pointer;
-  color: var(--text);
-  font-family: inherit;
-}
-.onboard-step:disabled { opacity: 0.6; cursor: default; }
-.onboard-step > span:nth-child(2) { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
-.onboard-step b { font-size: calc(14.5px * var(--font-scale)); font-weight: 800; }
-.onboard-step small { font-size: calc(12px * var(--font-scale)); color: var(--text-sub); line-height: 1.4; }
-.onboard-num {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--blue);
-  color: #fff;
-  font-weight: 800;
-  font-size: calc(13px * var(--font-scale));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-}
-.onboard-go { color: var(--text-weak); font-weight: 800; font-size: 18px; }
-.onboard-note { margin-top: 10px; font-size: calc(12px * var(--font-scale)); color: var(--text-weak); line-height: 1.5; }
-
-/* 헤더 — 비서 아바타 + 제목 */
-.hd-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.hd-brand-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, #3182f6, #6aa6ff);
-  color: #fff;
-  font-weight: 900;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-}
-
-/* 탭바 — 활성 탭을 더 분명하게 */
-.tabbar-btn.active .tabbar-icon { transform: translateY(-1px); }
-.tabbar-btn { transition: color 0.15s; }
-.tabbar-btn.active::after {
-  content: "";
-  display: block;
-  width: 18px;
-  height: 3px;
-  border-radius: 2px;
-  background: #1b64da;
-  margin-top: 2px;
-}
-
-/* 섹션 소제목 — 카드 사이 위계를 만든다 */
-.sec-h { font-size: calc(13px * var(--font-scale)); font-weight: 800; color: var(--text-weak); margin: 6px 4px 8px; letter-spacing: 0.2px; }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   다크 모드 — <html data-theme="dark"> 일 때만 적용. "시스템" 설정은 JS(applyTheme)가 OS 값을 읽어
-   이 속성으로 바꾸므로 CSS는 속성 하나만 본다. 토큰을 먼저 바꾸고, 밝은색이 하드코딩된 규칙만 덮어쓴다.
-   ═══════════════════════════════════════════════════════════════════════════ */
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #0f1216;
-  --card: #171b21;
-  --card-bg: #171b21;
-  --text: #e8ecf1;
-  --text-sub: #b3bcc7;
-  --text-weak: #7f8a97;
-  --blue: #4c8ff7;
-  --blue-weak: #16294a;
-  --red: #ff5f6d;
-  --red-weak: #3a1b21;
-  --green: #22c55e;
-  --gray-weak: #222831;
-  --border: #2a313b;
-  --muted: #7f8a97;
-  --bg-weak: #1c2128;
-}
-:root[data-theme="dark"] body { background: var(--bg); color: var(--text); }
-:root[data-theme="dark"] .card,
-:root[data-theme="dark"] .doit,
-:root[data-theme="dark"] .issue-board,
-:root[data-theme="dark"] .onboard,
-:root[data-theme="dark"] .macro-chip,
-:root[data-theme="dark"] .hd-icon,
-:root[data-theme="dark"] .font-size-row { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45); }
-:root[data-theme="dark"] input,
-:root[data-theme="dark"] textarea,
-:root[data-theme="dark"] select { background: #222831; color: var(--text); border-color: var(--border); }
-/* 검정 배경(#191f28)으로 "위험"을 표현하던 요소들 — 다크에서는 회색으로 올려야 배경과 구분된다 */
-:root[data-theme="dark"] .badge-danger,
-:root[data-theme="dark"] .phase-tag,
-:root[data-theme="dark"] .doc-code,
-:root[data-theme="dark"] .score-bar-fill.danger,
-:root[data-theme="dark"] .summary-score-badge.danger,
-:root[data-theme="dark"] .score-band.danger,
-:root[data-theme="dark"] .ss-seg.on.danger,
-:root[data-theme="dark"] .ss-pin.danger { background: #3a3f4a; }
-/* 옅은 회색 구분선 */
-:root[data-theme="dark"] .kv-row,
-:root[data-theme="dark"] .news-item,
-:root[data-theme="dark"] .summary-row,
-:root[data-theme="dark"] .asset-more-row,
-:root[data-theme="dark"] .rep-row,
-:root[data-theme="dark"] .intraday-box,
-:root[data-theme="dark"] .insight-section,
-:root[data-theme="dark"] .nsig-axis,
-:root[data-theme="dark"] .jn-row,
-:root[data-theme="dark"] .set-row + .set-row,
-:root[data-theme="dark"] .set-meta { border-color: var(--border); }
-/* 노란 경고 계열 */
-:root[data-theme="dark"] .storage-warning { background: #332a14; border-color: #7a5a10; }
-:root[data-theme="dark"] .storage-warning-title,
-:root[data-theme="dark"] .storage-warning-body,
-:root[data-theme="dark"] .storage-warning-list li { color: #f2c14e; }
-:root[data-theme="dark"] .plan-badge-급등과열,
-:root[data-theme="dark"] .plan-badge-변동성확대,
-:root[data-theme="dark"] .vol-높음 { background: #332a14; color: #f2c14e; }
-:root[data-theme="dark"] .plan-box { background: #2a2416; border-color: #5a4a1a; }
-:root[data-theme="dark"] .nsig-thin,
-:root[data-theme="dark"] .dstop-warn,
-:root[data-theme="dark"] .jn-caution,
-:root[data-theme="dark"] .warn-chip,
-:root[data-theme="dark"] .score-conflict { background: #332a14; }
-:root[data-theme="dark"] .dstop-warn .dstop-h { color: #f2c14e; }
-:root[data-theme="dark"] .dstop-hit { background: #3a1b21; border-color: #8a3a44; }
-:root[data-theme="dark"] .dstop-hit .dstop-h { color: #ff8a94; }
-:root[data-theme="dark"] .doc-pipe-sec { background: linear-gradient(180deg, #16294a 0%, var(--card) 60%); }
-:root[data-theme="dark"] .time-horizon-tag { background: rgba(255, 255, 255, 0.12); }
-/* 행동 카드 */
-:root[data-theme="dark"] .doit-hold { background: #2f2a16; }
-:root[data-theme="dark"] .doit-hold .doit-verb { color: #f2c14e; }
-:root[data-theme="dark"] .doit-limit { background: #16294a; }
-:root[data-theme="dark"] .doit-limit .doit-verb,
-:root[data-theme="dark"] .doit-buy .doit-verb,
-:root[data-theme="dark"] .impact-dir.pos,
-:root[data-theme="dark"] .issue-chip.pos,
-:root[data-theme="dark"] .tabbar-btn.active,
-:root[data-theme="dark"] .sec-mood,
-:root[data-theme="dark"] .doit-more > summary { color: #8fb8ff; }
-:root[data-theme="dark"] .tabbar-btn.active::after { background: #8fb8ff; }
-:root[data-theme="dark"] .doit-sell .doit-verb,
-:root[data-theme="dark"] .impact-dir.neg,
-:root[data-theme="dark"] .issue-chip.neg,
-:root[data-theme="dark"] .hd-chip-stale { color: #ff8a94; }
-:root[data-theme="dark"] .issue-chip.neg { background: #3a1b21; }
-:root[data-theme="dark"] .issue-chip.pos { background: #16294a; }
-:root[data-theme="dark"] .issue-chip.breaking { box-shadow: inset 0 0 0 1.5px #ff8a94; }
-:root[data-theme="dark"] .hd-chip-stale { background: #3a1b21; }
-/* 비서 카드 */
-:root[data-theme="dark"] .sec-card { background: linear-gradient(160deg, #171b21 0%, #15202f 100%); border-color: #253248; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); }
-:root[data-theme="dark"] .sec-card.mood-alert { background: linear-gradient(160deg, #171b21 0%, #2a2416 100%); border-color: #5a4a1a; }
-:root[data-theme="dark"] .sec-card.mood-danger { background: linear-gradient(160deg, #171b21 0%, #2f1a1f 100%); border-color: #6a2a33; }
-:root[data-theme="dark"] .sec-alert { background: rgba(255, 255, 255, 0.05); }
-:root[data-theme="dark"] .sec-alert-warn { background: #332a14; }
-:root[data-theme="dark"] .sec-alert-danger { background: #3a1b21; }
-:root[data-theme="dark"] .sec-alert-info { background: #222831; }
-:root[data-theme="dark"] .sec-mood-alert { background: #332a14; color: #f2c14e; }
-:root[data-theme="dark"] .sec-mood-danger { background: #3a1b21; color: #ff8a94; }
-:root[data-theme="dark"] .onboard-step { background: #222831; }
-:root[data-theme="dark"] .actionbar { background: linear-gradient(180deg, rgba(15, 18, 22, 0) 0%, var(--bg) 35%); }
-:root[data-theme="dark"] .master-score-buy { background: linear-gradient(180deg, #3a1b21 0%, var(--card) 60%); border-color: #3a1b21; }
-:root[data-theme="dark"] .master-score-sell { background: linear-gradient(180deg, #16294a 0%, var(--card) 60%); border-color: #16294a; }
-
-/* 설정 시트 — 테마 세그먼트 */
-.set-row-static { cursor: default; }
-.seg { display: inline-flex; gap: 3px; background: var(--gray-weak); border-radius: 10px; padding: 3px; }
-.seg-btn {
-  border: none;
-  background: none;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-weight: 700;
-  font-size: calc(12.5px * var(--font-scale));
-  color: var(--text-weak);
-  cursor: pointer;
-  font-family: inherit;
-}
-.seg-btn.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }

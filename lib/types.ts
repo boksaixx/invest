@@ -130,23 +130,8 @@ export interface Portfolio {
   holdings: Holding[];
 }
 
-export type StockTicker =
-  // 반도체 5종목
-  | "005930"
-  | "000660"
-  | "042700"
-  | "009150"
-  | "000990"
-  // 비반도체 5종목 — 반도체 블록과 다른 동인을 가진 업종만 골랐다 (아래 SECTOR_NOTE 참고)
-  | "012450"
-  | "005380"
-  | "105560"
-  | "068270"
-  | "030200"
-  // 가상자산 3종 — 업비트 원화마켓 코드 그대로. 24시간 거래, 소수점 수량, 상하한가 없음, 수수료 0.05%×2.
-  | "KRW-BTC"
-  | "KRW-ETH"
-  | "KRW-XRP";
+// 2026-10: 삼성전자·SK하이닉스 2종목만 추적한다(사용자 요청). 비반도체 5종목·가상자산 3종은 뺐다.
+export type StockTicker = "005930" | "000660";
 
 export type Action =
   | "신규매수"
@@ -494,6 +479,8 @@ export interface CollectedSnapshot {
   signals: EngineSignal[] | null;
   aiSummary: string | null;
   masterScore: MasterScore | null;
+  // 2종목 예측 모델(lib/predict.ts)의 그 시각 판단 — 실전 성적 채점용 (2026-10~)
+  predictions?: Record<string, { checkpoint: string | null; dayProb: number | null; swingProb: number | null; price: number }>;
 }
 
 // sector: "반도체" 종목에만 반도체 전용 통계(국면별 분포·도달확률 보정표·SOX 전이)를 적용한다.
@@ -508,20 +495,6 @@ export const STOCKS: Record<
 > = {
   "005930": { name: "삼성전자", yahoo: "005930.KS", market: "KR", currency: "KRW", sector: "반도체", driver: "메모리 업황·SOX" },
   "000660": { name: "SK하이닉스", yahoo: "000660.KS", market: "KR", currency: "KRW", sector: "반도체", driver: "HBM·메모리 업황" },
-  "042700": { name: "한미반도체", yahoo: "042700.KS", market: "KR", currency: "KRW", sector: "반도체", driver: "HBM 장비 수주" },
-  "009150": { name: "삼성전기", yahoo: "009150.KS", market: "KR", currency: "KRW", sector: "반도체", driver: "MLCC·전장 부품" },
-  "000990": { name: "DB하이텍", yahoo: "000990.KS", market: "KR", currency: "KRW", sector: "반도체", driver: "파운드리 가동률" },
-  // ↓ 비반도체 — 반도체가 무너지는 날에 같이 무너지지 않을 동인을 기준으로 선정
-  "012450": { name: "한화에어로스페이스", yahoo: "012450.KS", market: "KR", currency: "KRW", sector: "방산", driver: "지정학 긴장·수출 수주" },
-  "005380": { name: "현대차", yahoo: "005380.KS", market: "KR", currency: "KRW", sector: "자동차", driver: "글로벌 판매·소비 경기" },
-  "105560": { name: "KB금융", yahoo: "105560.KS", market: "KR", currency: "KRW", sector: "금융", driver: "금리·예대마진" },
-  "068270": { name: "셀트리온", yahoo: "068270.KS", market: "KR", currency: "KRW", sector: "바이오", driver: "임상·허가·약가" },
-  "030200": { name: "KT", yahoo: "030200.KS", market: "KR", currency: "KRW", sector: "통신", driver: "요금규제·배당(경기 방어)" },
-  // ↓ 가상자산 — 업비트 원화마켓. 같은 엔진(일봉 지표·분봉 VWAP·변동성·뉴스 축)을 쓰되 시장 규칙은 다르다:
-  //   24시간 거래(업비트 일봉은 09:00 KST 시작), 소수점 수량, 상하한가·VI 없음, 수수료 0.05%×2, 세금 없음.
-  "KRW-BTC": { name: "비트코인", yahoo: "KRW-BTC", market: "CRYPTO", currency: "KRW", sector: "크립토", driver: "미 현물 ETF 자금·달러·금리" },
-  "KRW-ETH": { name: "이더리움", yahoo: "KRW-ETH", market: "CRYPTO", currency: "KRW", sector: "크립토", driver: "ETF·스테이킹·디파이 활동" },
-  "KRW-XRP": { name: "리플", yahoo: "KRW-XRP", market: "CRYPTO", currency: "KRW", sector: "크립토", driver: "SEC 규제·결제 채택·국내 거래대금" },
 };
 
 /** 반도체 전용 통계를 적용해도 되는 종목인지 */
@@ -537,21 +510,7 @@ export const fmtQty = (t: StockTicker, qty: number | null | undefined): string =
   return `${Number(qty.toFixed(8)).toLocaleString("ko-KR", { maximumFractionDigits: 8 })}개`;
 };
 
-export const TICKER_LIST: StockTicker[] = [
-  "005930",
-  "000660",
-  "042700",
-  "009150",
-  "000990",
-  "012450",
-  "005380",
-  "105560",
-  "068270",
-  "030200",
-  "KRW-BTC",
-  "KRW-ETH",
-  "KRW-XRP",
-];
+export const TICKER_LIST: StockTicker[] = ["005930", "000660"];
 
 // 국내(KRX)/미국(나스닥 등)/가상자산 구분 — DART 공시·KRX 수급처럼 한국 시장 전용 데이터 소스를
 // 다른 시장에는 아예 시도하지 않도록 걸러내거나, 시장별로 다른 로직(개장시간·통화·수량 단위)을 적용할 때 사용.

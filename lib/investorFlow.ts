@@ -121,12 +121,34 @@ async function fetchPensionDetail(isin: string, days = 7): Promise<Map<string, n
 let flowCache: { data: Partial<Record<StockTicker, InvestorFlowDay[]>>; expiresAt: number } | null = null;
 const FLOW_CACHE_TTL_MS = 60 * 60_000; // 하루 1회 갱신되는 데이터라 1시간 캐시로 충분
 
-// API 키가 필요 없는 공개 데이터라 항상 시도한다. 실패해도(엔드포인트 변경, 접근 차단 등)
-// 조용히 빈 결과를 돌려줘 나머지 파이프라인(뉴스/기술적 지표/공시)은 영향받지 않는다.
+// 2026-10: KRX 공개 엔드포인트가 로그인을 요구하게 바뀌어("LOGOUT") 수급이 늘 빈값이었다.
+// 같은 일별 외국인·기관 순매수를 네이버 증권(m.stock.naver.com)에서 받는다. 키 불필요.
+// (위 KRX 함수들은 KRX가 다시 열릴 경우를 위해 남겨 둔다 — 지금은 호출하지 않는다.)
 export async function fetchInvestorFlows(): Promise<{ data: Partial<Record<StockTicker, InvestorFlowDay[]>>; error: string | null }> {
   const now = Date.now();
   if (flowCache && flowCache.expiresAt > now) return { data: flowCache.data, error: null };
+  const { fetchNaverFlows } = await import("./market");
+  const result: Partial<Record<StockTicker, InvestorFlowDay[]>> = {};
+  let failed = 0;
+  for (const ticker of KR_TICKERS) {
+    const rows = await fetchNaverFlows(ticker, 10);
+    if (rows.length === 0) {
+      failed++;
+      continue;
+    }
+    result[ticker] = rows.map((r) => ({ date: r.d, foreignNet: r.foreign, institutionNet: r.inst }));
+  }
+  if (failed >= KR_TICKERS.length) {
+    flowCache = { data: {}, expiresAt: now + 5 * 60_000 };
+    return { data: {}, error: "수급(네이버) 조회 실패 — 잠시 후 다시 시도" };
+  }
+  flowCache = { data: result, expiresAt: now + FLOW_CACHE_TTL_MS };
+  return { data: result, error: failed > 0 ? `수급 일부 종목(${failed}개) 조회 실패` : null };
+}
 
+// 예전 KRX 경로 (보관용)
+export async function fetchInvestorFlowsKrx(): Promise<{ data: Partial<Record<StockTicker, InvestorFlowDay[]>>; error: string | null }> {
+  const now = Date.now();
   try {
     const result: Partial<Record<StockTicker, InvestorFlowDay[]>> = {};
     let failed = 0;
