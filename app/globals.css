@@ -779,3 +779,293 @@ input {
   font-weight: 600;
   margin-top: 10px;
 }
+
+/* 오늘 시황 */
+.mkt {
+  padding: 16px 20px;
+}
+.mkt-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.mkt-row {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.mkt-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.mkt-label {
+  flex: 0 0 64px;
+  color: var(--weak);
+  font-weight: 600;
+  font-size: 13px;
+  padding-top: 1px;
+}
+.mkt-val {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.mkt-val b {
+  font-weight: 700;
+}
+.mkt-val b.flat {
+  color: var(--text);
+}
+.mkt-val small {
+  color: var(--sub);
+  font-size: 13px;
+}
+
+/* 종목 국면 */
+.regime {
+  margin-top: 16px;
+  background: var(--fill);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.regime-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.regime-head b {
+  font-size: 14px;
+  font-weight: 700;
+}
+.regime-edge {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--sub);
+  line-height: 1.5;
+}
+.regime-edge.good::before,
+.regime-edge.bad::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: 2px;
+}
+.regime-edge.good::before {
+  background: var(--green);
+}
+.regime-edge.bad::before {
+  background: var(--orange);
+}
+
+/* AI 심층 분석 */
+.ai-card {
+  border: 1.5px solid #dbe7fd;
+}
+.ai-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.ai-title {
+  font-size: 19px;
+  font-weight: 800;
+}
+.ai-title::before {
+  content: "AI";
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #3182f6, #6b5cf6);
+  border-radius: 6px;
+  padding: 1px 5px;
+  margin-right: 7px;
+  vertical-align: 3px;
+}
+.ai-again {
+  flex: 0 0 auto;
+  background: var(--blue-weak);
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 7px 11px;
+}
+.ai-desc {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--sub);
+  line-height: 1.6;
+}
+.ai-steps {
+  margin-top: 16px;
+}
+.ai-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--weak);
+  padding: 6px 0;
+}
+.ai-step .ai-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--line);
+}
+.ai-step.done {
+  color: var(--sub);
+}
+.ai-step.done .ai-dot {
+  background: var(--blue);
+}
+.ai-step.on {
+  color: var(--text);
+  font-weight: 700;
+}
+.ai-step.on .ai-dot {
+  background: var(--blue);
+  animation: pulse 1s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    transform: scale(1.5);
+    opacity: 0.5;
+  }
+}
+.ai-market {
+  margin-top: 14px;
+  font-size: 15px;
+  line-height: 1.65;
+}
+.seg {
+  display: flex;
+  background: var(--fill);
+  border-radius: 12px;
+  padding: 4px;
+  margin-top: 16px;
+}
+.seg button {
+  flex: 1;
+  height: 36px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--weak);
+}
+.seg button.on {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.ai-stock {
+  margin-top: 16px;
+}
+.ai-headline {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.ai-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ai-stance,
+.ai-conf {
+  border-radius: 8px;
+  padding: 3px 8px;
+  background: var(--fill);
+  color: var(--sub);
+}
+.ai-stance.up {
+  background: var(--red-weak);
+  color: var(--red);
+}
+.ai-stance.down {
+  background: var(--blue-weak);
+  color: var(--blue);
+}
+.ai-rows {
+  margin-top: 14px;
+}
+.ai-row {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.ai-k {
+  flex: 0 0 36px;
+  color: var(--weak);
+  font-weight: 700;
+  font-size: 13px;
+  padding-top: 1px;
+}
+.ai-v {
+  color: var(--text);
+}
+.ai-conclusion {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  background: var(--blue-weak);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  font-weight: 600;
+}
+.ai-conclusion .ai-k {
+  color: var(--blue);
+}
+.sc {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+.sc-if {
+  font-weight: 700;
+}
+.sc-then {
+  color: var(--sub);
+  margin-top: 2px;
+}
+.sc-then::before {
+  content: "→ ";
+  color: var(--blue);
+  font-weight: 700;
+}
+.ai-watch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ai-watch span {
+  background: var(--fill);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--sub);
+}
+.ai-guard {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--weak);
+}

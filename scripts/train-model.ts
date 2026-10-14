@@ -12,8 +12,9 @@ import { join } from "node:path";
 import type { Candle } from "../lib/types";
 import {
   aucOf, calibrate, CHECKPOINTS, dailySigmaPct, fitLogit, HOUR_FEATURES, intradayFeatures, OPEN_FEATURES, priorFeatures, spearman,
-  SWING_FEATURES, type Checkpoint, type Features, type LogitModel, type ModelEval, type TwoStockModel,
+  SWING_FEATURES, type Checkpoint, type Features, type LogitModel, type ModelEval, type RegimeEval, type TwoStockModel,
 } from "../lib/predict";
+import { regimeKeys } from "../lib/regime";
 import type { DeepHistory } from "./backfill-deep";
 
 const C_REG = 0.1;
@@ -27,7 +28,7 @@ const toCandles = (bars: { d: string; o: number; h: number; l: number; c: number
   bars.map((b) => ({ date: b.d, open: b.o, high: b.h, low: b.l, close: b.c, volume: b.v }));
 
 /** 미국 지수: 날짜 D(국내) 아침에 알 수 있는 직전 정규장 등락률과 60일 σ */
-function usSeries(key: "nvda" | "sox") {
+function usSeries(key: "nvda" | "sox" | "mu") {
   const bars = deep.daily[key] ?? [];
   const pts: { d: string; pct: number; sigma: number }[] = [];
   const rets: number[] = [];
@@ -52,12 +53,13 @@ function usSeries(key: "nvda" | "sox") {
 }
 const nvdaAt = usSeries("nvda");
 const soxAt = usSeries("sox");
+const muAt = usSeries("mu");
 
 type Sample = { code: string; d: string; f: Features; ret: number };
 const openS: Sample[] = [];
 const swingS: Sample[] = [];
 const hourS: Record<string, Sample[]> = Object.fromEntries(CHECKPOINTS.filter((c) => c !== "open").map((c) => [c, []]));
-const preGapRows: { nvdaZ: number; soxZ: number; gapZ: number }[] = [];
+const preGapRows: { nvdaZ: number; soxZ: number; muZ: number; gapZ: number }[] = [];
 
 for (const code of CODES) {
   const daily = toCandles(deep.daily[code]);
@@ -82,9 +84,13 @@ for (const code of CODES) {
     const prior = daily.slice(Math.max(0, i - 260), i);
     const nv = nvdaAt(today.date);
     const sx = soxAt(today.date);
+    const mu = muAt(today.date);
     const pf = priorFeatures(
       { candles: prior, pairCandles: pairAll.slice(Math.max(0, pi - 30), pi), flows: flows.slice(Math.max(0, fi - 10), fi) },
-      { nvdaPct: nv?.pct ?? null, soxPct: sx?.pct ?? null, nvdaSigma: nv?.sigma ?? null, soxSigma: sx?.sigma ?? null },
+      {
+        nvdaPct: nv?.pct ?? null, soxPct: sx?.pct ?? null, muPct: mu?.pct ?? null,
+        nvdaSigma: nv?.sigma ?? null, soxSigma: sx?.sigma ?? null, muSigma: mu?.sigma ?? null,
+      },
     );
     if (!pf) continue;
     // 수급 데이터가 없는 기간(2019 이전)은 수급 특징을 비워 둔다 → 스윙 표본에서 빠진다
@@ -94,7 +100,9 @@ for (const code of CODES) {
     // ① 개장(시가 매수 → 당일 종가)
     const atOpen = intradayFeatures(pf.f, pf.sigma, pf.prevClose, closes, { open: today.open, high: today.open, low: today.open, price: today.open });
     openS.push({ code, d: today.date, f: atOpen, ret: (today.close / today.open - 1) * 100 });
-    if (atOpen.nvdaZ != null && atOpen.soxZ != null && atOpen.gapZ != null) preGapRows.push({ nvdaZ: atOpen.nvdaZ, soxZ: atOpen.soxZ, gapZ: atOpen.gapZ });
+    if (atOpen.nvdaZ != null && atOpen.soxZ != null && atOpen.muZ != null && atOpen.gapZ != null) {
+      preGapRows.push({ nvdaZ: atOpen.nvdaZ, soxZ: atOpen.soxZ, muZ: atOpen.muZ, gapZ: atOpen.gapZ });
+    }
 
     // ② 종가 판단(종가 매수 → 3거래일 뒤 종가)
     if (i + SWING_DAYS < daily.length) {
@@ -118,6 +126,7 @@ for (const code of CODES) {
   }
 }
 
+const clip = (v: number) => Math.max(-3, Math.min(3, v));
 function complete(s: Sample, feats: readonly string[]) {
   return feats.every((k) => Number.isFinite(s.f[k as keyof Features] as number));
 }
@@ -134,7 +143,11 @@ function prob(m: LogitModel, s: Sample) {
 }
 
 /** 워크포워드: 경계(boundaries)마다 그 이전 데이터로 학습 → 다음 경계까지 적용 */
-function walkForward(all: Sample[], feats: readonly string[], boundaries: string[]): { model: LogitModel; eval: ModelEval } {
+function walkForward(
+  all: Sample[], feats: readonly string[], boundaries: string[],
+  /** 검증 표본의 특징을 실전처럼 바꿔 넣는 함수 (예: 장전에는 시가를 모르니 갭을 추정값으로) — 학습 표본으로만 만든다 */
+  testTransform?: (train: Sample[]) => (s: Sample) => Sample,
+): { model: LogitModel; eval: ModelEval } {
   const S = all.filter((s) => complete(s, feats)).sort((a, b) => a.d.localeCompare(b.d));
   const oos: { s: Sample; p: number }[] = [];
   for (let b = 0; b < boundaries.length; b++) {
@@ -144,12 +157,29 @@ function walkForward(all: Sample[], feats: readonly string[], boundaries: string
     const te = S.filter((s) => s.d >= start && s.d < end);
     if (tr.length < 200 || te.length === 0) continue;
     const m = fit(tr, feats);
-    for (const s of te) oos.push({ s, p: prob(m, s) });
+    const tf = testTransform ? testTransform(tr) : (x: Sample) => x;
+    for (const s of te) oos.push({ s, p: prob(m, tf(s)) });
   }
   const p = oos.map((o) => o.p);
   const ret = oos.map((o) => o.s.ret);
   const y: number[] = ret.map((r) => (r > 0 ? 1 : 0));
   const years = [...new Set(oos.map((o) => o.s.d.slice(0, 4)))].sort();
+  // 국면별 성적 — 같은 워크포워드 예측을 국면으로 나눠서 잰다 (국면은 모델 입력이 아니다)
+  const byRegime: Record<string, RegimeEval> = {};
+  const groups = new Map<string, { p: number; ret: number }[]>();
+  for (const o of oos) for (const k of regimeKeys(o.s.f)) {
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k)!.push({ p: o.p, ret: o.s.ret });
+  }
+  for (const [k, g] of groups) {
+    const yy = g.map((x) => (x.ret > 0 ? 1 : 0));
+    byRegime[k] = {
+      n: g.length,
+      auc: Math.round(aucOf(g.map((x) => x.p), yy) * 1000) / 1000,
+      baseUpPct: Math.round((yy.reduce((a: number, b) => a + b, 0) / Math.max(1, yy.length)) * 1000) / 10,
+      calib: calibrate(g.map((x) => x.p), g.map((x) => x.ret)),
+    };
+  }
   const ev: ModelEval = {
     n: oos.length,
     auc: Math.round(aucOf(p, y) * 1000) / 1000,
@@ -161,6 +191,7 @@ function walkForward(all: Sample[], feats: readonly string[], boundaries: string
       const sel = oos.filter((o) => o.s.d.startsWith(yr));
       return { year: yr, n: sel.length, auc: Math.round(aucOf(sel.map((o) => o.p), sel.map((o) => (o.s.ret > 0 ? 1 : 0))) * 1000) / 1000 };
     }),
+    byRegime,
   };
   return { model: fit(S, feats), eval: ev };
 }
@@ -173,31 +204,40 @@ const hourBounds = quarterStarts.filter((q) => q >= "2024-07-01");
 const day = {} as TwoStockModel["day"];
 const o = walkForward(openS, OPEN_FEATURES, yearStarts);
 day.open = { ...o.model, eval: o.eval };
+// 장전(8시 반~9시) 판단 검증: 시가를 모르니 갭을 "학습 기간으로 만든 갭 추정식"으로 바꿔 넣고 같은 개장 모델을 적용
+const preEval = walkForward(openS, OPEN_FEATURES, yearStarts, (tr) => {
+  const g = ols(tr.filter((s) => s.f.nvdaZ != null && s.f.soxZ != null && s.f.muZ != null && s.f.gapZ != null)
+    .map((s) => ({ nvdaZ: s.f.nvdaZ!, soxZ: s.f.soxZ!, muZ: s.f.muZ!, gapZ: s.f.gapZ! })));
+  return (s) => ({ ...s, f: { ...s.f, gapZ: g.nvda * clip(s.f.nvdaZ!) + g.sox * clip(s.f.soxZ!) + g.mu * clip(s.f.muZ!) + g.c } });
+}).eval;
 for (const cp of CHECKPOINTS.filter((c) => c !== "open") as Checkpoint[]) {
   const r = walkForward(hourS[cp], HOUR_FEATURES, hourBounds);
   day[cp] = { ...r.model, eval: r.eval };
 }
 const sw = walkForward(swingS, SWING_FEATS, yearStarts);
 
-// 장전 갭 추정식 (최소제곱)
-function ols(rows: { nvdaZ: number; soxZ: number; gapZ: number }[]) {
-  const X = rows.map((r) => [r.nvdaZ, r.soxZ, 1]);
+// 장전 갭 추정식 (최소제곱): gapZ ≈ a·nvdaZ + b·soxZ + m·muZ + c
+function ols(rows: { nvdaZ: number; soxZ: number; muZ: number; gapZ: number }[]) {
+  const X = rows.map((r) => [r.nvdaZ, r.soxZ, r.muZ, 1].map((v, i) => (i < 3 ? Math.max(-3, Math.min(3, v)) : v)));
   const y = rows.map((r) => r.gapZ);
-  const XtX = [0, 1, 2].map((i) => [0, 1, 2].map((j) => X.reduce((a, x) => a + x[i] * x[j], 0)));
-  const Xty = [0, 1, 2].map((i) => X.reduce((a, x, k) => a + x[i] * y[k], 0));
-  // 3x3 가우스 소거
-  const M = XtX.map((r, i) => [...r, Xty[i]]);
-  for (let c = 0; c < 3; c++) {
+  const d = 4;
+  const M = Array.from({ length: d }, (_, i) => [
+    ...Array.from({ length: d }, (_, j) => X.reduce((a, x) => a + x[i] * x[j], 0)),
+    X.reduce((a, x, k) => a + x[i] * y[k], 0),
+  ]);
+  for (let c = 0; c < d; c++) {
     let p = c;
-    for (let r = c + 1; r < 3; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    for (let r = c + 1; r < d; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
     [M[c], M[p]] = [M[p], M[c]];
-    for (let r = 0; r < 3; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let k = c; k < 4; k++) M[r][k] -= f * M[c][k]; }
+    for (let r = 0; r < d; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let k = c; k <= d; k++) M[r][k] -= f * M[c][k]; }
   }
-  return { nvda: M[0][3] / M[0][0], sox: M[1][3] / M[1][1], c: M[2][3] / M[2][2] };
+  const b = M.map((r, i) => r[d] / r[i]);
+  return { nvda: b[0], sox: b[1], mu: b[2], c: b[3] };
 }
 const g = ols(preGapRows);
 const lastNv = nvdaAt("9999-12-31");
 const lastSx = soxAt("9999-12-31");
+const lastMu = muAt("9999-12-31");
 
 const out: TwoStockModel = {
   generatedAt: new Date().toISOString(),
@@ -208,8 +248,13 @@ const out: TwoStockModel = {
   },
   day,
   swing: { ...sw.model, eval: sw.eval, horizonDays: SWING_DAYS },
-  preGap: { nvda: Math.round(g.nvda * 1000) / 1000, sox: Math.round(g.sox * 1000) / 1000, c: Math.round(g.c * 1000) / 1000 },
-  usSigmaFallback: { nvda: Math.round((lastNv?.sigma ?? 2.5) * 100) / 100, sox: Math.round((lastSx?.sigma ?? 2) * 100) / 100 },
+  preEval,
+  preGap: { nvda: Math.round(g.nvda * 1000) / 1000, sox: Math.round(g.sox * 1000) / 1000, mu: Math.round(g.mu * 1000) / 1000, c: Math.round(g.c * 1000) / 1000 },
+  usSigmaFallback: {
+    nvda: Math.round((lastNv?.sigma ?? 2.5) * 100) / 100,
+    sox: Math.round((lastSx?.sigma ?? 2) * 100) / 100,
+    mu: Math.round((lastMu?.sigma ?? 3) * 100) / 100,
+  },
 };
 writeFileSync(join(process.cwd(), "data", "model.json"), JSON.stringify(out, null, 1));
 
@@ -224,10 +269,16 @@ const line = (name: string, ev: ModelEval) => {
 };
 console.log(`데이터: 일봉 ${out.dataRange.daily} · 1시간봉 ${out.dataRange.hourly} · 수급 ${out.dataRange.flows}`);
 line("개장→종가", day.open.eval);
+line("장전(갭추정)", preEval);
 for (const cp of CHECKPOINTS.filter((c) => c !== "open")) line(`${cp.slice(1)}시→종가`, day[cp].eval);
 line(`종가→${SWING_DAYS}일 뒤`, sw.eval);
 console.log("개장 모델 연도별 AUC:", day.open.eval.byYear?.map((y) => `${y.year} ${y.auc}`).join(" · "));
 console.log("스윙 모델 연도별 AUC:", sw.eval.byYear?.map((y) => `${y.year} ${y.auc}`).join(" · "));
+const rg = (name: string, ev: ModelEval) =>
+  console.log(`${name} 국면별 AUC:`, Object.entries(ev.byRegime ?? {}).sort().map(([k, r]) => `${k} ${r.auc}(${r.n})`).join(" · "));
+rg("개장", day.open.eval);
+rg("10시", day.h10.eval);
+rg("11시", day.h11.eval);
 console.log("장전 갭 추정:", out.preGap, "미국 σ:", out.usSigmaFallback);
 console.log("저장: data/model.json");
 void dailySigmaPct;

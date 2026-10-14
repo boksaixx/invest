@@ -2,7 +2,8 @@
 //
 // 실행: npx tsx scripts/validate-decide.ts   (npm run validate:rules 에 포함)
 import { decide, DAY_BUY_PROB, hitRateOf } from "../lib/decide";
-import type { Prediction } from "../lib/predict";
+import type { ModelEval, Prediction } from "../lib/predict";
+import { describeRegime } from "../lib/regime";
 import type { EngineSignal, MarketPhaseInfo } from "../lib/types";
 import model from "../data/model.json";
 
@@ -56,6 +57,24 @@ ok(d.verdict === "wait" && /장이 닫혀/.test(d.summary), "장 마감 후 → 
 d = decide({ ...base, sig: sig({ warnings: ["추격 보정 — 종합 점수는 매수 신호지만 VWAP 대비 +2.4% 이격"] , suggestedEntryPrice: 229000 }), pred: pred(0.6, "h10"), holding: null, phase: ph("장중") });
 ok(d.title === "지정가로 사세요" && d.plan[0].value === "229,000원", "많이 오른 상태면 VWAP 지정가로 안내");
 
+console.log("\n=== 시황 국면 ===");
+{
+  const ev = (model as unknown as { day: { open: { eval: ModelEval } } }).day.open.eval;
+  const pr: Prediction = { ...pred(0.62, "h10"), dayEval: ev };
+  const mk = (volRegime: number) =>
+    describeRegime({ f: { volRegime, ma20gapZ: 0 }, sigma: 3, overnight: null, market: null, dayEval: ev });
+  const hi = mk(1.5), calm = mk(0.6), mid = mk(1.0);
+  ok(hi.headline.includes("변동 큰 장") && hi.edge?.better === true, `변동 큰 장 → ${hi.edge?.text}`);
+  ok(calm.edge?.better === false, `변동 작은 장 → ${calm.edge?.text}`);
+  const dHi = decide({ ...base, sig: sig(), pred: pr, holding: null, phase: ph("장중"), regime: hi });
+  const dCalm = decide({ ...base, sig: sig(), pred: pr, holding: null, phase: ph("장중"), regime: calm });
+  const dMid = decide({ ...base, sig: sig(), pred: pr, holding: null, phase: ph("장중"), regime: mid });
+  const q = (x: typeof dHi) => Number(x.plan.find((r) => r.label === "수량")?.value.replace(/[^\d]/g, ""));
+  ok(dHi.day?.stat?.startsWith("같은 변동 큰 장에서") === true, `국면 표본이 충분하면 같은 국면 성적 → "${dHi.day?.stat}"`);
+  ok(q(dCalm) < q(dMid) && q(dCalm) >= Math.floor(q(dMid) * 0.7) - 1 && dCalm.cautions[0].includes("30%"), `덜 맞던 국면은 수량 30% 축소 (${q(dMid)}주 → ${q(dCalm)}주)`);
+  ok(q(dHi) === q(dMid), "잘 맞던 국면이라고 수량을 늘리지는 않음");
+}
+
 console.log("\n=== 보유 ===");
 const held = { qty: 10, avgPrice: 240000 };
 d = decide({ ...base, sig: sig({ action: "손절", pnlPct: -3.3 }), pred: pred(0.6, "h10"), holding: held, phase: ph("장중") });
@@ -77,6 +96,10 @@ for (const [k, v] of Object.entries(m.day)) {
 }
 const yrs = m.day.open.eval.byYear ?? [];
 ok(yrs.length >= 5 && yrs.every((y) => y.auc > 0.5), `개장 모델 해마다 기준선 위 (${yrs.map((y) => y.auc).join(", ")})`);
+const mm = model as unknown as { day: { open: { features: string[]; eval: { auc: number } } }; preEval?: { auc: number } };
+ok(mm.day.open.features.includes("muZ") && mm.day.open.features.includes("ret20Z"), "개장 모델에 마이크론·한 달 추세 포함");
+ok(mm.day.open.eval.auc >= 0.57, `개장 모델 검증 AUC ${mm.day.open.eval.auc} ≥ 0.57 (개선 전 0.559)`);
+ok((mm.preEval?.auc ?? 0) >= 0.56, `장전(갭 추정) 판단 검증 AUC ${mm.preEval?.auc}`);
 ok(DAY_BUY_PROB === 0.55, "매수 기준 확률 55%");
 
 console.log(fail === 0 ? "\n전체 통과" : `\n실패 ${fail}건`);

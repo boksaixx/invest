@@ -17,13 +17,18 @@ import type { Candle } from "./types";
 export type Checkpoint = "open" | "h10" | "h11" | "h12" | "h13" | "h14" | "h15";
 export const CHECKPOINTS: Checkpoint[] = ["open", "h10", "h11", "h12", "h13", "h14", "h15"];
 
-export const OPEN_FEATURES = ["nvdaZ", "soxZ", "gapZ", "clvPrev", "ocPrevZ", "ret5Z", "pairRel5Z"] as const;
-export const HOUR_FEATURES = ["since", "rangePos", "gapZ", "nvdaZ", "clvPrev", "ret5Z"] as const;
+// muZ(간밤 마이크론)·ret20Z(한 달 추세)는 2026-10 추가 — 워크포워드로 개장 AUC 0.557→0.578, 장중 평균 0.556→0.568.
+// 같이 시험했지만 검증에서 나아지지 않아 뺀 것: 나스닥선물(간밤·장중), 원달러·코스피 장중 등락, 짝 종목 장중 차이,
+// 거래량 속도, 외국인·기관 수급, 외국인 보유율 변화, 20일선 이격, 변동성 국면(→ 대신 국면별 성적으로 따로 보여 준다).
+export const OPEN_FEATURES = ["nvdaZ", "soxZ", "muZ", "gapZ", "clvPrev", "ocPrevZ", "ret5Z", "ret20Z", "pairRel5Z"] as const;
+export const HOUR_FEATURES = ["since", "rangePos", "gapZ", "nvdaZ", "muZ", "clvPrev", "ret5Z", "ret20Z"] as const;
 // 스윙(3거래일) — 수급(외국인·기관 5일)은 넣어 봤지만 검증 성적이 오히려 나빠져(AUC 0.505) 뺐다.
 export const SWING_FEATURES = ["clv", "ocZ", "ret5Zc", "ret20Zc", "pairRel5Z"] as const;
 
-// frgn5·inst5 는 모델에는 안 쓰지만 화면 표시(외국인·기관 5일 순매수)용으로 계산해 둔다
-export type FeatureName = (typeof OPEN_FEATURES)[number] | (typeof HOUR_FEATURES)[number] | (typeof SWING_FEATURES)[number] | "frgn5" | "inst5";
+// frgn5·inst5·volRegime·ma20gapZ·ma60gapZ 는 모델에는 안 쓰지만 화면(수급·시황 국면) 표시용으로 계산해 둔다
+export type FeatureName =
+  | (typeof OPEN_FEATURES)[number] | (typeof HOUR_FEATURES)[number] | (typeof SWING_FEATURES)[number]
+  | "frgn5" | "inst5" | "volRegime" | "ma20gapZ" | "ma60gapZ";
 export type Features = Partial<Record<FeatureName, number>>;
 
 /** 로지스틱 모델 하나 — 특징은 ±3으로 자른 뒤 선형결합 */
@@ -49,16 +54,26 @@ export interface ModelEval {
   period: string; // 검증 기간
   calib: CalibRow[];
   byYear?: { year: string; n: number; auc: number }[];
+  /** 시황 국면별 검증 성적 (키: lib/regime.ts 의 RegimeKey) */
+  byRegime?: Record<string, RegimeEval>;
+}
+export interface RegimeEval {
+  n: number;
+  auc: number;
+  baseUpPct: number;
+  calib: CalibRow[];
 }
 export interface TwoStockModel {
   generatedAt: string;
   dataRange: { daily: string; hourly: string; flows: string };
   day: Record<Checkpoint, LogitModel & { eval: ModelEval }>;
   swing: LogitModel & { eval: ModelEval; horizonDays: number };
-  /** 장 시작 전: 간밤 미국 등락으로 갭(σ 단위)을 추정하는 선형식 — gapZ ≈ a·nvdaZ + b·soxZ + c */
-  preGap: { nvda: number; sox: number; c: number };
+  /** 장전 판단(갭을 간밤 미국으로 추정해 개장 모델에 넣은 것)의 워크포워드 성적 */
+  preEval?: ModelEval;
+  /** 장 시작 전: 간밤 미국 등락으로 갭(σ 단위)을 추정하는 선형식 — gapZ ≈ a·nvdaZ + b·soxZ + m·muZ + c */
+  preGap: { nvda: number; sox: number; mu?: number; c: number };
   /** 최근 미국 지수 일간 변동성(60일 σ, %) — 실시간 σ를 못 구할 때 쓰는 대체값 */
-  usSigmaFallback: { nvda: number; sox: number };
+  usSigmaFallback: { nvda: number; sox: number; mu?: number };
 }
 
 export const clip3 = (x: number) => Math.max(-3, Math.min(3, x));
@@ -112,8 +127,10 @@ export interface PriorDays {
 export interface Overnight {
   nvdaPct: number | null; // 직전 미국 정규장 등락률 %
   soxPct: number | null;
+  muPct?: number | null; // 마이크론 — 같은 메모리 업종이라 엔비디아·SOX와 반대로(+) 작용했다
   nvdaSigma: number | null; // 미국 60일 σ %
   soxSigma: number | null;
+  muSigma?: number | null;
 }
 
 export interface Intraday {
@@ -134,8 +151,17 @@ export function priorFeatures(pd: PriorDays, on: Overnight): { f: Features; sigm
   const f: Features = {};
   f.clvPrev = last.high > last.low ? Math.max(-1, Math.min(1, (last.close - last.low - (last.high - last.close)) / (last.high - last.low))) : 0;
   f.ocPrevZ = ((last.close / last.open - 1) * 100) / sigma;
-  const r5 = (closes[closes.length - 1] / closes[closes.length - 6] - 1) * 100;
+  const n = closes.length;
+  const r5 = (closes[n - 1] / closes[n - 6] - 1) * 100;
   f.ret5Z = r5 / (sigma * Math.sqrt(5));
+  f.ret20Z = ((closes[n - 1] / closes[n - 21] - 1) * 100) / (sigma * Math.sqrt(20));
+  // 국면 판별용 (모델 입력 아님): 이동평균 이격(σ 단위), 최근 20일 σ ÷ 120일 σ
+  const ma = (k: number) => (n >= k ? closes.slice(-k).reduce((a, b) => a + b, 0) / k : NaN);
+  f.ma20gapZ = ((closes[n - 1] / ma(20) - 1) * 100) / sigma;
+  const ma60 = ma(60);
+  if (Number.isFinite(ma60)) f.ma60gapZ = ((closes[n - 1] / ma60 - 1) * 100) / sigma;
+  const s120 = dailySigmaPct(closes, 120);
+  if (s120 > 0) f.volRegime = sigma / s120;
   const pc = pd.pairCandles.map((x) => x.close);
   if (pc.length >= 6) {
     const pr5 = (pc[pc.length - 1] / pc[pc.length - 6] - 1) * 100;
@@ -143,6 +169,7 @@ export function priorFeatures(pd: PriorDays, on: Overnight): { f: Features; sigm
   }
   if (on.nvdaPct != null && on.nvdaSigma && on.nvdaSigma > 0) f.nvdaZ = on.nvdaPct / on.nvdaSigma;
   if (on.soxPct != null && on.soxSigma && on.soxSigma > 0) f.soxZ = on.soxPct / on.soxSigma;
+  if (on.muPct != null && on.muSigma && on.muSigma > 0) f.muZ = on.muPct / on.muSigma;
   // 수급: 최근 5일 합 ÷ 20일 평균 거래량 (%), ±300 자른 뒤 /100
   const vols = c.slice(-20).map((x) => x.volume).filter((v) => v > 0);
   const avgVol = vols.length >= 10 ? vols.reduce((a, b) => a + b, 0) / vols.length : NaN;
@@ -217,6 +244,12 @@ function describe(name: string, f: Features, sigma: number, on: Overnight, up: b
       return on.nvdaPct != null ? `간밤 엔비디아 ${pct(on.nvdaPct)} — ${on.nvdaPct >= 0 ? "높게 시작한 날은 장중에 밀린 경우가 많았어요" : "낮게 시작한 날은 장중에 회복한 경우가 많았어요"} (${arrow})` : null;
     case "soxZ":
       return on.soxPct != null ? `간밤 미국 반도체지수 ${pct(on.soxPct)} (${arrow})` : null;
+    case "muZ":
+      return on.muPct != null ? `간밤 마이크론(메모리) ${pct(on.muPct)} — 같은 메모리 업종 흐름 (${arrow})` : null;
+    case "ret20Z": {
+      const v = (f.ret20Z ?? 0) * sigma * Math.sqrt(20);
+      return `한 달 추세 ${pct(v)} — ${v >= 0 ? "오르는 흐름이 이어지던 때가 많았어요" : "내리는 흐름이 이어지던 때가 많았어요"} (${arrow})`;
+    }
     case "gapZ": {
       const g = (f.gapZ ?? 0) * sigma;
       return `오늘 시가 ${pct(g)} 출발 (${arrow})`;
@@ -309,6 +342,7 @@ export function predict(params: {
     ...params.overnight,
     nvdaSigma: params.overnight.nvdaSigma ?? model.usSigmaFallback.nvda,
     soxSigma: params.overnight.soxSigma ?? model.usSigmaFallback.sox,
+    muSigma: params.overnight.muSigma ?? model.usSigmaFallback.mu ?? null,
   };
   const today = params.marketOpenToday ? params.todayKst : "9999-99-99";
   const prior = params.candles.filter((c) => c.date < today);
@@ -344,12 +378,13 @@ export function predict(params: {
   if (cp === "pre") {
     // 시가를 모르니 간밤 미국 등락으로 갭을 추정해 개장 모델에 넣는다
     const g = model.preGap;
-    dayF = { ...f, gapZ: g.nvda * (f.nvdaZ ?? 0) + g.sox * (f.soxZ ?? 0) + g.c };
+    dayF = { ...f, gapZ: g.nvda * clip3(f.nvdaZ ?? 0) + g.sox * clip3(f.soxZ ?? 0) + (g.mu ?? 0) * clip3(f.muZ ?? 0) + g.c };
     dayModel = model.day.open;
   } else if (cp && intraday) {
     dayModel = model.day[cp];
   }
   if (dayModel) dayProb = logitProb(dayModel, dayF);
+  const dayEvalUsed = cp === "pre" ? (model.preEval ?? dayModel?.eval) : dayModel?.eval;
   const swingProb = logitProb(model.swing, f);
 
   return {
@@ -357,9 +392,9 @@ export function predict(params: {
     checkpoint: cp,
     dayProb,
     swingProb,
-    dayCalib: calibFor(dayModel?.eval, dayProb),
+    dayCalib: calibFor(dayEvalUsed, dayProb),
     swingCalib: calibFor(model.swing.eval, swingProb),
-    dayEval: dayModel?.eval ?? null,
+    dayEval: dayEvalUsed ?? null,
     swingEval: model.swing.eval,
     dayReasons: dayModel ? reasonsFor(dayModel, dayF, pf.sigma, on) : [],
     swingReasons: reasonsFor(model.swing, f, pf.sigma, on),

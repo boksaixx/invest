@@ -37,7 +37,7 @@ export type AdviceUsage = {
   costUsd: number;
 };
 
-function computeUsage(model: string, u: {
+export function computeUsage(model: string, u: {
   input_tokens?: number | null;
   output_tokens?: number | null;
   cache_creation_input_tokens?: number | null;
@@ -989,7 +989,7 @@ function applyConsistencyCheck(advice: Omit<AiAdvice, "generatedAt">, signals: E
   }
 }
 
-function describeAnthropicError(e: unknown): string {
+export function describeAnthropicError(e: unknown): string {
   if (e instanceof Anthropic.AuthenticationError) return "Claude API 키가 잘못되었습니다 (401). Vercel 환경변수의 ANTHROPIC_API_KEY를 확인하세요.";
   if (e instanceof Anthropic.PermissionDeniedError) return "Claude API 키 권한 오류 (403). console.anthropic.com에서 결제 설정을 확인하세요.";
   if (e instanceof Anthropic.RateLimitError) return "Claude API 사용량 한도 초과 (429). 잠시 후 다시 시도하거나 크레딧을 확인하세요.";

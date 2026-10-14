@@ -11,6 +11,7 @@
 import type { CalibRow, ModelEval, Prediction } from "./predict";
 import type { EngineSignal, MarketPhaseInfo } from "./types";
 import { roundToTick } from "./tick";
+import { REGIME_LABEL, regimeEvalFor, type RegimeView } from "./regime";
 
 export const DAY_BUY_PROB = 0.55;
 export const DAY_WEAK_PROB = 0.45;
@@ -51,7 +52,7 @@ export interface Decision {
 const won = (n: number | null | undefined) => (n == null || !Number.isFinite(n) || n <= 0 ? "-" : `${Math.round(n).toLocaleString("ko-KR")}원`);
 const pctS = (x: number, d = 1) => `${x >= 0 ? "+" : ""}${x.toFixed(d)}%`;
 
-function statOf(c: CalibRow | null, dirUp: boolean, ev?: ModelEval | null): string | null {
+function statOf(c: CalibRow | null, dirUp: boolean, ev?: Pick<ModelEval, "calib"> | null, where = "과거 비슷한 상황", minN = 20): string | null {
   // 해당 확률 구간 표본이 적으면(50건 미만) 같은 쪽 구간(≥55% 또는 ≤45%)을 합쳐서 보여 준다
   if (c && c.n < 50 && ev) {
     const side = ev.calib.filter((r) => (dirUp ? r.lo >= DAY_BUY_PROB : r.hi <= DAY_WEAK_PROB) && r.n > 0);
@@ -64,21 +65,29 @@ function statOf(c: CalibRow | null, dirUp: boolean, ev?: ModelEval | null): stri
       };
     }
   }
-  if (!c || c.n < 20) return null;
+  if (!c || c.n < minN) return null;
   const hit = dirUp ? c.upPct : 100 - c.upPct;
-  return `과거 비슷한 상황 ${c.n.toLocaleString("ko-KR")}번 중 ${Math.round(hit)}%가 ${dirUp ? "올랐어요" : "밀렸어요"} (평균 ${pctS(c.avgPct, 2)})`;
+  return `${where} ${c.n.toLocaleString("ko-KR")}번 중 ${Math.round(hit)}%가 ${dirUp ? "올랐어요" : "밀렸어요"} (평균 ${pctS(c.avgPct, 2)})`;
 }
 
-function dayView(pred: Prediction): ProbView | null {
+function dayView(pred: Prediction, regime: RegimeView | null): ProbView | null {
   if (pred.dayProb == null) return null;
   const p = pred.dayProb;
   const up = p >= DAY_BUY_PROB;
   const down = p <= DAY_WEAK_PROB;
+  // 같은 국면(출렁이는 장·상승 추세 등)의 검증 성적이 충분하면(같은 쪽 신호 50건 이상) 그걸 먼저 보여 준다
+  let stat: string | null = null;
+  const re = regime ? regimeEvalFor(pred.dayEval, regime.keys) : null;
+  if (re && (up || down)) {
+    const c = re.ev.calib.find((r) => p >= r.lo && p < r.hi) ?? null;
+    stat = statOf(c, up, re.ev, `같은 ${REGIME_LABEL[re.key]}에서 비슷한 신호`, 50);
+  }
+  if (!stat) stat = up ? statOf(pred.dayCalib, true, pred.dayEval) : down ? statOf(pred.dayCalib, false, pred.dayEval) : null;
   return {
     prob: p,
     label: up ? "오늘 오를 가능성이 높아요" : down ? "오늘 밀릴 가능성이 높아요" : "오늘은 반반이에요",
     tone: up ? "up" : down ? "down" : "flat",
-    stat: up ? statOf(pred.dayCalib, true, pred.dayEval) : down ? statOf(pred.dayCalib, false, pred.dayEval) : null,
+    stat,
     horizon: pred.checkpoint === "pre" ? "오늘 시가 → 종가" : "지금 → 오늘 종가",
     weak: false,
   };
@@ -122,10 +131,13 @@ export function decide(params: {
   phase: MarketPhaseInfo;
   dailyStopTriggered: boolean;
   swingDays: number;
+  /** 시황 국면 (lib/regime.ts) — 국면별 성적 표시와 수량 조절에 쓴다 */
+  regime?: RegimeView | null;
 }): Decision {
   const { sig, pred, holding, phase } = params;
+  const regime = params.regime ?? null;
   const price = sig.price;
-  const day = dayView(pred);
+  const day = dayView(pred, regime);
   const swing = swingView(pred, params.swingDays);
   const cp = pred.checkpoint;
   const inSession = ["장초반", "장중", "점심시간대", "마감임박", "동시호가"].includes(phase.phase);
@@ -137,6 +149,8 @@ export function decide(params: {
   if (sig.riskOverlay) cautions.push(sig.riskOverlay.notes[0]);
   const vfHigh = sig.volForecast?.available && (sig.volForecast.regime === "높음" || sig.volForecast.regime === "극단");
   if (vfHigh) cautions.push(`요즘 하루 평균 ±${sigma.toFixed(1)}% 움직여요 — 평소보다 크게 흔들리니 수량을 줄였어요`);
+  // 이 국면에서 신호가 평소보다 덜 맞았으면 수량을 30% 줄인다 (맞힌 정도에 비례해 거는 원칙)
+  const regimeWorse = regime?.edge?.better === false;
 
   const reasonsDay = pred.dayReasons.slice(0, 3);
   const base = { day, swing, cautions: cautions.slice(0, 2) };
@@ -224,7 +238,8 @@ export function decide(params: {
     const entry = overheated && sig.suggestedEntryPrice ? sig.suggestedEntryPrice : price;
     const stopDist = stop && entry > stop ? entry - stop : entry * 0.03;
     const volMult = sig.volForecast?.regime === "극단" ? 0.45 : sig.volForecast?.regime === "높음" ? 0.7 : sig.volForecast?.regime === "평온" ? 1.1 : 1;
-    let budget = Math.min(params.cash * 0.25, (params.totalAsset * 0.01 * entry) / stopDist) * volMult * (sig.riskOverlay?.sizeMultiplier ?? 1);
+    const regimeMult = regimeWorse ? 0.7 : 1;
+    let budget = Math.min(params.cash * 0.25, (params.totalAsset * 0.01 * entry) / stopDist) * volMult * regimeMult * (sig.riskOverlay?.sizeMultiplier ?? 1);
     if (params.correlationHeadroom != null) budget = Math.min(budget, Math.max(0, params.correlationHeadroom));
     const qty = Math.floor(budget / entry);
     if (qty < 1) {
@@ -237,6 +252,9 @@ export function decide(params: {
     const isPre = cp === "pre";
     return {
       ...base,
+      cautions: regimeWorse && regime?.edge
+        ? [`${REGIME_LABEL[regime.edge.key]}에서는 이 신호가 평소보다 덜 맞아 수량을 30% 줄였어요`, ...base.cautions].slice(0, 2)
+        : base.cautions,
       verdict: isPre ? "buy_open" : "buy_now",
       title: isPre ? "9시에 사세요" : overheated ? "지정가로 사세요" : "지금 사세요",
       tone: "buy",
