@@ -8,6 +8,8 @@ import { fetchDartDisclosures } from "@/lib/dart";
 import { fetchInvestorFlows } from "@/lib/investorFlow";
 import Anthropic from "@anthropic-ai/sdk";
 import { DEFAULT_ADVICE_MODEL } from "@/lib/claude";
+import { fetchLiveFeed } from "@/lib/liveNews";
+import { calendarCoverageEnd } from "@/lib/eventCalendar";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -66,6 +68,21 @@ export async function GET() {
       : gotCount > 0
         ? `정상 (${gotCount}종목 조회됨)`
         : "⚠️ 조회된 종목 없음(참고용 기능, 다른 기능엔 영향 없음)";
+  }
+
+  // 4-3. 실시간 뉴스·공시 (앱이 판단할 때마다 직접 가져온다 — lib/liveNews.ts)
+  {
+    const f = await fetchLiveFeed();
+    const c = f.counts;
+    result["실시간_뉴스공시"] =
+      f.errors.length >= 3
+        ? `❌ 전부 실패: ${f.errors.join(", ")}`
+        : f.errors.length
+          ? `⚠️ 일부 실패(${f.errors.join(", ")}) — 네이버 ${c.naver} · 구글 ${c.google} · 공시 ${c.disclosure}`
+          : `정상 — 네이버 종목뉴스 ${c.naver} · 구글 뉴스 ${c.google} · 거래소 공시 ${c.disclosure}건`;
+    const end = calendarCoverageEnd();
+    const days = (Date.parse(end) - Date.now()) / 86_400_000;
+    result["예정이벤트_일정표"] = days > 60 ? `정상 (${end}까지)` : `⚠️ ${end}까지만 있음 — lib/eventCalendar.ts에 다음 해 FOMC·CPI·금통위 일정을 추가하세요`;
   }
 
   // 5. GitHub 자동 수집 데이터 — 며칠씩 멈춰 있으면 화면의 판단 근거가 낡은다

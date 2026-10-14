@@ -10,6 +10,9 @@ export const maxDuration = 120;
 
 const cache = new Map<string, { at: number; analysis: DeepAnalysis }>();
 const TTL = 5 * 60_000;
+// 비용 안전장치: 인스턴스당 1시간 30회까지 (저장소가 공개라 기본 비밀번호면 남이 크레딧을 쓸 수 있다)
+const calls: number[] = [];
+const HOURLY_LIMIT = Number(process.env.DEEP_HOURLY_LIMIT ?? 30);
 
 export async function POST(req: Request) {
   try {
@@ -19,6 +22,12 @@ export async function POST(req: Request) {
     const hit = cache.get(key);
     if (hit && !body?.force && Date.now() - hit.at < TTL) return NextResponse.json({ analysis: hit.analysis, cached: true });
 
+    const nowMs = Date.now();
+    while (calls.length && nowMs - calls[0] > 3_600_000) calls.shift();
+    if (calls.length >= HOURLY_LIMIT) {
+      return NextResponse.json({ error: "AI 분석 요청이 너무 많아요. 잠시 후 다시 눌러 주세요." }, { status: 429 });
+    }
+    calls.push(nowMs);
     const { result, ctx } = await buildQuick(portfolio);
     const { analysis, error, usage } = await runDeepAnalysis(ctx);
     if (analysis) {

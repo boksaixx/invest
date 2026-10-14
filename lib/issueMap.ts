@@ -211,6 +211,10 @@ export function computeIssueImpacts(
   const contributions: { impact: IssueImpact; value: number }[] = [];
 
   for (const n of news) {
+    // 실시간 수집분(네이버·구글)의 호재/악재는 제목 키워드 규칙이라 점수에는 넣지 않는다 — 수십 건이 한꺼번에
+    // 들어와 ±15를 쉽게 채우고, 보유 종목의 "전량매도"(점수 ≤ 32) 같은 결론까지 흔들 수 있다.
+    // 대신 쇼크·이벤트 오버레이(수량 축소)와 화면·AI 분석에 쓴다. 공시는 제목이 정형이라 점수에 넣는다.
+    if (n.origin === "google" || n.origin === "naver") continue;
     const topic = inferTopic(n);
     if (topic === "예정이벤트") continue; // 아직 안 일어난 일 — 오버레이(크기 조절)로만 쓴다
     const sentiment = n.sentiment === "긍정" ? 1 : n.sentiment === "부정" ? -1 : 0;
@@ -267,6 +271,22 @@ export function computeIssueImpacts(
   return { score, impacts, notes, warnings };
 }
 
+/** 지금부터 다음 국내 장 마감(15:30 KST)까지 남은 시간 — 주말이면 월요일 마감까지 (공휴일은 무시) */
+export function hoursToNextKrClose(now: Date = new Date()): number {
+  const k = new Date(now.getTime() + 9 * 3600_000);
+  let h = (15.5 * 60 - (k.getUTCHours() * 60 + k.getUTCMinutes())) / 60;
+  let dow = k.getUTCDay();
+  if (h < 0) {
+    h += 24;
+    dow = (dow + 1) % 7;
+  }
+  while (dow === 0 || dow === 6) {
+    h += 24;
+    dow = (dow + 1) % 7;
+  }
+  return h;
+}
+
 /** 30시간 이내면 "이벤트 전"으로 본다 — 국내장 하루 + 미국장 밤을 덮는 길이 */
 export const EVENT_RISK_HOURS = 30;
 export const EVENT_SIZE_MULTIPLIER = 0.7;
@@ -278,23 +298,41 @@ export const SHOCK_SIZE_MULTIPLIER = 0.7;
  *  · shockRisk: 속보(3시간 내)이면서 고영향 악재이고 축이 전쟁·관세·미국정책·중국인 것
  *  · 상해·니케이 급변동은 점수엔 넣지 않고(검증 없음) 맥락 문장만 붙인다
  */
-export function computeRiskOverlay(news: NewsItem[], macro: MacroSnapshot | null, ticker: StockTicker): RiskOverlay | null {
+export function computeRiskOverlay(news: NewsItem[], macro: MacroSnapshot | null, ticker: StockTicker, now: Date = new Date()): RiskOverlay | null {
   const sector = STOCKS[ticker].sector;
   const notes: string[] = [];
   let mult = 1;
 
   // 남은 시간을 모르는 이벤트는 "임박"으로 치지 않는다(모든 고영향 예정 기사가 오버레이를 켜는 것을 막는다).
-  // 이미 지난 이벤트(음수)도 제외 — 스냅샷 뉴스를 이어 쓸 때 경과분만큼 줄어든 값이 들어온다.
-  const upcoming = news
+  // 발표 직후 1시간(음수 -1까지)은 포함 — 첫 반응이 뒤집히는 구간이다.
+  const soon = news
     .filter((n) => inferTopic(n) === "예정이벤트" && n.impact === "높음")
-    .filter((n) => Number.isFinite(n.eventInHours) && (n.eventInHours as number) >= 0 && (n.eventInHours as number) <= EVENT_RISK_HOURS)
-    .slice(0, 2);
+    .filter((n) => Number.isFinite(n.eventInHours) && (n.eventInHours as number) >= -1 && (n.eventInHours as number) <= EVENT_RISK_HOURS);
+  // 국내 종목: 다음 장 마감 전에 일어나는 이벤트만 단타 수량을 줄인다. 장 마감 뒤(미국 CPI 21:30 등)는
+  // 당일 청산하는 단타와 무관하므로 "들고 넘길 물량" 안내만 붙인다 (2026-10 점검에서 고침 — 예전엔 밤 이벤트에도 줄였다)
+  const isKr = STOCKS[ticker].market === "KR";
+  const krClose = isKr ? hoursToNextKrClose(now) : Infinity;
+  const kst = new Date(now.getTime() + 9 * 3600_000);
+  const kstMin = kst.getUTCHours() * 60 + kst.getUTCMinutes();
+  const krSessionNow = kst.getUTCDay() >= 1 && kst.getUTCDay() <= 5 && kstMin >= 9 * 60 && kstMin < 15 * 60 + 30;
+  // 이미 발표된 이벤트(음수)는 국내 장중에 막 나온 것(예: 금통위 10:00)만 수량을 줄인다 —
+  // 장 마감 뒤 발표된 미국 지표는 다음 날 개장 모델이 간밤 미국 등락으로 이미 반영한다
+  const inWindow = (n: NewsItem) => ((n.eventInHours as number) >= 0 ? (n.eventInHours as number) <= krClose : !isKr || krSessionNow);
+  const upcoming = soon.filter(inWindow).slice(0, 2);
+  const afterClose = soon.filter((n) => (n.eventInHours as number) > krClose).slice(0, 2);
+  const laterNotes: string[] = [];
+  if (afterClose.length > 0) {
+    laterNotes.push(
+      `장 마감 뒤 이벤트 — ${afterClose.map((n) => `${n.title}${n.eventAt ? `(${n.eventAt})` : ""}`).join(", ")}. 단타는 마감 전에 정리하니 영향이 작지만, 들고 넘길 물량은 손절 예약을 걸어 두세요`,
+    );
+  }
   const eventRisk = upcoming.length > 0;
   if (eventRisk) {
     mult = Math.min(mult, EVENT_SIZE_MULTIPLIER);
     const list = upcoming.map((n) => `${n.title}${n.eventAt ? `(${n.eventAt})` : n.eventInHours != null ? `(약 ${Math.round(n.eventInHours)}시간 후)` : ""}`).join(", ");
+    const justOut = upcoming.every((n) => (n.eventInHours as number) < 0);
     notes.push(
-      `이벤트 전 — ${list}. 발표 전후 방향은 예측되지 않으므로 신규 진입은 평소의 ${Math.round(EVENT_SIZE_MULTIPLIER * 100)}% 규모로 줄이고, 넘길 포지션은 손절 예약을 걸어두세요`,
+      `${justOut ? "발표 직후" : "이벤트 전"} — ${list}. 발표 전후 방향은 예측되지 않으므로 신규 진입은 평소의 ${Math.round(EVENT_SIZE_MULTIPLIER * 100)}% 규모로 줄이고, 넘길 포지션은 손절 예약을 걸어두세요`,
     );
   }
 
@@ -320,7 +358,9 @@ export function computeRiskOverlay(news: NewsItem[], macro: MacroSnapshot | null
     }
   }
 
+  notes.push(...laterNotes); // 지금 수량에 영향을 주는 안내가 먼저 보이게 맨 뒤에
   if (!eventRisk && !shockRisk && notes.length === 0) return null;
+  // 안내만 있고 줄일 일이 없으면 배수 1 (장 마감 뒤 이벤트·해외 지수 맥락)
   return { eventRisk, shockRisk, sizeMultiplier: Math.max(0.5, mult), notes };
 }
 

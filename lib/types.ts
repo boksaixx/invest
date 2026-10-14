@@ -407,6 +407,10 @@ export interface NewsItem {
   seenAt?: string; // 이 기사를 처음 수집한 시각(ISO). 증분 수집에서 12시간 창·속보 만료(3시간)의 기준
   eventAt?: string; // topic이 예정이벤트일 때 — "오늘 21:30", "내일 03:00(KST)" 같은 사람이 읽는 시각
   eventInHours?: number; // 예정이벤트까지 남은 시간(대략). 30시간 이내면 엔진이 "이벤트 전 축소" 오버레이를 켠다
+  eventAtKst?: string; // 일정표 이벤트의 확정 시각 "YYYY-MM-DD HH:mm" (KST) — 남은 시간을 매번 다시 계산하는 기준
+  at?: string; // 실제 발행 시각(ISO) — 실시간 수집분은 원문 시각, 스냅샷 뉴스는 처음 본 시각에서 "N시간 전"을 빼 추정
+  url?: string;
+  origin?: "gemini" | "naver" | "google" | "disclosure" | "calendar"; // 어디서 왔나
 }
 
 // 이 종목에 "지금" 영향을 주는 이슈 하나 — 뉴스 한 건을 업종 민감도로 번역한 결과
@@ -481,6 +485,9 @@ export interface CollectedSnapshot {
   masterScore: MasterScore | null;
   // 2종목 예측 모델(lib/predict.ts)의 그 시각 판단 — 실전 성적 채점용 (2026-10~)
   predictions?: Record<string, { checkpoint: string | null; dayProb: number | null; swingProb: number | null; price: number }>;
+  // 실시간 뉴스·공시(네이버·구글·거래소, lib/liveNews.ts) 그 시각 수집분 — 나중에 "뉴스가 실제로 주가와 어땠나"를
+  // 검증할 수 있게 일자별 로그에 쌓는다 (2026-10~). 과거 뉴스 라벨이 없어 지금은 뉴스 효과를 검증할 수 없다.
+  liveNews?: NewsItem[];
 }
 
 // sector: "반도체" 종목에만 반도체 전용 통계(국면별 분포·도달확률 보정표·SOX 전이)를 적용한다.

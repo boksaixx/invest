@@ -12,6 +12,8 @@ import { computeUsage, DEFAULT_ADVICE_MODEL, describeAnthropicError, type Advice
 import { DAY_BUY_PROB, DAY_WEAK_PROB } from "./decide";
 import { REGIME_LABEL, type RegimeKey } from "./regime";
 import { roundToTick } from "./tick";
+import { classifyDisclosure } from "./liveNews";
+import type { NewsItem } from "./types";
 import type { QuickContext, StockContext } from "./quickCore";
 import { IN_SESSION } from "./quickCore";
 
@@ -117,6 +119,14 @@ validatedFacts 목록은 과거 데이터로 실제 확인된 패턴입니다. �
 수급(외국인·기관)과 나스닥 선물·환율·코스피 장중 등락은 검증에서 방향 예측력을 더하지 못했습니다 — 맥락 설명에만 쓰고 결론의 핵심 근거로 쓰지 마세요.
 며칠(3거래일) 방향은 거의 예측되지 않았습니다(참고용). 며칠 전망을 단정하지 마세요.
 
+[뉴스·공시·일정 해석 규칙]
+- headlines·각 종목 news는 실시간 수집(네이버·구글 뉴스·거래소 공시)과 Gemini 정리본입니다. tone_자동은 제목 키워드로 붙인 값이라 틀릴 수 있으니 제목과 맥락으로 직접 다시 판단하세요.
+- 트럼프·백악관 발언, 관세, 반도체 수출통제, 중국 반도체(CXMT·YMTC·SMIC), 메모리 가격·HBM, 자사주 매입·소각, 실적 공시가 있으면 market 또는 news 칸에서 반드시 다루고 "언제(몇 시간 전), 어디서" 나온 얘기인지 밝히세요.
+- 같은 사안을 여러 매체가 반복 보도한 것을 여러 건의 독립 호재·악재로 세지 마세요. 12시간 넘은 기사는 이미 주가에 반영됐을 가능성이 크다고 보세요.
+- 중국 메모리 업체의 증설·신제품은 두 종목에 경쟁 악재, 미국의 대중 수출통제는 두 종목에 영향이 엇갈릴 수 있습니다(중국 경쟁사 견제 vs 두 종목의 중국 공장·매출). 한쪽으로 단정하지 마세요.
+- 자사주 매입 공시는 과거 삼성전자 14번 평균 당일 +1.3%(코스피 대비 +0.5%)로 효과가 작고 들쭉날쭉했습니다. 실적 발표일은 시가→종가가 평균 -0.3~-0.4%로 장중에 밀린 경우가 조금 더 많았습니다(표본 적음). 과장하지 마세요.
+- upcomingEvents 중 장중(15:30 전)에 있는 것은 scenarios에 발표 전후 대응을 넣으세요. 장 마감 뒤 이벤트는 들고 넘길 물량 관점으로만.
+
 [행동 규칙]
 - 오후(13시 이후) 신규 단타 매수를 권하지 마세요 — 맞아도 남은 기대수익이 왕복 비용(약 0.18%)을 못 넘었습니다.
 - 하루 손실 한도 도달, 상한가·하한가 날에는 신규 매수를 권하지 마세요.
@@ -207,16 +217,60 @@ function stockPayload(s: StockContext, ctx: QuickContext) {
     indicators: { rsi14: r0(ind.rsi14), adx14: r0(ind.adx14), volumeZ: r2(ind.volumeZ), ma20SlopePct: r2(ind.ma20SlopePct) },
     recentDays: c.slice(-10).map((x) => `${x.date.slice(5)} 시${r0(x.open)} 고${r0(x.high)} 저${r0(x.low)} 종${r0(x.close)}`),
     flows10_주: s.flows.slice(-10).map((f) => `${f.d.slice(5)} 외국인${f.foreign >= 0 ? "+" : ""}${f.foreign} 기관${f.inst >= 0 ? "+" : ""}${f.inst}`),
-    news: s.news.map((n) => ({
-      title: n.title,
-      summary: (n.summary ?? "").slice(0, 140),
-      sentiment_코스피기준: n.sentiment,
-      impact: n.impact,
-      breaking: n.isBreaking ?? false,
-      when: n.publishedAt ?? n.seenAt ?? null,
-      event: n.eventAt ?? null,
-    })),
+    news: s.news.map((n) => headline(n, ctx.now)),
+    disclosures_최근: s.disclosures.slice(0, 6).map((d) => `${d.date.slice(4, 6)}/${d.date.slice(6, 8)} ${d.title} (${classifyDisclosure(d.title).label})`),
     engineWarnings: s.sig.warnings.slice(0, 3),
+  };
+}
+
+function ago(at: string | undefined, now: Date): string {
+  if (!at) return "시각 불명";
+  const m = Math.round((now.getTime() - new Date(at).getTime()) / 60_000);
+  return m < 60 ? `${Math.max(0, m)}분 전` : m < 48 * 60 ? `${Math.round(m / 60)}시간 전` : `${Math.round(m / 1440)}일 전`;
+}
+function headline(n: NewsItem, now: Date) {
+  return {
+    when: ago(n.at, now),
+    source: n.source ?? null,
+    topic: n.topic ?? null,
+    title: n.title,
+    summary: n.summary ? n.summary.slice(0, 120) : undefined,
+    tone_자동: n.sentiment,
+    impact: n.impact,
+    breaking: n.isBreaking ?? false,
+    from: n.origin === "gemini" ? "정리본" : n.origin === "disclosure" ? "공시" : "실시간",
+  };
+}
+function topHeadlines(ctx: QuickContext) {
+  const rank = (n: NewsItem) =>
+    (n.isBreaking ? 100 : 0) + (n.impact === "높음" ? 30 : n.impact === "중간" ? 10 : 0) - Math.min(48, (ctx.now.getTime() - new Date(n.at ?? 0).getTime()) / 3_600_000) * 2;
+  // 축마다 최소 2건은 담아 "무슨 일이 벌어지는지"의 지형이 빠지지 않게
+  const items = ctx.news.filter((n) => n.topic !== "예정이벤트");
+  const picked: NewsItem[] = [];
+  for (const t of ["미국정책", "관세", "중국", "업황", "자사주", "실적", "금리환율", "전쟁지정학", "수급"]) {
+    picked.push(...items.filter((n) => n.topic === t).sort((a, b) => rank(b) - rank(a)).slice(0, 2));
+  }
+  for (const n of [...items].sort((a, b) => rank(b) - rank(a))) {
+    if (picked.length >= 30) break;
+    if (!picked.includes(n)) picked.push(n);
+  }
+  return picked.slice(0, 30).map((n) => headline(n, ctx.now));
+}
+function digest(ctx: QuickContext) {
+  const items = ctx.news.filter((n) => n.topic !== "예정이벤트");
+  const by = new Map<string, { n: number; pos: number; neg: number }>();
+  for (const n of items) {
+    const k = String(n.topic ?? "기타");
+    const v = by.get(k) ?? { n: 0, pos: 0, neg: 0 };
+    v.n++;
+    if (n.sentiment === "긍정") v.pos++;
+    if (n.sentiment === "부정") v.neg++;
+    by.set(k, v);
+  }
+  return {
+    total: items.length,
+    byTopic: [...by.entries()].sort((a, b) => b[1].n - a[1].n).map(([k, v]) => `${k} ${v.n}건(호재 ${v.pos}·악재 ${v.neg})`).join(", "),
+    sources: `실시간 네이버 ${ctx.liveFeed.counts.naver} · 구글 ${ctx.liveFeed.counts.google} · 공시 ${ctx.liveFeed.counts.disclosure} · Gemini 정리본 ${ctx.newsAgeMin != null ? `${ctx.newsAgeMin}분 전 수집` : "없음"}`,
   };
 }
 
@@ -232,10 +286,20 @@ export function buildDeepPayload(ctx: QuickContext) {
       nvdaPct: r2(ctx.overnight.nvdaPct), soxPct: r2(ctx.overnight.soxPct), muPct: r2(ctx.overnight.muPct),
     },
     marketNow: {
-      kospi: pq(m.kospi), nasdaqFutures: pq(m.nasdaqFutures), usdkrw: pq(m.usdkrw),
+      kospi: pq(m.kospi), nasdaqFutures: pq(m.nasdaqFutures), sp500Futures: pq(m.spFutures), usdkrw: pq(m.usdkrw),
+      nasdaqLastClose: pq(m.nasdaq), sox: pq(m.sox), nikkei: pq(m.nikkei), shanghai: pq(m.shanghai), wti: pq(m.oil),
       vix: m.vix ? Math.round(m.vix.price * 10) / 10 : null,
       us10y: m.us10y ? Math.round(m.us10y.price * 100) / 100 : null,
+      fearGreed: m.fearGreed ? `${m.fearGreed.value} (${m.fearGreed.ratingKo})` : null,
     },
+    // 뉴스·공시·일정 (실시간 수집 + Gemini 정리본). tone은 자동 분류라 직접 다시 판단할 것
+    newsDigest: digest(ctx),
+    headlines: topHeadlines(ctx),
+    upcomingEvents: ctx.news
+      .filter((n) => n.topic === "예정이벤트" && Number.isFinite(n.eventInHours))
+      .sort((a, b) => (a.eventInHours as number) - (b.eventInHours as number))
+      .slice(0, 5)
+      .map((n) => `${n.eventAt ?? ""} ${n.title} (${(n.eventInHours as number) < 0 ? "방금 발표" : `${Math.round(n.eventInHours as number)}시간 후`}, 영향 ${n.impact})`),
     newsAgeMin: ctx.newsAgeMin,
     validatedFacts: validatedFacts(ctx),
     stocks: ctx.stocks.map((s) => stockPayload(s, ctx)),

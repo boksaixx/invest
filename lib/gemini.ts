@@ -2,6 +2,20 @@
 // GEMINI_API_KEY 필요 (https://aistudio.google.com 에서 무료 발급).
 import type { NewsItem } from "./types";
 import { NEWS_TOPICS } from "./issueMap";
+import { isRelevant } from "./liveNews";
+
+// 한 번에 14개 주제를 몰아 물으면 종목·업황 기사만 잔뜩 오고 정책·중국·예정 이벤트가 비었다
+// (2026-10-14 점검: 21건 중 중국 0·관세 0·예정 이벤트 0). 두 갈래로 나눠 동시에 묻는다.
+const FOCUS = [
+  {
+    name: "종목·업황",
+    text: "이번 호출은 주제 1·2·3·9·10·12·13·14만 수집한다(나머지 주제는 다른 호출이 맡는다). 최소: 종목 6건(두 종목 균형), 업황 4건, 중국 반도체 3건, 자사주·주주환원 1건, 실적 전망 2건.",
+  },
+  {
+    name: "정책·매크로",
+    text: "이번 호출은 주제 4·5·6·7·8·11만 수집한다(나머지 주제는 다른 호출이 맡는다). 최소: 미국 정책·트럼프 발언·관세·수출통제 4건(발언 시각과 원문 인용), 매크로·지수 4건, 지정학 2건, 예정 이벤트 3건(eventAt·eventInHours 필수).",
+  },
+];
 
 const PROMPT = `한국 주식 단타 트레이더용 실시간 속보 수집. 추적 종목은 삼성전자(005930)·SK하이닉스(000660) 2종목뿐이다. 오래된 뉴스보다 방금 나온 뉴스가 중요.
 요즘은 SOX(미 반도체지수) 급등락, 국제 유가 급변동, 주요 정치인 발언 한마디, 국내 대장주 상한가,
@@ -25,14 +39,15 @@ const PROMPT = `한국 주식 단타 트레이더용 실시간 속보 수집. �
 
 수집 분량(중요 — 종목 뉴스만 잔뜩 가져오고 시장 뉴스가 비는 문제가 반복됐다):
 - 개별 종목(주제 1~2)은 최대 16건까지(두 종목 균형). 나머지는 시장·업황·정책 주제로 채운다.
-- 주제 3(반도체 업황) 최소 3건, 주제 4~5(매크로·지수·파생) 최소 4건, 주제 7(지정학·전쟁) 최소 2건, 주제 8(미국 정책) 최소 2건, 주제 9(중국) 최소 2건, 주제 10(자사주) 최소 1건, 주제 11(예정 이벤트) 최소 2건, 주제 12~13(큰손·실적 전망) 합쳐 최소 2건을 반드시 채운다. 해당 주제에 최신 뉴스가 정말 없으면 그 사실을 impact "낮음"으로라도 1건 남긴다.
+- 주제별 최소 건수는 아래 "수집 범위"를 따른다. 해당 주제에 최신 뉴스가 정말 없으면 그 사실을 impact "낮음"으로라도 1건 남긴다.
+- 삼성전자·SK하이닉스와 무관한 다른 국내 종목(방산·자동차·금융·바이오·통신·코인 등) 기사는 넣지 않는다.
 - 코스피/코스닥/나스닥/S&P500/SOX 지수 자체의 등락과 그 원인(수급·금리·환율)은 종목 뉴스가 아니라 주제 4로 반드시 포함한다.
 
 sentiment 기준(중요): sentiment는 항상 "코스피 전체에 호재냐 악재냐" 기준으로만 매긴다. 전쟁 긴장 고조는 "부정", 휴전은 "긍정"으로 적는다. topic은 기사가 건드리는 대외변수 축 하나를 고른다: "자사주"|"중국"|"미국정책"|"관세"|"전쟁지정학"|"금리환율"|"실적"|"업황"|"수급"|"지수"|"예정이벤트"|"기타".
 
 규칙: 최신 발행 우선. 해외발 뉴스는 국내 번역기사보다 외신 원문 발행 시각이 더 빠르므로, 같은 사안이면 원문 기준 시각으로 최신성을 판단(단 summary는 한국어로 작성). 3시간 이내+impact "높음"만 isBreaking=true, 배열 맨 앞. **12시간 초과 뉴스는 원칙적으로 제외**하고, 24시간을 넘는 뉴스는 그 사안이 아직 진행 중이며 오늘 주가에 직접 영향을 주는 경우에만 넣되 publishedAt에 실제 경과 시간을 정확히 적는다. 오래된 기사를 최신인 것처럼 적지 말 것. publishedAt은 실제 시각 또는 상대시각(예: "1시간 전", "어제 18시")으로 쓰고, 확인 불가면 "시점 불명"으로 명시한다. 배열은 최신순 정렬.
 
-summary는 숫자를 포함한 한국어 1문장(60자 이내)으로 압축. 아래 JSON 배열만 출력(다른 텍스트 금지, 최대 60건, 최신순). 건수가 많을수록 좋다 — 몇 건 안 되는 뉴스로 시장을 판단하면 오판 위험이 크다. 다만 같은 사안의 중복 기사는 하나로 합친다:
+summary는 숫자를 포함한 한국어 1문장(60자 이내)으로 압축. 아래 JSON 배열만 출력(다른 텍스트 금지, 최대 40건, 최신순). 건수가 많을수록 좋다 — 몇 건 안 되는 뉴스로 시장을 판단하면 오판 위험이 크다. 다만 같은 사안의 중복 기사는 하나로 합친다:
 [{"title":"","summary":"","sentiment":"긍정"|"부정"|"중립","impact":"높음"|"중간"|"낮음","relatedTo":"삼성전자"|"SK하이닉스"|"반도체업황"|"매크로"|"지수"|"레버리지ETF"|"파생시장"|"지정학"|"미국정책"|"중국"|"중국반도체"|"자사주"|"예정이벤트"|"큰손동향"|"실적전망","topic":"자사주"|"중국"|"미국정책"|"관세"|"전쟁지정학"|"금리환율"|"실적"|"업황"|"수급"|"지수"|"예정이벤트"|"기타","eventAt":"(예정이벤트만, KST 시각)","eventInHours":(예정이벤트만, 숫자),"source":"","publishedAt":"","isBreaking":true|false}]`;
 
 // 구글이 특정 모델의 신규 지원을 중단하거나(예: "gemini-2.5-flash is no longer available
@@ -158,6 +173,23 @@ export async function collectNews(opts: CollectNewsOptions = {}): Promise<{ news
     ? `${PROMPT}\n\n증분 수집 지시(중요): 아래 제목들은 이미 수집돼 있다. 같은 사안을 다루는 기사는 다시 싣지 말고, 그 이후 "새로 나온" 기사나 "상태가 바뀐"(예: 협상 결렬→타결, 예정 이벤트 발표 완료) 사안만 수집한다. 새 기사가 정말 없으면 빈 배열 []만 출력한다. 주제별 최소 건수 규칙은 이 경우 적용하지 않는다.\n이미 수집된 제목:\n${known.map((t) => `- ${t}`).join("\n")}`
     : PROMPT;
 
+  const results = await Promise.all(FOCUS.map((f) => callOnce(apiKey, `${prompt}\n\n수집 범위(중요): ${f.text}`, known.length > 0)));
+  const all = results.flatMap((r) => r.news);
+  // 같은 사안 중복 제거 + 두 종목과 무관한 기사 제거 (예전 10종목 시절 방산·금융·바이오 기사가 섞여 들어왔다)
+  const seen = new Set<string>();
+  const news = all.filter((n) => {
+    const k = n.title.replace(/[\s"'“”‘’·,.…!?()[\]\-–—:;/]/g, "").slice(0, 22);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return isRelevant(n);
+  });
+  const failed = results.filter((r) => r.error);
+  const error = failed.length === results.length ? failed.map((r) => r.error).join(" / ") : failed.length ? `일부 수집 실패: ${failed[0].error}` : null;
+  newsCache = { news, error, expiresAt: Date.now() + (failed.length === results.length ? NEWS_CACHE_TTL_FAIL_MS : NEWS_CACHE_TTL_OK_MS) };
+  return { news, error };
+}
+
+async function callOnce(apiKey: string, prompt: string, incremental: boolean): Promise<{ news: NewsItem[]; error: string | null }> {
   const candidates = await resolveModelCandidates(apiKey);
   let lastError = "사용 가능한 Gemini 모델을 찾지 못했습니다";
   for (const model of candidates) {
@@ -165,21 +197,16 @@ export async function collectNews(opts: CollectNewsOptions = {}): Promise<{ news
       const result = await callGeminiGenerate(apiKey, model, {
         contents: [{ parts: [{ text: prompt }] }],
         tools: [{ google_search: {} }],
-        // maxOutputTokens: 수집 상한을 60건으로 올렸으므로 여기도 같이 올려야 한다.
-        // 1건당 JSON 약 245자 → 60건이면 약 14,700자(한국어 JSON 기준 대략 7~9천 토큰).
-        // 3000으로 두면 응답이 중간에 잘려 JSON 파싱이 통째로 실패하고 뉴스가 0건이 된다(실제로 확인).
-        // 12000은 60건을 여유 있게 담으면서도 출력 토큰 폭주는 막는 값이다.
+        // 1건당 JSON 약 245자 → 40건이면 약 1만 자. 잘리면 parseNewsJson이 마지막 완결 객체까지 살린다.
         generationConfig: { temperature: 0.2, maxOutputTokens: 12000 },
       });
       if (result.ok) {
         workingModelCache = { name: model, expiresAt: Date.now() + 30 * 60_000 };
         const parts: { text?: string }[] = (result.json as any)?.candidates?.[0]?.content?.parts ?? [];
         const text = parts.map((p) => p.text ?? "").join("\n");
-        const news = parseNewsJson(text).map((n) => ({ ...n, seenAt: new Date().toISOString() }));
-        // 증분 수집에서 빈 배열은 "새 기사 없음"이지 실패가 아니다 — 호출부가 직전 수집분을 그대로 쓴다
-        const error = news.length === 0 && !known.length ? "Gemini 응답에서 뉴스를 파싱하지 못했습니다" : null;
-        newsCache = { news, error, expiresAt: Date.now() + NEWS_CACHE_TTL_OK_MS };
-        return { news, error };
+        const news = parseNewsJson(text).map((n) => ({ ...n, seenAt: new Date().toISOString(), origin: "gemini" as const }));
+        // 증분 수집에서 빈 배열은 "새 기사 없음"이지 실패가 아니다
+        return { news, error: news.length === 0 && !incremental ? "Gemini 응답에서 뉴스를 파싱하지 못했습니다" : null };
       }
       lastError = `Gemini API 오류 (모델 ${model}, ${result.status}): ${result.body.slice(0, 200)}`;
       console.error(lastError);
@@ -189,7 +216,6 @@ export async function collectNews(opts: CollectNewsOptions = {}): Promise<{ news
       console.error(lastError);
     }
   }
-  newsCache = { news: [], error: lastError, expiresAt: Date.now() + NEWS_CACHE_TTL_FAIL_MS };
   return { news: [], error: lastError };
 }
 

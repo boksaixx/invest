@@ -50,7 +50,7 @@ interface StockRes {
   prediction: { checkpoint: string | null; dayProb: number | null; swingProb: number | null; swingReasons: string[]; sigmaDailyPct: number | null };
   engine: { stopPrice: number | null; breakEvenPrice: number | null; pnlPct: number | null; volRegime: string | null };
   flows5: { foreign: number; inst: number; indiv: number; days: number } | null;
-  news: { title: string; sentiment: string; isBreaking: boolean }[];
+  news: { title: string; sentiment: string; isBreaking: boolean; at?: string | null; source?: string | null; url?: string | null }[];
   recentCloses: { d: string; o?: number; c: number }[];
   regime?: { headline: string; lines: RegimeLine[]; edge: { key: string; text: string; auc: number; n: number; better: boolean | null } | null };
 }
@@ -71,6 +71,15 @@ interface QuickRes {
   account: { cash: number; totalAsset: number; todayPnlWon: number; todayPnlPct: number; dailyStop: boolean; dailyWarn: boolean };
   stocks: StockRes[];
   newsAgeMin: number | null;
+  newsBoard?: {
+    topics: { topic: string; label: string; total: number; pos: number; neg: number; breaking: number }[];
+    headlines: { title: string; source: string; at: string | null; topic: string; tone: "pos" | "neg" | "neu"; breaking: boolean; url: string | null; origin: string }[];
+    upcoming: { title: string; when: string; inHours: number; impact: string }[];
+    total: number;
+    fetchedAt: string;
+    sources: { naver: number; google: number; disclosure: number; gemini: number; geminiAgeMin: number | null };
+    errors: string[];
+  };
   model: {
     generatedAt: string;
     dataRange: { daily: string; hourly: string; flows: string };
@@ -101,6 +110,11 @@ const won = (n: number | null | undefined) => (n == null || !Number.isFinite(n) 
 const manwon = (n: number) => (Math.abs(n) >= 1e8 ? `${(n / 1e8).toFixed(n % 1e8 === 0 ? 0 : 2)}억원` : `${Math.round(n / 1e4).toLocaleString("ko-KR")}만원`);
 const sgn = (x: number, d = 2) => `${x > 0 ? "+" : ""}${x.toFixed(d)}%`;
 const cls = (x: number) => (x > 0 ? "up" : x < 0 ? "down" : "flat");
+const agoTxt = (at: string | null | undefined, now = Date.now()) => {
+  if (!at) return "";
+  const m = Math.max(0, Math.round((now - new Date(at).getTime()) / 60_000));
+  return m < 1 ? "방금" : m < 60 ? `${m}분 전` : m < 48 * 60 ? `${Math.round(m / 60)}시간 전` : `${Math.round(m / 1440)}일 전`;
+};
 const kstDate = (d = new Date()) => new Date(d.getTime() + 9 * 3600_000).toISOString().slice(0, 10);
 const kstHM = (d = new Date()) => new Date(d.getTime() + 9 * 3600_000).toISOString().slice(11, 16);
 const digits = (s: string) => Number(s.replace(/[^\d]/g, "")) || 0;
@@ -356,7 +370,14 @@ function StockCard({ s, pf, onEdit, assumed }: { s: StockRes; pf: Portfolio; onE
                       <span className={`badge ${n.sentiment === "긍정" ? "pos" : n.sentiment === "부정" ? "neg" : "neu"}`}>
                         {n.isBreaking ? "속보" : n.sentiment === "긍정" ? "호재" : n.sentiment === "부정" ? "악재" : "중립"}
                       </span>
-                      {n.title}
+                      {n.url ? (
+                        <a href={n.url} target="_blank" rel="noreferrer">
+                          {n.title}
+                        </a>
+                      ) : (
+                        n.title
+                      )}
+                      {(n.at || n.source) && <span className="news-meta"> · {[agoTxt(n.at), n.source].filter(Boolean).join(" · ")}</span>}
                     </div>
                   ))}
                 </div>
@@ -370,7 +391,7 @@ function StockCard({ s, pf, onEdit, assumed }: { s: StockRes; pf: Portfolio; onE
 }
 
 // ── 오늘 시황 ──────────────────────────────────────────────
-function MarketCard({ m }: { m: QuickRes["market"] }) {
+function MarketCard({ m, next }: { m: QuickRes["market"]; next?: { title: string; when: string; inHours: number; impact: string } | null }) {
   const lines = m.regime ?? [];
   if (lines.length === 0) return null;
   return (
@@ -388,6 +409,91 @@ function MarketCard({ m }: { m: QuickRes["market"] }) {
           </span>
         </div>
       ))}
+      {next && (
+        <div className="mkt-row">
+          <span className="mkt-label">다음 일정</span>
+          <span className="mkt-val">
+            <b className="flat">{next.title}</b>
+            <small>
+              {next.inHours < 0 ? "방금 발표" : `${next.when} · ${next.inHours < 1 ? "1시간 안" : `${Math.round(next.inHours)}시간 후`}`}
+              {next.impact === "높음" ? " · 중요" : ""}
+            </small>
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 뉴스·공시·일정 ─────────────────────────────────────────
+function NewsCard({ b, now }: { b: NonNullable<QuickRes["newsBoard"]>; now: number }) {
+  const [all, setAll] = useState(false);
+  const list = all ? b.headlines : b.headlines.slice(0, 5);
+  return (
+    <div className="card">
+      <div className="mkt-top">
+        <span className="label">뉴스 · 공시 · 일정</span>
+        <span className="small">{agoTxt(b.fetchedAt, now)} 수집</span>
+      </div>
+      {b.topics.length > 0 && (
+        <div className="topics">
+          {b.topics.slice(0, 6).map((t) => (
+            <span key={t.topic} className={`topic${t.neg > t.pos ? " neg" : t.pos > t.neg ? " pos" : ""}`}>
+              {t.label} {t.total}
+              {(t.pos > 0 || t.neg > 0) && (
+                <small>
+                  {t.pos > 0 ? ` 호재${t.pos}` : ""}
+                  {t.neg > 0 ? ` 악재${t.neg}` : ""}
+                </small>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="heads">
+        {list.map((h) => (
+          <div className="head" key={h.title}>
+            <div className="head-top">
+              {h.breaking && <span className="badge neg">속보</span>}
+              <span className={`badge ${h.tone}`}>{h.tone === "pos" ? "호재" : h.tone === "neg" ? "악재" : h.topic}</span>
+              {h.tone !== "neu" && <span className="head-topic">{h.topic}</span>}
+            </div>
+            {h.url ? (
+              <a className="head-title" href={h.url} target="_blank" rel="noreferrer">
+                {h.title}
+              </a>
+            ) : (
+              <div className="head-title">{h.title}</div>
+            )}
+            <div className="head-meta">{[agoTxt(h.at, now), h.source].filter(Boolean).join(" · ")}</div>
+          </div>
+        ))}
+      </div>
+      {b.headlines.length > 5 && (
+        <button className="more-btn" style={{ marginTop: 8 }} onClick={() => setAll(!all)}>
+          <span>{all ? "접기" : `${b.headlines.length - 5}건 더 보기`}</span>
+          <Ico.chev />
+        </button>
+      )}
+      {b.upcoming.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div className="label">다가오는 일정</div>
+          {b.upcoming.map((u) => (
+            <div className="trust-row" key={u.title + u.when}>
+              <span>
+                {u.title}
+                {u.impact === "높음" && <b className="ev-hi"> 중요</b>}
+              </span>
+              <span>{u.inHours < 0 ? "방금 발표" : u.when}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="small" style={{ marginTop: 10 }}>
+        네이버·구글 뉴스와 거래소 공시를 판단할 때마다 새로 가져와요(총 {b.total}건). 호재·악재는 제목으로 자동 분류한 거라 틀릴 수 있어요. 확률 계산에는
+        넣지 않고, 큰 악재 속보가 나오거나 장중에 중요한 발표가 있으면 살 수량을 30% 줄여요. 자세한 해석은 AI 심층 분석에서 볼 수 있어요.
+      </div>
+      {b.errors.length > 0 && <div className="small" style={{ marginTop: 6, color: "var(--orange)" }}>일부 수집 실패: {b.errors.join(", ")}</div>}
     </div>
   );
 }
@@ -786,7 +892,8 @@ function HelpTab() {
     ["무엇을 보고 판단하나요?", "간밤 엔비디아·미국 반도체지수·마이크론, 오늘 시가가 얼마나 떴는지, 어제 어디서 마감했는지, 최근 5일과 한 달 흐름, 장중에는 시가 대비 위치와 오늘 고가·저가 사이 위치예요. 예: 간밤 미국 반도체가 크게 오른 날은 시가가 높게 뜬 뒤 장중에 밀린 경우가 많았어요. 반대로 마이크론이 오른 날과 한 달 추세가 오르는 중일 때는 유리했어요."],
     ["\"지금 국면\"은 뭔가요?", "추세(20일 평균보다 위·아래)와 변동성(요즘 흔들림이 최근 반년보다 큰지)으로 지금 어떤 장인지 나눈 거예요. 같은 신호도 국면마다 맞힌 정도가 달랐어요 — 변동이 큰 장에서 가장 잘 맞았어요. 덜 맞았던 국면에서는 수량을 30% 줄여서 알려 드려요."],
     ["AI 심층 분석은 뭔가요?", "버튼을 누르면 앱이 쓴 숫자(확률·국면·가격대·수급·뉴스)를 전부 AI에게 넘겨 시황 → 추세 → 수급 → 뉴스 → 결론 순서로 풀어 주고, '이 가격을 넘으면 / 깨지면 이렇게' 대응을 세워 드려요. AI는 검증된 결론을 뒤집지 못하게 막아 두었고, AI가 기운 방향도 그날 종가로 채점해서 성적표에 보여 드려요."],
-    ["나스닥 선물·환율·수급은 왜 확률에 안 들어가요?", "넣어 보고 과거 데이터로 검증했지만 맞히는 데 도움이 되지 않았어요. 그래서 확률 계산에서는 빼고, 시황 카드와 AI 분석의 설명 자료로만 써요."],
+    ["트럼프 발언·중국 반도체·자사주 뉴스는 반영되나요?", "네. 앱을 열 때마다 네이버·구글 뉴스(국내+외신)와 거래소 공시를 새로 가져와요. 트럼프·관세·수출통제, 중국 메모리(CXMT 등), 메모리 가격·HBM, 자사주 매입·소각, 실적 공시, 금리·환율을 따로 찾아요. FOMC·CPI·금통위·옵션만기 같은 일정은 확정 달력으로 알아요. 이 뉴스들은 과거 데이터로 효과를 검증할 수 없어서 확률에는 넣지 않고, 큰 악재 속보가 나오거나 장중에 중요한 발표가 있으면 살 수량을 줄이고, AI 심층 분석이 전부 읽고 해석해요."],
+    ["나스닥 선물·환율·수급은 왜 확률에 안 들어가요?", "넣어 보고 2019~2026년 데이터로 검증했지만 맞히는 데 도움이 되지 않았어요(나스닥·S&P·VIX·미 국채금리·유가·달러·TSMC·브로드컴·AMD·장비주·니케이·항셍·SMIC도 시험). 나스닥 종합은 구분력은 조금 올랐지만 실제 '사세요' 신호의 평균 수익이 줄어서 넣지 않았어요. 확률 계산에서는 빼고, 시황 카드와 AI 분석의 설명 자료로 써요."],
     ["\"며칠\" 확률은 왜 회색인가요?", "3거래일 뒤 방향은 검증에서 거의 맞히지 못했어요. 그래서 참고로만 보여 드리고 사라·팔라는 결론에는 쓰지 않아요."],
     ["손절가는 꼭 지켜야 하나요?", "네. 이 앱의 확률은 50%를 조금 넘는 수준이라 틀리는 날도 많아요. 수익을 지켜 주는 건 손절가와 \"한 번에 총자산 1% 이상 잃지 않는\" 수량이에요."],
     ["내 정보는 어디에 저장되나요?", "현금·보유 수량은 이 기기(브라우저)에만 저장되고, 판단을 계산할 때만 서버로 보내요. 서버에는 남지 않아요."],
@@ -997,7 +1104,7 @@ export default function Home() {
 
       {tab === "home" && (
         <>
-          {m && <MarketCard m={m} />}
+          {m && <MarketCard m={m} next={data?.newsBoard?.upcoming.find((u) => u.impact === "높음") ?? data?.newsBoard?.upcoming[0] ?? null} />}
           {m && !m.regime?.length && (
             <div className="strip">
               {m.kospi && (
@@ -1060,6 +1167,8 @@ export default function Home() {
             ))}
 
           {data?.stocks.map((s) => <StockCard key={s.ticker} s={s} pf={pf} onEdit={() => setEditing(true)} assumed={!pf.known} />)}
+
+          {data?.newsBoard && <NewsCard b={data.newsBoard} now={now} />}
 
           {data && <DeepCard deep={deep} loading={deepLoading} err={deepErr} onRun={runDeep} now={now} />}
 

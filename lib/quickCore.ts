@@ -2,7 +2,8 @@
 //
 // 흐름: 시세·일봉·분봉·간밤 미국(엔비디아·SOX·마이크론)·수급 수집 → 룰 엔진(손절·수량·안전 규칙)
 //       → 예측 모델(오늘 종가까지 / 3거래일) → 시황 국면 → 결론(lib/decide.ts)
-// 뉴스는 자동수집 스냅샷(data/latest.json)에 있는 것만 쓴다.
+// 뉴스: 자동수집 스냅샷(Gemini 정리본) + 실시간 네이버·구글 뉴스·거래소 공시(lib/liveNews.ts) + 확정 일정표(lib/eventCalendar.ts).
+//       확률에는 넣지 않고(검증 불가) 이벤트·쇼크 때 수량 축소, 화면 표시, AI 심층 분석 재료로 쓴다.
 import { fetchNaverFlows, getMacroSnapshot, getStockCandles, getStockIntradayCandles, getStockQuote, getUsOvernight, kstToday, sessionPrevClose } from "./market";
 import { runEngine } from "./engine";
 import { computeIntradayInsight } from "./intraday";
@@ -15,8 +16,10 @@ import { loadModel } from "./modelStore";
 import { contributions, predict, type Prediction, type TwoStockModel } from "./predict";
 import { decide, hitRateOf, type Decision } from "./decide";
 import { describeRegime, REGIME_LABEL, type RegimeKey, type RegimeView } from "./regime";
-import type { Candle, EngineSignal, IntradayInsight, MacroSnapshot, MarketPhaseInfo, NewsItem, Portfolio, StockTicker } from "./types";
+import type { Candle, DartFiling, EngineSignal, IntradayInsight, MacroSnapshot, MarketPhaseInfo, NewsItem, Portfolio, StockTicker } from "./types";
 import { STOCKS, TICKER_LIST } from "./types";
+import { buildNewsSet, fetchLiveFeed, newsBoard, type LiveFeed } from "./liveNews";
+import { upcomingEventNews } from "./eventCalendar";
 
 export const IN_SESSION = ["장초반", "장중", "점심시간대", "마감임박", "동시호가"];
 const REGIME_ORDER: RegimeKey[] = ["trend:up", "trend:flat", "trend:down", "vol:high", "vol:normal", "vol:calm"];
@@ -48,6 +51,7 @@ export interface StockContext {
   flows: { d: string; foreign: number; inst: number; indiv: number }[];
   holding: { qty: number; avgPrice: number } | null;
   news: NewsItem[];
+  disclosures: DartFiling[];
   dayDrivers: { name: string; contrib: number }[];
 }
 export interface QuickContext {
@@ -58,6 +62,7 @@ export interface QuickContext {
   model: TwoStockModel;
   news: NewsItem[];
   newsAgeMin: number | null;
+  liveFeed: LiveFeed;
   stocks: StockContext[];
 }
 
@@ -67,21 +72,23 @@ export async function buildQuick(portfolio: Portfolio, now = new Date()) {
   const marketOpenToday = !phase.phase.startsWith("휴장");
   const inSession = IN_SESSION.includes(phase.phase);
 
-  const [macro, overnight, snapshot, model, ...stockData] = await Promise.all([
+  const [macro, overnight, snapshot, model, liveFeed, ...stockData] = await Promise.all([
     getMacroSnapshot(),
     getUsOvernight(todayKst),
     fetchLatestSnapshot().catch(() => null),
     loadModel(),
+    fetchLiveFeed(now).catch((e) => ({ fetchedAt: now.toISOString(), news: [], disclosures: {}, counts: { naver: 0, google: 0, disclosure: 0 }, errors: [String(e).slice(0, 80)] }) as LiveFeed),
     ...TICKER_LIST.map(async (t) => {
       const [quote, candles, raw, flows] = await Promise.all([getStockQuote(t), getStockCandles(t), getStockIntradayCandles(t), fetchNaverFlows(t)]);
       return { ticker: t, quote, candles, raw, flows };
     }),
   ]);
 
-  // 스냅샷 뉴스: 3시간 넘은 [속보] 표시는 지운다(쇼크 오버레이가 낡은 속보로 켜지지 않게)
+  // 뉴스 묶음: 스냅샷(Gemini)은 실제 발행 시각 24시간 안 + 두 종목 관련만, 실시간 수집분·일정표와 합친다.
+  // 속보 표시(발행 3시간 + 고영향)는 지금 시각으로 다시 계산한다.
   const newsAt = snapshot?.newsCollectedAt ?? snapshot?.collectedAt ?? null;
   const newsAgeH = newsAt ? (now.getTime() - new Date(newsAt).getTime()) / 3_600_000 : Infinity;
-  const news: NewsItem[] = (snapshot?.news ?? []).map((x) => (newsAgeH > 3 ? { ...x, isBreaking: false } : x));
+  const news: NewsItem[] = buildNewsSet({ snapshot: snapshot?.news ?? [], snapshotSeenAt: newsAt, live: liveFeed.news, events: upcomingEventNews(now), now });
 
   const quotes = Object.fromEntries(stockData.map((s) => [s.ticker, s.quote]));
   const holdingsValue = portfolio.holdings.reduce((a, h) => a + h.qty * (quotes[h.ticker]?.price ?? h.avgPrice), 0);
@@ -125,6 +132,7 @@ export async function buildQuick(portfolio: Portfolio, now = new Date()) {
       dailyStopTriggered: dailyRisk.stopTriggered,
       correlationHeadroom: corrCap.available ? (corrCap.headroom[s.ticker] ?? null) : null,
       investorFlow: s.flows.map((f) => ({ date: f.d, foreignNet: f.foreign, institutionNet: f.inst })),
+      disclosures: liveFeed.disclosures[s.ticker] ?? [],
     });
     const live = intraday.available && intraday.isToday;
     const pred = predict({
@@ -160,11 +168,16 @@ export async function buildQuick(portfolio: Portfolio, now = new Date()) {
     });
     const last5 = s.flows.filter((f) => f.d < todayKst || phase.phase === "장마감").slice(-5);
     const name = STOCKS[s.ticker].name;
-    const related = news.filter((x) => x.relatedTo === name || x.title.includes(name) || ((x.relatedTo === "반도체" || x.relatedTo === "반도체업황") && x.impact !== "낮음"));
+    const related = news.filter(
+      (x) =>
+        x.topic !== "예정이벤트" &&
+        (x.relatedTo === name || x.title.includes(name) || ((x.relatedTo === "반도체업황" || x.topic === "중국" || x.topic === "미국정책" || x.topic === "관세") && x.impact === "높음")),
+    );
     const dayModel = pred.checkpoint === "pre" ? model.day.open : pred.checkpoint ? model.day[pred.checkpoint] : null;
     contexts.push({
       ticker: s.ticker, name, sig, pred, decision, regime, candles: s.candles, intraday, flows: s.flows, holding,
-      news: related.slice(0, 6),
+      news: related.slice(0, 8),
+      disclosures: liveFeed.disclosures[s.ticker] ?? [],
       dayDrivers: dayModel ? contributions(dayModel, pred.features).slice(0, 5).map((c) => ({ name: c.name, contrib: Math.round(c.contrib * 1000) / 1000 })) : [],
     });
     return {
@@ -194,7 +207,7 @@ export async function buildQuick(portfolio: Portfolio, now = new Date()) {
       flows5: last5.length
         ? { foreign: last5.reduce((a, f) => a + f.foreign, 0), inst: last5.reduce((a, f) => a + f.inst, 0), indiv: last5.reduce((a, f) => a + f.indiv, 0), days: last5.length }
         : null,
-      news: related.slice(0, 3).map((x) => ({ title: x.title, sentiment: x.sentiment, isBreaking: x.isBreaking ?? false })),
+      news: related.slice(0, 4).map((x) => ({ title: x.title, sentiment: x.sentiment, isBreaking: x.isBreaking ?? false, at: x.at ?? null, source: x.source ?? null, url: x.url ?? null })),
       // 이 기기의 신호 성적 채점용 — 최근 10거래일 시가·종가
       recentCloses: s.candles.slice(-10).map((c) => ({ d: c.date, o: c.open, c: c.close })),
     };
@@ -229,6 +242,13 @@ export async function buildQuick(portfolio: Portfolio, now = new Date()) {
     },
     stocks,
     newsAgeMin: Number.isFinite(newsAgeH) ? Math.round(newsAgeH * 60) : null,
+    // 실시간 뉴스·공시·일정 보드 (화면 "뉴스·이벤트" 카드)
+    newsBoard: {
+      ...newsBoard(news, now),
+      fetchedAt: liveFeed.fetchedAt,
+      sources: { ...liveFeed.counts, gemini: (snapshot?.news ?? []).length, geminiAgeMin: Number.isFinite(newsAgeH) ? Math.round(newsAgeH * 60) : null },
+      errors: liveFeed.errors,
+    },
     model: {
       generatedAt: model.generatedAt,
       dataRange: model.dataRange,
@@ -247,7 +267,7 @@ export async function buildQuick(portfolio: Portfolio, now = new Date()) {
     },
   };
   const ctx: QuickContext = {
-    now, phase, macro, overnight, model, news,
+    now, phase, macro, overnight, model, news, liveFeed,
     newsAgeMin: result.newsAgeMin,
     stocks: contexts,
   };

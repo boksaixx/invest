@@ -6,6 +6,11 @@
 import { inflateRawSync } from "node:zlib";
 import { KR_TICKERS } from "./types";
 import type { DartFiling, StockTicker } from "./types";
+import { classifyDisclosure } from "./liveNews";
+
+// 2종목 corp_code는 고정이다(DART 고유번호, 2026-10 확인). 예전에는 매번 corpCode.xml(전 상장사 zip)을 받아
+// 풀었는데 압축 해제가 실패해 공시가 늘 0건이었다(2026-10-14 점검). 알려진 종목은 이 표를 먼저 쓴다.
+const KNOWN_CORP_CODES: Record<string, string> = { "005930": "00126380", "000660": "00164779" };
 
 // 최소 zip 리더: 로컬 파일 헤더(PK\x03\x04)만 읽어 첫 번째 엔트리를 압축 해제한다.
 // (DART의 corpCode.xml은 단일 파일 zip이라 중앙 디렉터리까지 파싱할 필요가 없다)
@@ -64,14 +69,10 @@ async function fetchCorpCodeMap(apiKey: string): Promise<Map<string, string>> {
   return map;
 }
 
-// 공시 제목 키워드로만 판단하는 아주 단순한 긍/부정 분류 — 실제 공시 본문 내용까지는 분석하지
-// 않으므로(list.json은 메타데이터만 제공) 참고용이며, 최종 해석은 Claude에게 맡긴다.
+// 공시 제목 → 방향. 예전 규칙은 "자기주식취득"(띄어쓰기 없음)만 찾아 실제 제목 "자기주식 취득 결정"을
+// 한 번도 못 잡았다(2026-10-14 점검). 이제 실시간 공시 수집(lib/liveNews.ts)과 같은 규칙을 쓴다.
 function classifyFilingSentiment(title: string): DartFiling["sentiment"] {
-  const negative = ["유상증자", "전환사채", "신주인수권부사채", "감자", "관리종목", "불성실공시", "소송", "횡령", "배임", "적자전환", "영업정지", "상장폐지", "회생절차"];
-  const positive = ["자기주식취득", "무상증자", "실적개선", "흑자전환", "자사주소각", "특허", "수주"];
-  if (negative.some((k) => title.includes(k))) return "부정";
-  if (positive.some((k) => title.includes(k))) return "긍정";
-  return "중립";
+  return classifyDisclosure(title).sentiment;
 }
 
 async function fetchRecentDisclosures(apiKey: string, corpCode: string, days = 3): Promise<DartFiling[]> {
@@ -119,6 +120,25 @@ export interface RelatedFiling extends DartFiling {
 }
 const DISCLOSURE_CACHE_TTL_MS = 15 * 60_000; // 자동수집 간격과 맞춤
 
+let verifiedUntil = 0;
+async function verifyKnownCodes(apiKey: string): Promise<boolean> {
+  if (Date.now() < verifiedUntil) return true;
+  try {
+    for (const [stock, corp] of Object.entries(KNOWN_CORP_CODES)) {
+      const res = await fetch(`https://opendart.fss.or.kr/api/company.json?crtfc_key=${apiKey}&corp_code=${corp}`, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+      const j = (await res.json()) as { status?: string; stock_code?: string };
+      if (j.status !== "000" || j.stock_code !== stock) {
+        console.warn(`DART 고정 corp_code 불일치(${stock} → ${corp}: ${j.status} ${j.stock_code}) — 전체 목록으로 다시 찾습니다`);
+        return false;
+      }
+    }
+    verifiedUntil = Date.now() + CORP_CODE_TTL_MS;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // DART_API_KEY가 없으면 조용히 빈 결과를 돌려준다 — 선택 기능이라 에러로 취급하지 않는다
 // (기존 뉴스/시세 파이프라인은 이 기능 없이도 완전히 동작해야 한다).
 export async function fetchDartDisclosures(): Promise<{ data: Partial<Record<StockTicker, DartFiling[]>>; error: string | null }> {
@@ -129,7 +149,10 @@ export async function fetchDartDisclosures(): Promise<{ data: Partial<Record<Sto
   if (disclosureCache && disclosureCache.expiresAt > now) return { data: disclosureCache.data, error: disclosureCache.error };
 
   try {
-    const corpMap = await fetchCorpCodeMap(apiKey);
+    // 고정 코드가 맞는지 하루 한 번 기업개황(company.json)의 종목코드로 확인 — 틀리면 전체 목록을 받아 찾는다
+    const verified = await verifyKnownCodes(apiKey);
+    const needDownload = !verified || KR_TICKERS.some((t) => !KNOWN_CORP_CODES[t]);
+    const corpMap = needDownload ? await fetchCorpCodeMap(apiKey) : new Map(Object.entries(KNOWN_CORP_CODES));
     const result: Partial<Record<StockTicker, DartFiling[]>> = {};
     let failed = 0;
     for (const ticker of KR_TICKERS) {

@@ -28,7 +28,7 @@ export const SWING_FEATURES = ["clv", "ocZ", "ret5Zc", "ret20Zc", "pairRel5Z"] a
 // frgn5·inst5·volRegime·ma20gapZ·ma60gapZ 는 모델에는 안 쓰지만 화면(수급·시황 국면) 표시용으로 계산해 둔다
 export type FeatureName =
   | (typeof OPEN_FEATURES)[number] | (typeof HOUR_FEATURES)[number] | (typeof SWING_FEATURES)[number]
-  | "frgn5" | "inst5" | "volRegime" | "ma20gapZ" | "ma60gapZ";
+  | "frgn5" | "inst5" | "volRegime" | "ma20gapZ" | "ma60gapZ" | "ndxZ";
 export type Features = Partial<Record<FeatureName, number>>;
 
 /** 로지스틱 모델 하나 — 특징은 ±3으로 자른 뒤 선형결합 */
@@ -73,7 +73,7 @@ export interface TwoStockModel {
   /** 장 시작 전: 간밤 미국 등락으로 갭(σ 단위)을 추정하는 선형식 — gapZ ≈ a·nvdaZ + b·soxZ + m·muZ + c */
   preGap: { nvda: number; sox: number; mu?: number; c: number };
   /** 최근 미국 지수 일간 변동성(60일 σ, %) — 실시간 σ를 못 구할 때 쓰는 대체값 */
-  usSigmaFallback: { nvda: number; sox: number; mu?: number };
+  usSigmaFallback: { nvda: number; sox: number; mu?: number; ndx?: number };
 }
 
 export const clip3 = (x: number) => Math.max(-3, Math.min(3, x));
@@ -131,6 +131,8 @@ export interface Overnight {
   nvdaSigma: number | null; // 미국 60일 σ %
   soxSigma: number | null;
   muSigma?: number | null;
+  ndxPct?: number | null; // 나스닥 종합 — 미국 증시 전체의 간밤 분위기
+  ndxSigma?: number | null;
 }
 
 export interface Intraday {
@@ -170,6 +172,7 @@ export function priorFeatures(pd: PriorDays, on: Overnight): { f: Features; sigm
   if (on.nvdaPct != null && on.nvdaSigma && on.nvdaSigma > 0) f.nvdaZ = on.nvdaPct / on.nvdaSigma;
   if (on.soxPct != null && on.soxSigma && on.soxSigma > 0) f.soxZ = on.soxPct / on.soxSigma;
   if (on.muPct != null && on.muSigma && on.muSigma > 0) f.muZ = on.muPct / on.muSigma;
+  if (on.ndxPct != null && on.ndxSigma && on.ndxSigma > 0) f.ndxZ = on.ndxPct / on.ndxSigma;
   // 수급: 최근 5일 합 ÷ 20일 평균 거래량 (%), ±300 자른 뒤 /100
   const vols = c.slice(-20).map((x) => x.volume).filter((v) => v > 0);
   const avgVol = vols.length >= 10 ? vols.reduce((a, b) => a + b, 0) / vols.length : NaN;
@@ -343,6 +346,7 @@ export function predict(params: {
     nvdaSigma: params.overnight.nvdaSigma ?? model.usSigmaFallback.nvda,
     soxSigma: params.overnight.soxSigma ?? model.usSigmaFallback.sox,
     muSigma: params.overnight.muSigma ?? model.usSigmaFallback.mu ?? null,
+    ndxSigma: params.overnight.ndxSigma ?? model.usSigmaFallback.ndx ?? null,
   };
   const today = params.marketOpenToday ? params.todayKst : "9999-99-99";
   const prior = params.candles.filter((c) => c.date < today);

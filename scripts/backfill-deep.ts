@@ -3,7 +3,7 @@
 // 실행: npx tsx scripts/backfill-deep.ts   (GitHub Actions 주간 실행 + 최초 1회)
 //
 // 모으는 것 (전부 키 없는 공개 데이터)
-//  · 일봉 OHLCV 2016~ : 삼성전자·SK하이닉스, SOX·마이크론(MU)·엔비디아(NVDA)·나스닥100 선물·원달러·코스피
+//  · 일봉 OHLCV 2016~ : 삼성전자·SK하이닉스, SOX·마이크론(MU)·엔비디아(NVDA)·나스닥 종합·나스닥100 선물·원달러·코스피
 //  · 1시간봉 최근 2년 : 2종목 (야후 60분봉 최대 730일) — "장중 이 시각에 이 상태면 마감까지 어땠나"를 재는 데 쓴다.
 //    야후가 2년치만 주므로 기존 파일과 병합해 시간이 갈수록 쌓이게 한다.
 //  · 투자자별 순매수 2019~ : 외국인·기관·개인 일별 순매수 주수 + 외국인 보유율 (네이버 증권)
@@ -17,7 +17,7 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const OUT = join(process.cwd(), "data", "deep-history.json");
 
 export const DEEP_STOCKS = { "005930": "005930.KS", "000660": "000660.KS" } as const;
-export const DEEP_US = { sox: "^SOX", mu: "MU", nvda: "NVDA", nq: "NQ=F", usdkrw: "KRW=X", kospi: "^KS11" } as const;
+export const DEEP_US = { sox: "^SOX", mu: "MU", nvda: "NVDA", nq: "NQ=F", ndx: "^IXIC", usdkrw: "KRW=X", kospi: "^KS11" } as const;
 
 export type DailyBar = { d: string; o: number; h: number; l: number; c: number; v: number };
 export type HourBar = { t: string; o: number; h: number; l: number; c: number; v: number }; // t = KST "YYYY-MM-DD HH:mm"

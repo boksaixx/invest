@@ -235,6 +235,34 @@ async function fetchNaverRealtime(ticker: StockTicker): Promise<Quote | null> {
   }
 }
 
+/** 코스피 지수 실시간 (네이버) — 야후 ^KS11은 15~20분 늦어 장중 "지금 시장"이 어긋났다 (2026-10 점검) */
+async function fetchNaverIndex(code: "KOSPI" | "KOSDAQ"): Promise<Quote | null> {
+  try {
+    const res = await fetch(`https://polling.finance.naver.com/api/realtime/domestic/index/${code}`, {
+      headers: { "User-Agent": UA },
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const d = (await res.json())?.datas?.[0];
+    if (!d) return null;
+    const num = (x: unknown) => Number(String(x ?? "").replace(/,/g, ""));
+    const price = num(d.closePrice);
+    const change = num(d.compareToPreviousClosePrice);
+    const changePct = num(d.fluctuationsRatio);
+    if (!(price > 0) || !Number.isFinite(change) || !Number.isFinite(changePct)) return null;
+    const traded = d.localTradedAt ? new Date(String(d.localTradedAt)) : null;
+    return {
+      symbol: code === "KOSPI" ? "^KS11" : "^KQ11",
+      name: code === "KOSPI" ? "코스피" : "코스닥",
+      price, prevClose: price - change, change, changePct, currency: "KRW",
+      time: traded && Number.isFinite(traded.getTime()) ? traded.toISOString() : new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchNaverDaily(ticker: StockTicker, days = 600): Promise<Candle[]> {
   try {
     const end = new Date();
@@ -537,7 +565,7 @@ async function fetchFearGreedIndex(): Promise<FearGreedIndex | null> {
 export async function getMacroSnapshot(): Promise<MacroSnapshot> {
   const [usdkrw, kospi, nasdaq, sox, nikkei, shanghai, vix, spFutures, nasdaqFutures, fearGreed, oil, us10y] = await Promise.all([
     fetchQuote("KRW=X"),
-    fetchQuote("^KS11"),
+    fetchNaverIndex("KOSPI").then((q) => q ?? fetchQuote("^KS11")),
     fetchQuote("^IXIC"),
     fetchQuote("^SOX"),
     fetchQuote("^N225"),

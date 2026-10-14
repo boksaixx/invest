@@ -16,6 +16,8 @@ import { generateShortSummary } from "../lib/claude";
 import { fetchBacktestSnapshot } from "../lib/backtest";
 import type { CollectedSnapshot, EngineSignal, NewsItem, Portfolio } from "../lib/types";
 import { mergeNews } from "../lib/newsSignal";
+import { buildNewsSet, fetchLiveFeed, isRelevant } from "../lib/liveNews";
+import { upcomingEventNews } from "../lib/eventCalendar";
 import { isCrypto, isSemiconductor, STOCKS, TICKER_LIST } from "../lib/types";
 
 const DATA_DIR = join(process.cwd(), "data");
@@ -58,9 +60,10 @@ async function main() {
   const askNews = !(prev?.news?.length && prevNewsAgeMin < NEWS_INTERVAL_MIN) || process.env.FORCE_NEWS === "1";
   const knownTitles = (prev?.news ?? []).map((n) => n.title);
 
-  const [macro, newsResult, backtest, disclosureResult, flowResult, creditTrend, ...stockData] = await Promise.all([
+  const [macro, newsResult, liveFeed, backtest, disclosureResult, flowResult, creditTrend, ...stockData] = await Promise.all([
     getMacroSnapshot(),
     askNews ? collectNews({ knownTitles }) : Promise.resolve({ news: [] as NewsItem[], error: null as string | null }),
+    fetchLiveFeed(),
     fetchBacktestSnapshot(),
     fetchDartDisclosures(),
     fetchInvestorFlows(),
@@ -100,6 +103,14 @@ async function main() {
   }
 
   console.log("뉴스 수집:", news.length, "건", newsError ? `(오류: ${newsError})` : "");
+  console.log(`실시간 뉴스·공시: 네이버 ${liveFeed.counts.naver} · 구글 ${liveFeed.counts.google} · 공시 ${liveFeed.counts.disclosure}`, liveFeed.errors.join(", "));
+  // 엔진에는 Gemini 정리본 + 실시간 수집분 + 일정표 이벤트를 합쳐 넘긴다 (앱 /api/quick 과 같은 묶음)
+  const engineNews = buildNewsSet({ snapshot: news, snapshotSeenAt: newsCollectedAt, live: liveFeed.news, events: upcomingEventNews(new Date()) });
+  // 공시: DART가 비면 거래소 실시간 공시로
+  const disclosuresFor = (t: string) => {
+    const d = disclosureResult.data[t as keyof typeof disclosureResult.data];
+    return d && d.length ? d : (liveFeed.disclosures[t as keyof typeof liveFeed.disclosures] ?? []);
+  };
   console.log("국내 장 상태:", marketPhaseKR.phase, marketPhaseKR.kstTime);
   console.log("미국 장 상태:", marketPhaseUS.phase, marketPhaseUS.kstTime);
 
@@ -137,7 +148,7 @@ async function main() {
         price: sd.quote.price,
         candles: sd.candles,
         macro,
-        news,
+        news: engineNews,
         portfolio: NEUTRAL_PORTFOLIO,
         intraday,
         marketPhase: market === "KR" ? marketPhaseKR : market === "US" ? marketPhaseUS : getMarketPhaseForMarket("CRYPTO"),
@@ -146,7 +157,7 @@ async function main() {
         changePct: sd.quote.changePct,
         prevClose: sessionPrevClose(sd.quote),
         creditTrend,
-        disclosures: disclosureResult.data[sd.ticker] ?? [],
+        disclosures: disclosuresFor(sd.ticker),
         investorFlow: flowResult.data[sd.ticker] ?? [],
       }),
     );
@@ -158,7 +169,7 @@ async function main() {
   const wantSummary = process.env.FORCE_SUMMARY === "1" || marketPhaseKR.phase === "장전" || marketPhaseKR.phase === "장마감";
   let aiSummary: string | null = prev?.aiSummary ?? null;
   if (signals.length > 0 && wantSummary) {
-    aiSummary = (await generateShortSummary({ signals, macro, news })) ?? aiSummary;
+    aiSummary = (await generateShortSummary({ signals, macro, news: engineNews })) ?? aiSummary;
   }
 
   // 2종목 예측 모델 판단을 함께 남긴다 — 나중에 "앱이 그때 뭐라고 했고 실제로 어땠나"를 채점한다
@@ -198,13 +209,14 @@ async function main() {
     newsCollectedAt,
     quotes: Object.fromEntries(stockData.map((s) => [s.ticker, s.quote])),
     macro,
-    news,
+    news: news.filter(isRelevant), // 10종목 시절 기사 등 두 종목과 무관한 것은 저장하지 않는다
     // 예상 경로는 "조회한 그 시각" 기준이라 저장해두면 곧바로 무의미해진다. 게다가 종목당 13개
     // 지점 × 하루 26회 수집이면 저장소만 불필요하게 커진다 — 저장에서 제외하고 조회 시 재계산한다.
     signals: signals.length > 0 ? signals.map((s) => ({ ...s, forecastPath: null })) : null,
     aiSummary,
     masterScore: signals.length > 0 ? computeMasterScore(signals) : null,
     predictions,
+    liveNews: liveFeed.news,
   };
 
   writeFileSync(join(DATA_DIR, "latest.json"), JSON.stringify(snapshot, null, 1));

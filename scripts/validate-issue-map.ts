@@ -59,15 +59,26 @@ ok(r.score === -15, `악재 20건 속보라도 하한 -15 (${r.score})`);
 ok(r.impacts.length <= 6, `영향 목록은 최대 6건 (${r.impacts.length})`);
 
 console.log("\n=== 리스크 오버레이 ===");
-let ov = computeRiskOverlay([fomc], null, "005930");
-ok(ov?.eventRisk === true && ov.sizeMultiplier === 0.7, `30시간 내 고영향 예정 이벤트 → 예산 ${ov?.sizeMultiplier}`);
-ov = computeRiskOverlay([mk({ ...fomc, eventInHours: 60 })], null, "005930");
+// 기준 시각: 수요일 KST 08:00 (장 마감 15:30까지 7.5시간)
+const AM8 = new Date("2026-10-14T08:00:00+09:00");
+const bok = mk({ title: "한국은행 기준금리 결정", sentiment: "중립", relatedTo: "예정이벤트", topic: "예정이벤트", eventAt: "오늘 10:00", eventInHours: 2 });
+let ov = computeRiskOverlay([bok], null, "005930", AM8);
+ok(ov?.eventRisk === true && ov.sizeMultiplier === 0.7, `장중에 있는 고영향 이벤트(금통위 10:00) → 예산 ${ov?.sizeMultiplier}`);
+ov = computeRiskOverlay([fomc], null, "005930", AM8);
+ok(ov != null && ov.eventRisk === false && ov.sizeMultiplier === 1 && /장 마감 뒤/.test(ov.notes[0]), `장 마감 뒤 이벤트(FOMC 14시간 후) → 단타 수량은 그대로, 보유분 안내만`);
+ov = computeRiskOverlay([fomc], null, "005930", new Date("2026-10-14T19:00:00+09:00"));
+ok(ov?.eventRisk === true, "저녁 7시엔 FOMC(14시간 후)가 다음 장 마감 전이라 다음 날 단타 수량을 줄임");
+ov = computeRiskOverlay([mk({ ...fomc, eventInHours: -0.3 })], null, "005930", new Date("2026-10-14T21:48:00+09:00"));
+ok(ov === null || ov.eventRisk === false, "장 마감 뒤 막 발표된 미국 지표는 다음 날 단타 수량을 줄이지 않음");
+ov = computeRiskOverlay([mk({ ...bok, eventInHours: -0.2 })], null, "005930", new Date("2026-10-14T10:12:00+09:00"));
+ok(ov?.eventRisk === true && /발표 직후/.test(ov.notes[0]), "장중 막 발표된 금통위 → '발표 직후' 수량 축소");
+ov = computeRiskOverlay([mk({ ...fomc, eventInHours: 60 })], null, "005930", AM8);
 ok(ov === null, "60시간 뒤 이벤트는 아직 오버레이 없음");
 ov = computeRiskOverlay([war], null, "005930");
 ok(ov?.shockRisk === true && ov.sizeMultiplier === 0.7, `전쟁 고영향 악재 속보 → 쇼크 오버레이 예산 ${ov?.sizeMultiplier}`);
 ov = computeRiskOverlay([{ ...war, isBreaking: false }], null, "005930");
 ok(ov === null, "속보가 아니면(3시간 지남) 쇼크 오버레이 없음");
-ov = computeRiskOverlay([war, fomc], null, "005930");
+ov = computeRiskOverlay([war, bok], null, "005930", AM8);
 ok(ov != null && ov.sizeMultiplier >= 0.5 && ov.notes.length === 2, `이벤트+쇼크 동시 → 예산 ${ov?.sizeMultiplier} (하한 0.5), 근거 2문장`);
 
 console.log("\n=== 구버전 스냅샷(topic 없음) 추정 ===");

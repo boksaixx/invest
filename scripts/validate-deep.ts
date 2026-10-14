@@ -12,6 +12,13 @@ const ok = (c: boolean, m: string) => {
   console.log(`${c ? "✅" : "❌"} ${m}`);
 };
 
+const at = (h: number) => new Date(Date.parse("2026-10-15T01:10:00Z") - h * 3_600_000).toISOString();
+const NEWS = [
+  { title: "트럼프 \"반도체 관세 100% 부과\" 발언", summary: "", sentiment: "부정", impact: "높음", relatedTo: "미국정책", topic: "미국정책", at: at(1), origin: "google", isBreaking: true },
+  { title: "中 CXMT, 차세대 D램 연말 출시", summary: "", sentiment: "부정", impact: "높음", relatedTo: "중국반도체", topic: "중국", at: at(5), origin: "google" },
+  { title: "[공시] 삼성전자 자기주식 취득 결정", summary: "자사주 매입 결정", sentiment: "긍정", impact: "높음", relatedTo: "삼성전자", topic: "자사주", at: at(2), origin: "disclosure" },
+  { title: "미국 소비자물가(CPI) 발표", summary: "", sentiment: "중립", impact: "높음", relatedTo: "예정이벤트", topic: "예정이벤트", eventAt: "오늘 21:30", eventInHours: 11.3, origin: "calendar" },
+];
 const candles = Array.from({ length: 80 }, (_, i) => ({ date: `2026-07-${String((i % 28) + 1).padStart(2, "0")}`, open: 230000, high: 235000, low: 226000, close: 231000 + (i % 5) * 500, volume: 1e7 }));
 const stock = (ticker: "005930" | "000660", dayProb: number | null, verdict: string, tone: string, title: string): StockContext =>
   ({
@@ -20,7 +27,7 @@ const stock = (ticker: "005930" | "000660", dayProb: number | null, verdict: str
     pred: { dayProb, checkpoint: "h10", swingProb: 0.5, dayReasons: [], sigmaDailyPct: 3 },
     decision: { verdict, tone, title, summary: "", plan: [], timing: null, cautions: [], day: null },
     regime: { headline: "하락 추세 · 보통 장", lines: [], edge: null, keys: [] },
-    candles, intraday: { available: false }, flows: [], holding: null, news: [], dayDrivers: [],
+    candles, intraday: { available: false }, flows: [], holding: null, news: [], disclosures: [{ title: "삼성전자 자기주식 취득 결정", date: "20261014", reporterName: "삼성전자", url: "", sentiment: "긍정" }], dayDrivers: [],
   }) as unknown as StockContext;
 const ctx = (stocks: StockContext[]): QuickContext =>
   ({
@@ -29,7 +36,8 @@ const ctx = (stocks: StockContext[]): QuickContext =>
     macro: { kospi: null, nasdaqFutures: null, usdkrw: null, vix: null, us10y: null },
     overnight: { nvdaPct: 1, soxPct: 0.5, muPct: -1, nvdaSigma: 2, soxSigma: 2, muSigma: 3, usDate: "2026-10-14" },
     model: model as unknown as TwoStockModel,
-    news: [], newsAgeMin: 10, stocks,
+    news: NEWS, newsAgeMin: 10, stocks,
+    liveFeed: { fetchedAt: "", news: [], disclosures: {}, counts: { naver: 5, google: 20, disclosure: 3 }, errors: [] },
   }) as unknown as QuickContext;
 const ai = (ticker: "005930" | "000660", stance: DeepStock["stance"], conclusion = "기다리세요.", scenarios: DeepStock["scenarios"] = []): DeepStock => ({
   ticker, headline: "", stance, confidence: "보통", market: "", trend: "", flow: "", news: "", conclusion, scenarios, watch: [], risks: [],
@@ -65,6 +73,9 @@ ok(g.stocks[0].stance === "up" && !g.stocks[0].guard && g.stocks[0].at?.price ==
 const p = buildDeepPayload(ctx([stock("005930", 0.6, "buy_now", "buy", "지금 사세요")]));
 ok(p.validatedFacts.length >= 8 && p.stocks[0].decision.title === "지금 사세요" && p.stocks[0].levels.ma20 === 240000, "페이로드에 검증된 사실·고정 결론·가격대 포함");
 ok(JSON.stringify(p).length < 30000, `페이로드 크기 ${JSON.stringify(p).length}자`);
+ok(p.headlines.some((h) => h.topic === "미국정책" && h.when === "1시간 전") && p.headlines.some((h) => h.topic === "중국") && p.headlines.every((h) => h.topic !== "예정이벤트"), "헤드라인에 트럼프·중국 축 포함, 경과 시간 표시, 예정 이벤트는 따로");
+ok(p.upcomingEvents.length === 1 && /CPI/.test(p.upcomingEvents[0]), `예정 이벤트 전달: ${p.upcomingEvents[0]}`);
+ok(p.stocks[0].disclosures_최근[0].includes("자사주 매입 결정"), `공시 분류 전달: ${p.stocks[0].disclosures_최근[0]}`);
 
 console.log(fail === 0 ? "\n전체 통과" : `\n실패 ${fail}건`);
 process.exit(fail === 0 ? 0 : 1);

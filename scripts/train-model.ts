@@ -28,7 +28,7 @@ const toCandles = (bars: { d: string; o: number; h: number; l: number; c: number
   bars.map((b) => ({ date: b.d, open: b.o, high: b.h, low: b.l, close: b.c, volume: b.v }));
 
 /** 미국 지수: 날짜 D(국내) 아침에 알 수 있는 직전 정규장 등락률과 60일 σ */
-function usSeries(key: "nvda" | "sox" | "mu") {
+function usSeries(key: "nvda" | "sox" | "mu" | "ndx") {
   const bars = deep.daily[key] ?? [];
   const pts: { d: string; pct: number; sigma: number }[] = [];
   const rets: number[] = [];
@@ -54,6 +54,10 @@ function usSeries(key: "nvda" | "sox" | "mu") {
 const nvdaAt = usSeries("nvda");
 const soxAt = usSeries("sox");
 const muAt = usSeries("mu");
+const ndxAt = usSeries("ndx");
+// 실험용: 특징 목록을 환경변수로 바꿔 학습해 볼 수 있다 (예: OPEN_FEATS=nvdaZ,soxZ,...)
+const OPEN_F: readonly string[] = process.env.OPEN_FEATS ? process.env.OPEN_FEATS.split(",") : OPEN_FEATURES;
+const HOUR_F: readonly string[] = process.env.HOUR_FEATS ? process.env.HOUR_FEATS.split(",") : HOUR_FEATURES;
 
 type Sample = { code: string; d: string; f: Features; ret: number };
 const openS: Sample[] = [];
@@ -85,11 +89,12 @@ for (const code of CODES) {
     const nv = nvdaAt(today.date);
     const sx = soxAt(today.date);
     const mu = muAt(today.date);
+    const ndx = ndxAt(today.date);
     const pf = priorFeatures(
       { candles: prior, pairCandles: pairAll.slice(Math.max(0, pi - 30), pi), flows: flows.slice(Math.max(0, fi - 10), fi) },
       {
-        nvdaPct: nv?.pct ?? null, soxPct: sx?.pct ?? null, muPct: mu?.pct ?? null,
-        nvdaSigma: nv?.sigma ?? null, soxSigma: sx?.sigma ?? null, muSigma: mu?.sigma ?? null,
+        nvdaPct: nv?.pct ?? null, soxPct: sx?.pct ?? null, muPct: mu?.pct ?? null, ndxPct: ndx?.pct ?? null,
+        nvdaSigma: nv?.sigma ?? null, soxSigma: sx?.sigma ?? null, muSigma: mu?.sigma ?? null, ndxSigma: ndx?.sigma ?? null,
       },
     );
     if (!pf) continue;
@@ -202,16 +207,16 @@ for (let y = 2024; y <= 2027; y++) for (const m of ["01", "04", "07", "10"]) qua
 const hourBounds = quarterStarts.filter((q) => q >= "2024-07-01");
 
 const day = {} as TwoStockModel["day"];
-const o = walkForward(openS, OPEN_FEATURES, yearStarts);
+const o = walkForward(openS, OPEN_F, yearStarts);
 day.open = { ...o.model, eval: o.eval };
 // 장전(8시 반~9시) 판단 검증: 시가를 모르니 갭을 "학습 기간으로 만든 갭 추정식"으로 바꿔 넣고 같은 개장 모델을 적용
-const preEval = walkForward(openS, OPEN_FEATURES, yearStarts, (tr) => {
+const preEval = walkForward(openS, OPEN_F, yearStarts, (tr) => {
   const g = ols(tr.filter((s) => s.f.nvdaZ != null && s.f.soxZ != null && s.f.muZ != null && s.f.gapZ != null)
     .map((s) => ({ nvdaZ: s.f.nvdaZ!, soxZ: s.f.soxZ!, muZ: s.f.muZ!, gapZ: s.f.gapZ! })));
   return (s) => ({ ...s, f: { ...s.f, gapZ: g.nvda * clip(s.f.nvdaZ!) + g.sox * clip(s.f.soxZ!) + g.mu * clip(s.f.muZ!) + g.c } });
 }).eval;
 for (const cp of CHECKPOINTS.filter((c) => c !== "open") as Checkpoint[]) {
-  const r = walkForward(hourS[cp], HOUR_FEATURES, hourBounds);
+  const r = walkForward(hourS[cp], HOUR_F, hourBounds);
   day[cp] = { ...r.model, eval: r.eval };
 }
 const sw = walkForward(swingS, SWING_FEATS, yearStarts);
@@ -238,6 +243,7 @@ const g = ols(preGapRows);
 const lastNv = nvdaAt("9999-12-31");
 const lastSx = soxAt("9999-12-31");
 const lastMu = muAt("9999-12-31");
+const lastNdx = ndxAt("9999-12-31");
 
 const out: TwoStockModel = {
   generatedAt: new Date().toISOString(),
@@ -254,6 +260,7 @@ const out: TwoStockModel = {
     nvda: Math.round((lastNv?.sigma ?? 2.5) * 100) / 100,
     sox: Math.round((lastSx?.sigma ?? 2) * 100) / 100,
     mu: Math.round((lastMu?.sigma ?? 3) * 100) / 100,
+    ndx: Math.round((lastNdx?.sigma ?? 1.5) * 100) / 100,
   },
 };
 writeFileSync(join(process.cwd(), "data", "model.json"), JSON.stringify(out, null, 1));
