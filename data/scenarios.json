@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-10-11T16:35:14.187Z",
+ "generatedAt": "2026-10-18T14:20:04.943Z",
  "periodStart": "2021-07-16",
- "periodEnd": "2026-10-08",
+ "periodEnd": "2026-10-16",
  "universe": "국내 반도체 5종목 (삼성전자·SK하이닉스·삼성전기·한미반도체·DB하이텍)",
  "disclaimer": "같은 상태로 분류된 과거 시점들의 실제 향후 수익률 분포입니다. 미래 예측이 아니라 '과거에 이런 상태에서 무슨 일이 있었나'의 기록이며, 표본(n)이 작은 시나리오는 우연의 영향이 큽니다.",
  "scenarios": {
@@ -27,10 +27,10 @@
   },
   "안정상승추세": {
    "d5": {
-    "n": 1507,
-    "median": 0.45,
-    "p25": -2.49,
-    "p75": 4.21,
+    "n": 1514,
+    "median": 0.43,
+    "p25": -2.53,
+    "p75": 4.14,
     "lossProb": 46,
     "crashProb": 0,
     "surgeProb": 2
@@ -96,11 +96,11 @@
     "surgeProb": 1
    },
    "d20": {
-    "n": 364,
-    "median": -0.63,
-    "p25": -9.33,
-    "p75": 7.65,
-    "lossProb": 52,
+    "n": 366,
+    "median": -0.84,
+    "p25": -9.4,
+    "p75": 7.64,
+    "lossProb": 53,
     "crashProb": 10,
     "surgeProb": 8
    }
@@ -116,32 +116,32 @@
     "surgeProb": 6
    },
    "d20": {
-    "n": 172,
-    "median": 6.36,
-    "p25": -2.35,
-    "p75": 16.74,
-    "lossProb": 31,
+    "n": 174,
+    "median": 6.34,
+    "p25": -2.77,
+    "p75": 16.6,
+    "lossProb": 32,
     "crashProb": 7,
     "surgeProb": 18
    }
   },
   "조정국면(고점-20%↓·변동성보통)": {
    "d5": {
-    "n": 459,
-    "median": 0.67,
-    "p25": -4,
-    "p75": 5.33,
-    "lossProb": 45,
+    "n": 462,
+    "median": 0.66,
+    "p25": -4.1,
+    "p75": 5.27,
+    "lossProb": 46,
     "crashProb": 1,
     "surgeProb": 2
    },
    "d20": {
-    "n": 412,
-    "median": -1.15,
-    "p25": -9.7,
-    "p75": 13.51,
-    "lossProb": 53,
-    "crashProb": 8,
+    "n": 418,
+    "median": -1.31,
+    "p25": -9.99,
+    "p75": 13.46,
+    "lossProb": 54,
+    "crashProb": 9,
     "surgeProb": 17
    }
   }
@@ -149,11 +149,11 @@
  "playbook": {
   "crashRebound": {
    "thresholdPct": -7,
-   "n": 138,
-   "avgNextDay": 0.8,
-   "medianNextDay": 0.71,
+   "n": 142,
+   "avgNextDay": 0.78,
+   "medianNextDay": 0.7,
    "winRate": 57,
-   "consecutiveCrashPct": 13.8
+   "consecutiveCrashPct": 13.4
   },
   "surgeTakeProfit": {
    "thresholdPct": 12,

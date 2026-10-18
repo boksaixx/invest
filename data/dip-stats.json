@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-10-11T16:35:19.844Z",
+ "generatedAt": "2026-10-18T14:20:09.322Z",
  "params": {
   "dipSigma": 0.6,
   "targetSigma": 1,
@@ -40,27 +40,27 @@
   },
   {
    "label": "급변동장 후반(26.4월~)",
-   "days": 110,
+   "days": 115,
    "optimistic": {
-    "cum": 7.6,
+    "cum": 8.3,
     "winRate": 51,
-    "trades": 43,
-    "targetHits": 7,
+    "trades": 45,
+    "targetHits": 8,
     "ambiguous": 0,
     "mdd": 18.5,
-    "days": 110
+    "days": 115
    },
    "conservative": {
-    "cum": -19.7,
-    "winRate": 44,
-    "trades": 43,
+    "cum": -23.2,
+    "winRate": 42,
+    "trades": 45,
     "targetHits": 4,
-    "ambiguous": 3,
+    "ambiguous": 4,
     "mdd": 35.2,
-    "days": 110
+    "days": 115
    },
    "periodStart": "2026-04-27",
-   "periodEnd": "2026-10-08"
+   "periodEnd": "2026-10-16"
   },
   {
    "label": "2025년 전체",
@@ -115,18 +115,18 @@
  "conservativeAllPositive": false,
  "crashRebound": {
   "5년 전체": {
-   "n": 138,
-   "avg": 0.7979310234087784,
-   "win": 57.2463768115942,
-   "cum": 114.46471979882315,
-   "consecutivePct": 13.043478260869565
+   "n": 142,
+   "avg": 0.7807233817830896,
+   "win": 57.04225352112676,
+   "cum": 115.97187728882238,
+   "consecutivePct": 12.676056338028168
   },
   "최근 6개월(급변동)": {
-   "n": 93,
-   "avg": 0.9955370522274215,
-   "win": 54.83870967741935,
-   "cum": 86.96486240434878,
-   "consecutivePct": 16.129032258064516
+   "n": 97,
+   "avg": 0.9621977818550259,
+   "win": 54.63917525773196,
+   "cum": 88.27876379103705,
+   "consecutivePct": 15.463917525773196
   },
   "그 이전(21~25년)": {
    "n": 45,

@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-10-11T16:35:16.070Z",
+ "generatedAt": "2026-10-18T14:20:06.444Z",
  "evalDays": 500,
  "universe": "국내 반도체 5종목",
  "method": "전일 종가 기준 다음 거래일 장중 고가·저가가 ±kσ 지점에 닿았는지 실측. σ는 그 시점까지의 데이터만 쓴 EWMA 추정치(미래정보 없음).",
@@ -7,8 +7,8 @@
   {
    "kSigma": 0.3,
    "theoryPct": 76.4,
-   "downPct": 58.5,
-   "upPct": 66.8,
+   "downPct": 58.6,
+   "upPct": 66.7,
    "avgPct": 62.6,
    "n": 2495
   },
@@ -23,7 +23,7 @@
   {
    "kSigma": 0.75,
    "theoryPct": 45.3,
-   "downPct": 30.4,
+   "downPct": 30.5,
    "upPct": 40,
    "avgPct": 35.2,
    "n": 2495
@@ -31,15 +31,15 @@
   {
    "kSigma": 1,
    "theoryPct": 31.7,
-   "downPct": 20.8,
-   "upPct": 28.7,
+   "downPct": 20.9,
+   "upPct": 28.6,
    "avgPct": 24.7,
    "n": 2495
   },
   {
    "kSigma": 1.5,
    "theoryPct": 13.4,
-   "downPct": 9,
+   "downPct": 9.1,
    "upPct": 14.5,
    "avgPct": 11.8,
    "n": 2495
@@ -47,9 +47,9 @@
   {
    "kSigma": 2,
    "theoryPct": 4.6,
-   "downPct": 3.8,
+   "downPct": 3.9,
    "upPct": 8,
-   "avgPct": 5.9,
+   "avgPct": 6,
    "n": 2495
   }
  ],
