@@ -1,11 +1,11 @@
 {
- "generatedAt": "2026-10-18T14:20:08.731Z",
+ "generatedAt": "2026-10-25T14:53:41.059Z",
  "universe": "국내 반도체 5종목 (비반도체는 히스토리 축적 후 별도 검증 필요)",
- "sample": 3580,
+ "sample": 3590,
  "baseRatePct": 46.7,
  "models": {
   "기저율(정보 없음)": {
-   "brier": 0.2508,
+   "brier": 0.2509,
    "auc": 0.5,
    "accuracyPct": 50.4
   },
@@ -16,7 +16,7 @@
   },
   "로지스틱(다중 시간대)": {
    "brier": 0.2508,
-   "auc": 0.502,
+   "auc": 0.503,
    "accuracyPct": 50.7
   }
  },
@@ -31,15 +31,15 @@
   },
   {
    "range": "45~50%",
-   "n": 2256,
+   "n": 2263,
    "predictedPct": 47.4,
-   "actualPct": 48.4
+   "actualPct": 48.3
   },
   {
    "range": "50~55%",
-   "n": 536,
+   "n": 539,
    "predictedPct": 51.7,
-   "actualPct": 48.5
+   "actualPct": 48.8
   },
   {
    "range": "55~60%",
@@ -88,35 +88,35 @@
    "regime": "고변동/붕괴/단기급락",
    "n": 165,
    "upRatePct": 58.8,
-   "z": 2.63,
+   "z": 2.62,
    "significant": false
   },
   {
    "regime": "저변동/조정/횡보",
    "n": 268,
    "upRatePct": 41,
-   "z": -2.55,
+   "z": -2.56,
    "significant": false
   },
   {
    "regime": "보통/붕괴/횡보",
-   "n": 198,
-   "upRatePct": 42.4,
-   "z": -1.79,
+   "n": 201,
+   "upRatePct": 42.8,
+   "z": -1.71,
    "significant": false
   },
   {
    "regime": "고변동/고점권/단기급등",
    "n": 301,
    "upRatePct": 53.2,
-   "z": 1.54,
+   "z": 1.53,
    "significant": false
   },
   {
    "regime": "보통/조정/단기급등",
    "n": 225,
    "upRatePct": 53.8,
-   "z": 1.52,
+   "z": 1.51,
    "significant": false
   },
   {
@@ -130,21 +130,21 @@
    "regime": "보통/고점권/횡보",
    "n": 488,
    "upRatePct": 46.3,
-   "z": -1.07,
+   "z": -1.08,
    "significant": false
   },
   {
    "regime": "보통/조정/횡보",
    "n": 412,
    "upRatePct": 51.2,
-   "z": 1.01,
+   "z": 1,
    "significant": false
   },
   {
    "regime": "고변동/조정/횡보",
    "n": 170,
    "upRatePct": 52.4,
-   "z": 0.95,
+   "z": 0.94,
    "significant": false
   },
   {
@@ -158,13 +158,13 @@
    "regime": "보통/고점권/단기급등",
    "n": 632,
    "upRatePct": 47,
-   "z": -0.87,
+   "z": -0.88,
    "significant": false
   },
   {
    "regime": "보통/붕괴/단기급락",
-   "n": 222,
-   "upRatePct": 45.9,
+   "n": 224,
+   "upRatePct": 46,
    "z": -0.83,
    "significant": false
   },
@@ -186,7 +186,7 @@
    "regime": "보통/조정/단기급락",
    "n": 397,
    "upRatePct": 50.1,
-   "z": 0.56,
+   "z": 0.55,
    "significant": false
   },
   {
@@ -207,28 +207,21 @@
    "regime": "고변동/조정/단기급등",
    "n": 93,
    "upRatePct": 47.3,
-   "z": -0.27,
+   "z": -0.28,
    "significant": false
   },
   {
    "regime": "저변동/고점권/횡보",
    "n": 172,
    "upRatePct": 47.7,
-   "z": -0.27,
+   "z": -0.28,
    "significant": false
   },
   {
    "regime": "고변동/조정/단기급락",
    "n": 124,
    "upRatePct": 47.6,
-   "z": -0.25,
-   "significant": false
-  },
-  {
-   "regime": "저변동/붕괴/단기급락",
-   "n": 121,
-   "upRatePct": 47.9,
-   "z": -0.17,
+   "z": -0.26,
    "significant": false
   },
   {
@@ -236,6 +229,13 @@
    "n": 97,
    "upRatePct": 49.5,
    "z": 0.15,
+   "significant": false
+  },
+  {
+   "regime": "저변동/붕괴/단기급락",
+   "n": 126,
+   "upRatePct": 48.4,
+   "z": -0.07,
    "significant": false
   }
  ],
