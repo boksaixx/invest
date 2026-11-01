@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-10-25T14:53:41.059Z",
+ "generatedAt": "2026-11-01T17:01:46.324Z",
  "universe": "국내 반도체 5종목 (비반도체는 히스토리 축적 후 별도 검증 필요)",
- "sample": 3590,
+ "sample": 3600,
  "baseRatePct": 46.7,
  "models": {
   "기저율(정보 없음)": {
@@ -10,36 +10,36 @@
    "accuracyPct": 50.4
   },
   "국면 조건부 기저율": {
-   "brier": 0.2506,
+   "brier": 0.2507,
    "auc": 0.522,
-   "accuracyPct": 51.3
+   "accuracyPct": 51.2
   },
   "로지스틱(다중 시간대)": {
    "brier": 0.2508,
-   "auc": 0.503,
-   "accuracyPct": 50.7
+   "auc": 0.502,
+   "accuracyPct": 50.6
   }
  },
  "best": "국면 조건부 기저율",
- "brierGainVsBasePct": 0.09,
+ "brierGainVsBasePct": 0.08,
  "calibration": [
   {
    "range": "0~45%",
-   "n": 693,
+   "n": 697,
    "predictedPct": 43.7,
-   "actualPct": 52.5
+   "actualPct": 52.7
   },
   {
    "range": "45~50%",
-   "n": 2263,
+   "n": 2266,
    "predictedPct": 47.4,
-   "actualPct": 48.3
+   "actualPct": 48.4
   },
   {
    "range": "50~55%",
-   "n": 539,
+   "n": 542,
    "predictedPct": 51.7,
-   "actualPct": 48.8
+   "actualPct": 48.5
   },
   {
    "range": "55~60%",
@@ -100,9 +100,9 @@
   },
   {
    "regime": "보통/붕괴/횡보",
-   "n": 201,
-   "upRatePct": 42.8,
-   "z": -1.71,
+   "n": 206,
+   "upRatePct": 43.2,
+   "z": -1.61,
    "significant": false
   },
   {
@@ -114,9 +114,9 @@
   },
   {
    "regime": "보통/조정/단기급등",
-   "n": 225,
-   "upRatePct": 53.8,
-   "z": 1.51,
+   "n": 226,
+   "upRatePct": 53.5,
+   "z": 1.45,
    "significant": false
   },
   {
@@ -191,9 +191,9 @@
   },
   {
    "regime": "보통/붕괴/단기급등",
-   "n": 88,
-   "upRatePct": 46.6,
-   "z": -0.4,
+   "n": 92,
+   "upRatePct": 46.7,
+   "z": -0.39,
    "significant": false
   },
   {
