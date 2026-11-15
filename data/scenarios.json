@@ -1,25 +1,25 @@
 {
- "generatedAt": "2026-11-08T16:56:10.091Z",
+ "generatedAt": "2026-11-15T17:36:21.139Z",
  "periodStart": "2021-07-16",
- "periodEnd": "2026-11-06",
+ "periodEnd": "2026-11-13",
  "universe": "국내 반도체 5종목 (삼성전자·SK하이닉스·삼성전기·한미반도체·DB하이텍)",
  "disclaimer": "같은 상태로 분류된 과거 시점들의 실제 향후 수익률 분포입니다. 미래 예측이 아니라 '과거에 이런 상태에서 무슨 일이 있었나'의 기록이며, 표본(n)이 작은 시나리오는 우연의 영향이 큽니다.",
  "scenarios": {
   "기타/횡보": {
    "d5": {
-    "n": 836,
+    "n": 837,
     "median": 0.23,
     "p25": -2.54,
-    "p75": 3.75,
+    "p75": 3.74,
     "lossProb": 46,
     "crashProb": 0,
     "surgeProb": 1
    },
    "d20": {
-    "n": 830,
-    "median": 3.76,
-    "p25": -2.86,
-    "p75": 10.35,
+    "n": 833,
+    "median": 3.72,
+    "p25": -3.03,
+    "p75": 10.33,
     "lossProb": 36,
     "crashProb": 0,
     "surgeProb": 9
@@ -107,11 +107,11 @@
   },
   "폭락바닥권(고점-35%↓·변동성극단)": {
    "d5": {
-    "n": 177,
-    "median": 1.03,
-    "p25": -5.23,
-    "p75": 9,
-    "lossProb": 45,
+    "n": 178,
+    "median": 1.12,
+    "p25": -5.18,
+    "p75": 8.9,
+    "lossProb": 44,
     "crashProb": 4,
     "surgeProb": 6
    },
@@ -127,20 +127,20 @@
   },
   "조정국면(고점-20%↓·변동성보통)": {
    "d5": {
-    "n": 486,
-    "median": 0.66,
-    "p25": -4.1,
-    "p75": 5.47,
-    "lossProb": 45,
-    "crashProb": 1,
+    "n": 494,
+    "median": 0.64,
+    "p25": -4.27,
+    "p75": 5.35,
+    "lossProb": 46,
+    "crashProb": 2,
     "surgeProb": 2
    },
    "d20": {
-    "n": 435,
-    "median": -1.86,
-    "p25": -11.3,
-    "p75": 12.96,
-    "lossProb": 56,
+    "n": 442,
+    "median": -2.04,
+    "p25": -11.39,
+    "p75": 12.5,
+    "lossProb": 57,
     "crashProb": 11,
     "surgeProb": 16
    }
@@ -149,11 +149,11 @@
  "playbook": {
   "crashRebound": {
    "thresholdPct": -7,
-   "n": 145,
+   "n": 146,
    "avgNextDay": 0.67,
-   "medianNextDay": 0.7,
+   "medianNextDay": 0.67,
    "winRate": 57,
-   "consecutiveCrashPct": 13.8
+   "consecutiveCrashPct": 13.7
   },
   "surgeTakeProfit": {
    "thresholdPct": 12,
