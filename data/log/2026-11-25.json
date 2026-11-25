@@ -5138,5 +5138,2387 @@
     "origin": "google"
    }
   ]
+ },
+ {
+  "collectedAt": "2026-11-25T05:32:44.035Z",
+  "newsCollectedAt": "2026-11-25T05:32:43.107Z",
+  "quotes": {
+   "005930": {
+    "symbol": "005930",
+    "name": "삼성전자",
+    "price": 170900,
+    "prevClose": 189400,
+    "change": -18500,
+    "changePct": -9.77,
+    "currency": "KRW",
+    "time": "2026-11-25T05:32:39.488Z"
+   },
+   "000660": {
+    "symbol": "000660",
+    "name": "SK하이닉스",
+    "price": 1034000,
+    "prevClose": 1158000,
+    "change": -124000,
+    "changePct": -10.71,
+    "currency": "KRW",
+    "time": "2026-11-25T05:32:39.657Z"
+   }
+  },
+  "macro": {
+   "usdkrw": {
+    "symbol": "KRW=X",
+    "name": "원/달러 환율",
+    "price": 1342.5,
+    "prevClose": 1341.02001953125,
+    "change": 1.47998046875,
+    "changePct": 0.11036229490946177,
+    "currency": "KRW",
+    "time": "2026-11-25T05:32:16.000Z"
+   },
+   "kospi": {
+    "symbol": "^KS11",
+    "name": "코스피",
+    "price": 4697.59,
+    "prevClose": 5006.03,
+    "change": -308.44,
+    "changePct": -6.16,
+    "currency": "KRW",
+    "time": "2026-11-25T05:32:38.000Z"
+   },
+   "nasdaq": {
+    "symbol": "^IXIC",
+    "name": "나스닥",
+    "price": 23733.535,
+    "prevClose": 24089.560546875,
+    "change": -356.02554687500015,
+    "changePct": -1.4779246229179772,
+    "currency": "USD",
+    "time": "2026-11-24T22:15:59.000Z"
+   },
+   "sox": {
+    "symbol": "^SOX",
+    "name": "필라델피아 반도체",
+    "price": 8832.501,
+    "prevClose": 9588.0498046875,
+    "change": -755.5488046874998,
+    "changePct": -7.88010930354283,
+    "currency": "USD",
+    "time": "2026-11-24T22:15:59.000Z"
+   },
+   "nikkei": {
+    "symbol": "^N225",
+    "name": "니케이225",
+    "price": 56982.47,
+    "prevClose": 58644.62890625,
+    "change": -1662.1589062499988,
+    "changePct": -2.8342900914372664,
+    "currency": "JPY",
+    "time": "2026-11-25T05:17:35.000Z"
+   },
+   "shanghai": {
+    "symbol": "000001.SS",
+    "name": "상해종합",
+    "price": 3497.26,
+    "prevClose": 3548.368896484375,
+    "change": -51.10889648437478,
+    "changePct": -1.4403490159947026,
+    "currency": "CNY",
+    "time": "2026-11-25T05:17:35.000Z"
+   },
+   "vix": {
+    "symbol": "^VIX",
+    "name": "변동성지수(VIX)",
+    "price": 26.36,
+    "prevClose": 26.6200008392334,
+    "change": -0.260000839233399,
+    "changePct": -0.9767123630221737,
+    "currency": "USD",
+    "time": "2026-11-24T21:15:01.000Z"
+   },
+   "spFutures": {
+    "symbol": "ES=F",
+    "name": "S&P500 선물",
+    "price": 7160,
+    "prevClose": 7217.5,
+    "change": -57.5,
+    "changePct": -0.796674748874264,
+    "currency": "USD",
+    "time": "2026-11-25T05:22:34.000Z"
+   },
+   "nasdaqFutures": {
+    "symbol": "NQ=F",
+    "name": "나스닥100 선물",
+    "price": 25924.5,
+    "prevClose": 26275.75,
+    "change": -351.25,
+    "changePct": -1.3367839167293036,
+    "currency": "USD",
+    "time": "2026-11-25T05:22:35.000Z"
+   },
+   "fearGreed": {
+    "value": 17,
+    "ratingKo": "극단적 공포",
+    "ratingRaw": "extreme fear",
+    "source": "CNN Fear & Greed Index (미국 시장 기준)"
+   },
+   "oil": {
+    "symbol": "CL=F",
+    "name": "WTI 원유",
+    "price": 80.62,
+    "prevClose": 82.05000305175781,
+    "change": -1.430003051757808,
+    "changePct": -1.7428433864356476,
+    "currency": "USD",
+    "time": "2026-11-25T05:22:31.000Z"
+   },
+   "us10y": {
+    "symbol": "^TNX",
+    "name": "^TNX",
+    "price": 4.904,
+    "prevClose": 4.918000221252441,
+    "change": -0.014000221252441492,
+    "changePct": -0.2846730504797767,
+    "currency": "USD",
+    "time": "2026-11-24T19:59:53.000Z"
+   }
+  },
+  "news": [
+   {
+    "title": "이란 혁명수예대, 호르무즈 해협서 유조선 기뢰 피격 가속",
+    "summary": "호르무즈 해협 내 유조선 피격이 급증하며 지정학 리스크가 고조됐다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "지정학",
+    "source": "Reuters",
+    "publishedAt": "2시간 전",
+    "isBreaking": true,
+    "topic": "전쟁지정학",
+    "seenAt": "2026-11-25T05:32:43.102Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "미 상무부 BIS, 원격 컴퓨팅 우회 차단하는 대중국 AI칩 통제 IFR 시행",
+    "summary": "미 상무부가 제3국 데이터센터를 통한 우회 접속을 차단하는 수출통제를 시행했다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "미국정책",
+    "source": "Federal Register",
+    "publishedAt": "4시간 전",
+    "isBreaking": true,
+    "topic": "미국정책",
+    "seenAt": "2026-11-25T05:32:43.102Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "SK하이닉스 주가, 장중 9% 급락… 뉴욕증시 반도체주 폭락 및 규제 우려 직격탄",
+    "summary": "SK하이닉스는 뉴욕증시 반도체주 급락과 규제 불확실성 여파로 장중 9% 급락하며 큰 폭의 조정을 받았다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "SK하이닉스",
+    "source": "Investing.com",
+    "publishedAt": "43분 전",
+    "isBreaking": true,
+    "topic": "실적",
+    "seenAt": "2026-11-25T05:32:42.290Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "삼성전자 주가, 코스피 매도 사이드카 발동 속 약 9% 급락",
+    "summary": "삼성전자는 증시 전반의 투자심리 위축과 코스피 매도 사이드카 발동 속에서 약 9% 급락세를 기록했다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "삼성전자",
+    "source": "Investing.com",
+    "publishedAt": "44분 전",
+    "isBreaking": true,
+    "topic": "지수",
+    "seenAt": "2026-11-25T05:32:42.290Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "미국 11월 고용보고서 발표 예정",
+    "summary": "연준의 통화 정책 가름쇠가 될 11월 고용보고서 발표가 임박했다.",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "예정이벤트",
+    "source": "US Department of Labor",
+    "publishedAt": "9시간 전",
+    "isBreaking": false,
+    "topic": "예정이벤트",
+    "eventAt": "2026-12-04 22:30:00",
+    "eventInHours": 185,
+    "seenAt": "2026-11-25T05:32:43.102Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "미국 11월 소비자물가지수(CPI) 발표 예정",
+    "summary": "11월 미국 소비자물가지수(CPI) 발표가 다가오며 시장 경계감이 유입됐다.",
+    "sentiment": "중립",
+    "impact": "높음",
+    "relatedTo": "예정이벤트",
+    "source": "BLS",
+    "publishedAt": "6시간 전",
+    "isBreaking": false,
+    "topic": "예정이벤트",
+    "eventAt": "2026-12-10 22:30:00",
+    "eventInHours": 341,
+    "seenAt": "2026-11-25T05:32:43.102Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "미국 연방준비제도 12월 FOMC 정례회의 개최 예정",
+    "summary": "연준의 12월 금리 결정을 앞두고 통화 정책 향방에 이목이 집중됐다.",
+    "sentiment": "중립",
+    "impact": "높음",
+    "relatedTo": "예정이벤트",
+    "source": "Federal Reserve",
+    "publishedAt": "8시간 전",
+    "isBreaking": false,
+    "topic": "예정이벤트",
+    "eventAt": "2026-12-09 04:00:00",
+    "eventInHours": 310,
+    "seenAt": "2026-11-25T05:32:43.102Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "미 연준 12월 FOMC 25bp 금리인상 확실시 속 인플레이션 압력 지속",
+    "summary": "연준 의사록에서 12월 금리 인상 전망이 강화되며 긴축 경계감이 유지됐다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "매크로",
+    "source": "AP",
+    "publishedAt": "5시간 전",
+    "isBreaking": false,
+    "topic": "금리환율",
+    "seenAt": "2026-11-25T05:32:43.102Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "브렌트유, 호르무즈 해협 긴장 속 배럴당 92달러 선 유지",
+    "summary": "중동 해상 공급 차질 우려로 국제 유가가 강세 흐름을 지속했다.",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "매크로",
+    "source": "Reuters",
+    "publishedAt": "10시간 전",
+    "isBreaking": false,
+    "topic": "금리환율",
+    "seenAt": "2026-11-25T05:32:43.102Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "미 하원 외교위, 엔비디아·AMD의 대중국 AI칩 수출 승인 내역 전격 공개",
+    "summary": "하원 위원회가 대중국 반도체 수출 승인 정보 및 관련 라이선스 내역을 공론화했다.",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "미국정책",
+    "source": "House Foreign Affairs Committee",
+    "publishedAt": "12시간 전",
+    "isBreaking": false,
+    "topic": "미국정책",
+    "seenAt": "2026-11-25T05:32:43.102Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "미 상무부, 아세안 소재 우회 수출 혐의 기업 블랙리스트 추가 검토",
+    "summary": "반도체 우회 수출 경로를 차단하기 위한 제3국 대상 제재가 강화되고 있다.",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "미국정책",
+    "source": "Bloomberg",
+    "publishedAt": "14시간 전",
+    "isBreaking": false,
+    "topic": "관세",
+    "seenAt": "2026-11-25T05:32:43.102Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "빌 애크먼 '연준 2% 인플레이션 목표는 오도됐다'며 수정 촉구",
+    "summary": "빌 애크먼이 연준의 인플레이션 목표 상향 필요성을 주장하며 파장을 낳았다.",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "매크로",
+    "source": "CNBC",
+    "publishedAt": "16시간 전",
+    "isBreaking": false,
+    "topic": "금리환율",
+    "seenAt": "2026-11-25T05:32:43.102Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "중국 CXMT D램 점유율 확대 및 YMTC 낸드 약진… 삼성·SK 추격 가속",
+    "summary": "중국 메모리 반도체 업체들이 저가 공세와 정부 보조금을 바탕으로 D램과 낸드 시장 점유율을 빠르게 넓히고 있다.",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "반도체업황",
+    "source": "데이터투자",
+    "publishedAt": "2일 전",
+    "isBreaking": false,
+    "seenAt": "2026-11-25T05:32:42.290Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "구글, HBM '2위 큰손' 부상… 엔비디아 중심 시장 재편에 삼성·SK 시험대",
+    "summary": "구글이 자체 AI 칩 확대와 함께 HBM 대형 수요처로 부상하며 국내 메모리 양사의 고객 다변화 경쟁이 치열해지고 있다.",
+    "sentiment": "긍정",
+    "impact": "중간",
+    "relatedTo": "반도체업황",
+    "source": "더퍼블릭",
+    "publishedAt": "1시간 전",
+    "isBreaking": false,
+    "topic": "업황",
+    "seenAt": "2026-11-25T05:32:42.290Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "삼성전자, HBM4E 데이터 속도 핀당 17Gbps 달성… 엔비디아 목표치 근접",
+    "summary": "삼성전자가 차세대 HBM4E의 핀당 전송 속도를 17Gbps로 끌어올리며 엔비디아 요구 수준에 바짝 다가섰다.",
+    "sentiment": "긍정",
+    "impact": "중간",
+    "relatedTo": "삼성전자",
+    "source": "뉴스저널리즘",
+    "publishedAt": "3시간 전",
+    "isBreaking": false,
+    "topic": "실적",
+    "seenAt": "2026-11-25T05:32:42.290Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "낸드 현물 가격 20% 하락… B2C 수요 위축에 메모리 고점 우려 부각",
+    "summary": "범용 낸드 플래시 현물가가 단기 급락세를 보이면서 전방 수요 둔화에 따른 반도체 사이클 고점 우려가 제기됐다.",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "반도체업황",
+    "source": "연합인포맥스",
+    "publishedAt": "2일 전",
+    "isBreaking": false,
+    "topic": "업황",
+    "seenAt": "2026-11-25T05:32:42.290Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "하나증권, 삼성전자 2027년 실적 전망치 기반 목표가 40만 원 유지",
+    "summary": "하나증권은 HBM4 공급 확대와 D램 가격 강세를 근거로 삼성전자에 대한 투자의견 매수와 목표가 40만 원을 유지했다.",
+    "sentiment": "긍정",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "뉴스핌",
+    "publishedAt": "2일 전",
+    "isBreaking": false,
+    "seenAt": "2026-11-25T05:32:42.290Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "미 상무부, 알리바바 싱가포르 자회사 등 아세안 소재 7개사를 우회 수출 혐의로 블랙리스트 등재",
+    "summary": "미 상무부가 대중국 첨단 칩 우회 공급 혐의로 알리바바 산하 Apex 등 아세안 소재 7개 기업을 엔티티 리스트에 추가했다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "중국",
+    "source": "Bloomberg",
+    "publishedAt": "2026-11-24",
+    "isBreaking": false,
+    "topic": "중국",
+    "seenAt": "2026-11-24T18:51:16.172Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "이란 혁명수예대, 호르무즈 해협서 유조선 공격 수위 격화… 미 해군 봉쇄 돌파 위한 유조선 선단 출항 예고",
+    "summary": "호르무즈 해협에서 이란의 유조선 공격과 나포 위협이 고조되는 가운데, 이란이 봉쇄 돌파용 유조선 선단 출항을 준비하며 지정학적 긴장이 치솟았다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "지정학",
+    "source": "Bloomberg",
+    "publishedAt": "2026-11-21",
+    "isBreaking": false,
+    "topic": "전쟁지정학",
+    "seenAt": "2026-11-24T18:51:16.172Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "중국 관영매체, 젠슨 황 엔비디아 CEO 복귀에도 대미 경계감 유지 촉구… 보복성 핵심광물 규제 만료 임박",
+    "summary": "중국 관영매체가 젠슨 황 복귀에도 미국과의 갈등 불씨가 남아있다고 경고한 가운데, 갈륨·게르마늄 수출 통제 유예 기한 만료를 앞두고 긴장이 고조되고 있다.",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "중국",
+    "source": "Global Times",
+    "publishedAt": "2026-11-24",
+    "isBreaking": false,
+    "topic": "중국",
+    "seenAt": "2026-11-24T18:51:16.172Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "미 상무부 BIS, 원격 컴퓨팅·제3국 데이터센터 우회 차단하는 대중국 AI 칩 수출통제 IFR 시행",
+    "summary": "미 상무부 BIS가 3국 데이터센터를 통한 대중국 우회 접속과 첨단 AI 칩 접근을 차단하는 신규 수출통제 IFR을 시행했다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "미국정책",
+    "source": "US BIS",
+    "publishedAt": "2026-11-19",
+    "isBreaking": false,
+    "topic": "미국정책",
+    "seenAt": "2026-11-24T18:51:16.172Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "TSMC·삼성전자, 미 신규 수출통제 발효에 맞춰 중국 고객 대상 16나노 이하 첨단 칩 선적 중단",
+    "summary": "미국 신규 수출통제 규정 발효에 따라 TSMC와 삼성전자가 중국 고객의 16나노 이하 첨단 칩 선적을 일시 중단했다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "미국정책",
+    "source": "Reuters",
+    "publishedAt": "2026-11-19",
+    "isBreaking": false,
+    "topic": "관세",
+    "seenAt": "2026-11-24T18:51:16.172Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "숏셀러 타깃 된 AMD, 중국 블랙리스트 연계설에 주가 7% 폭락… 엔비디아 이어 반도체주 전반 긴장감",
+    "summary": "공매도 세력의 중국 연계 의혹 제기로 AMD 주가가 7% 넘게 급락하며 반도체 섹터 전반에 하방 압력을 가중시켰다.",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "반도체업황",
+    "source": "CNBC",
+    "publishedAt": "2026-11-21",
+    "isBreaking": false,
+    "topic": "실적",
+    "seenAt": "2026-11-24T18:51:16.172Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "젠슨 황 복귀에 마이크론 19% 급등 및 엔비디아 훈풍… 삼전·하닉 HBM 불확실성 해소",
+    "summary": "젠슨 황 엔비디아 CEO의 초고속 복귀로 AI 반도체 투자 심리가 살아나며 삼전·하닉 HBM 수혜 기대가 재부각됐다.",
+    "sentiment": "긍정",
+    "impact": "높음",
+    "relatedTo": "반도체업황",
+    "source": "연합뉴스",
+    "publishedAt": "20일 전",
+    "isBreaking": false,
+    "topic": "업황",
+    "seenAt": "2026-11-24T18:51:14.882Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "마이크론, 한국서 대규모 HBM R&D 인력 채용 행사 개최… 국내 인재 블랙홀 우려",
+    "summary": "마이크론이 코엑스에서 대규모 채용 행사를 열고 국내 반도체 엔지니어 확보에 나서며 국내 업계의 긴장감이 고조됐다.",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "SK하이닉스",
+    "source": "동아일보",
+    "publishedAt": "3시간 전",
+    "isBreaking": false,
+    "seenAt": "2026-11-24T18:51:14.882Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "마이크론 CEO \"2027~2028년 메모리 공급 2026년보다 훨씬 타이트할 것\"",
+    "summary": "마이크론 CEO는 AI 수요 확산으로 2027~2028년 메모리 수급이 더욱 빠듯해질 것이라고 강조했다.",
+    "sentiment": "긍정",
+    "impact": "높음",
+    "relatedTo": "반도체업황",
+    "source": "시킹알파",
+    "publishedAt": "5일 전",
+    "isBreaking": false,
+    "seenAt": "2026-11-24T18:51:14.882Z",
+    "origin": "gemini"
+   },
+   {
+    "title": "다올투자증권, SK하이닉스 목표가 200만원 제시… \"주주 가치 제고 선순환\"",
+    "summary": "다올투자증권은 SK하이닉스에 대해 적극적인 주주 환원과 2027년 실적 급증 전망을 반영해 신규 리포트를 발행했다.",
+    "sentiment": "긍정",
+    "impact": "중간",
+    "relatedTo": "SK하이닉스",
+    "source": "뉴스핌",
+    "publishedAt": "16시간 전",
+    "isBreaking": false,
+    "topic": "실적",
+    "seenAt": "2026-11-24T18:51:14.882Z",
+    "origin": "gemini"
+   }
+  ],
+  "signals": [
+   {
+    "ticker": "005930",
+    "name": "삼성전자",
+    "action": "관망",
+    "score": 47,
+    "confidence": "낮음",
+    "reasons": [
+     "갭하락(-5.65%) 출발 — 5년 실측상 갭하락은 장중·익일 되돌림이 더 많았던 자리(손절선은 지킬 것)",
+     "마감 직전 당일 저가권 — 5년 실측상 저가권 마감 다음날은 반등이 더 많았음",
+     "주가가 20일선 아래 (단기 추세 약세 · 참고용·점수 미반영)",
+     "호재(업황): 구글, HBM '2위 큰손' 부상… 엔비디아 중심 시장 재편에 삼성·SK 시험대 — 메모리 사이클이 곧 실적",
+     "호재(실적): 삼성전자, HBM4E 데이터 속도 핀당 17Gbps 달성… 엔비디아 목표치 근접 — 이 종목이 직접 언급된 기사",
+     "공시: 삼성전자 주식선물ㆍ주식옵션 2단계 가격제한폭 확대요건 도달(하락) (20261125) — 내용 확인 필요",
+     "공시: 삼성전자 기업설명회(IR) 개최(안내공시) (20261113) — 내용 확인 필요",
+     "전일(2026-11-24) 외국인+기관 순매수 3,524,566주(20일평균거래량 대비 +19.0%) — 수급 우호적"
+    ],
+    "warnings": [
+     "변동성 높음 — 지금 이 종목은 하루에 평균 ±5.6%(연율 89%) 움직이고 있고, 이는 평소의 2.1배입니다. 신호가 아직 충분히 강하지 않아(점수 47) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+     "VWAP(173,805원) 아래 -1.67% — 당일 매도세 우위",
+     "오프닝레인지 하단(175,300원) 이탈 — 하락 전환 시그널",
+     "미 반도체지수(SOX) 폭락 -7.9% — 오늘 반도체주 갭하락 요인. 5년 실측상 이런 날은 갭 뒤 장중·익일에 되돌림이 더 많았으니 시가 투매는 피하고 손절선 기준으로만 판단",
+     "나스닥100 선물 -1.34% — 시가 갭에 이미 반영된 정보라 '더 오를/내릴 근거'로 쓰지 않음",
+     "VIX 26.4 (경계 구간) — 변동성 확대 유의",
+     "공포탐욕지수 17 (극단적 공포) — 투매성 변동성 구간, 손절 원칙 더 엄격히 적용",
+     "[속보] 악재 주의(지수): 삼성전자 주가, 코스피 매도 사이드카 발동 속 약 9% 급락 — 이 종목이 직접 언급된 기사",
+     "[속보] 악재 주의(실적): SK하이닉스 주가, 장중 9% 급락… 뉴욕증시 반도체주 폭락 및 규제 우려 직격탄 — 밸류체인(TSMC·마이크론·엔비디아) 가이던스가 선행지표",
+     "쇼크 속보 — [전쟁·지정학] 이란 혁명수예대, 호르무즈 해협서 유조선 기뢰 피격 가속. 헤드라인 장세에서는 첫 반응이 뒤집히는 일이 잦으니 신규 진입은 70% 규모, VWAP 위 안착 확인 후",
+     "니케이 -2.8% — 아시아 동반 리스크오프 신호(점수 미반영, 맥락)",
+     "장 마감 뒤 이벤트 — 한국은행 기준금리 결정(내일 10:00). 단타는 마감 전에 정리하니 영향이 작지만, 들고 넘길 물량은 손절 예약을 걸어 두세요",
+     "손절선이 너무 가깝습니다 — 손절까지 3.0%인데 이 종목은 하루 평균 ±5.6% 움직입니다. 방향을 맞혀도 장중 흔들림만으로 손절에 걸릴 가능성이 높으니, 손절선을 더 넓히거나(그만큼 수량을 줄여서) 진입 자체를 미루세요."
+    ],
+    "targetPrice": 181300,
+    "stopPrice": 165700,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 170900,
+    "indicators": {
+     "ma5": 188320,
+     "ma20": 204660,
+     "ma60": 235911.66666666666,
+     "ma20SlopePct": -3.464540930638428,
+     "rsi14": 40.35824014210733,
+     "macd": -12384.537310001877,
+     "macdSignal": -11918.022949320723,
+     "macdHist": -466.51436068115436,
+     "macdHistPrev": -1020.8877737090261,
+     "bollingerUpper": 239125.48418345518,
+     "bollingerLower": 170194.51581654482,
+     "percentB": 0.27861909731525814,
+     "atr14": 12838.71938261791,
+     "volumeZ": -0.2903486623728243,
+     "lastVolume": 17079045,
+     "avgVolume20": 18586754.75,
+     "high52w": 374500,
+     "low52w": 94500,
+     "stochK": 19.6119971354536,
+     "stochD": 20.204509126866856,
+     "pivotPP": 190200,
+     "pivotR1": 192900,
+     "pivotS1": 186700,
+     "pivotR2": 196400,
+     "pivotS2": 184000,
+     "adx14": 23.191879456121537,
+     "bullishDivergence": false,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "prevCloseLocation": -0.3870967741935484,
+     "ret5Pct": -0.4729374671571196,
+     "volatilityRatio": 0.7089950878574088
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-11-25",
+     "isToday": true,
+     "todayOpen": 178700,
+     "todayHigh": 179300,
+     "todayLow": 170650,
+     "current": 170900,
+     "vwap": 173804.9973789592,
+     "distanceFromVwapPct": -1.671411882723507,
+     "gapPct": -5.649419218585006,
+     "gapType": "갭하락",
+     "rangePositionPct": 2.8901734104046244,
+     "openingRangeHigh": 179300,
+     "openingRangeLow": 175300,
+     "orbStatus": "하단이탈",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "마감임박",
+     "kstTime": "14:32",
+     "note": "마감 전 50분 구간입니다. 기관·외국인 수급이 급변할 수 있어 변동성이 커집니다. 보유 포지션의 당일 청산 여부를 결정하세요."
+    },
+    "entryTriggers": [
+     "VWAP(173,805원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(179,300원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(186,700원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(192,900원) 돌파 시 추세 진입",
+     "당일 저가(170,650원) 지지 확인(이탈 없이 반등) 시 반발매수 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(175,300원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [],
+    "scaledExit": [],
+    "watchOrderNote": null,
+    "relativeStrengthNote": "반도체 2종목 중 등락률 1위(-9.77%) — 오늘 가장 강한 종목, 단타 우선순위 상위",
+    "estimatedRoundTripCostWon": null,
+    "entryBlocked": false,
+    "breakEvenPrice": null,
+    "priceLimits": {
+     "available": true,
+     "basePrice": 189400,
+     "upperLimit": 246000,
+     "lowerLimit": 132600,
+     "viUpper": 208000,
+     "viLower": 170500,
+     "note": "여기서 21.7% 더 오르면 208,000원에서, 0.2% 더 빠지면 170,500원에서 거래가 약 2분간 멈춥니다(VI). 오늘 체결 가능한 범위는 132,600원 ~ 246,000원입니다.",
+     "beyondVi": null
+    },
+    "backtest": {
+     "periodStart": "2021-07-16",
+     "periodEnd": "2026-11-20",
+     "sampleSignals": 98,
+     "winRate5d": 65.3,
+     "avgReturn5d": 1.54,
+     "winRate10d": 56.1,
+     "avgReturn10d": 2.29
+    },
+    "buyStrength": 1,
+    "sellStrength": null,
+    "actionSummary": "관망 강도(매수 아님) 1/10 — 아직 근거 부족",
+    "verdict": "⚪ 지금은 매수하지 마세요 (변동성이 진정될 때까지) — 변동성 높음 — 지금 이 종목은 하루에 평균 ±5.6%(연율 89%) 움직이고 있고, 이는 평소의 2.1배입니다. 신호가 아직 충분히 강하지 않아(점수 47) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+    "macroScore": -32,
+    "disclosures": [
+     {
+      "title": "삼성전자 주식선물ㆍ주식옵션 2단계 가격제한폭 확대요건 도달(하락)",
+      "date": "20261125",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 기업설명회(IR) 개최(안내공시)",
+      "date": "20261113",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 주식선물ㆍ주식옵션 2단계 가격제한폭 확대요건 도달(하락)",
+      "date": "20261106",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 기타 경영사항(자율공시)",
+      "date": "20261029",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 기타 경영사항(자율공시)",
+      "date": "20261029",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 자기주식 처분 결정",
+      "date": "20261029",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 장래사업ㆍ경영 계획(공정공시)",
+      "date": "20261029",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 (정정)연결재무제표기준영업(잠정)실적(공정공시)",
+      "date": "20261029",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 현금ㆍ현물 배당 결정",
+      "date": "20261029",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 연결재무제표기준영업(잠정)실적(공정공시)",
+      "date": "20261029",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 주식선물ㆍ주식옵션 2단계 가격제한폭 확대요건 도달(하락)",
+      "date": "20261015",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 기업설명회(IR) 개최(안내공시)",
+      "date": "20261008",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 연결재무제표기준영업(잠정)실적(공정공시)",
+      "date": "20261008",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 중간(분기)배당락 기준가격 안내(삼성전자우)",
+      "date": "20260928",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     },
+     {
+      "title": "삼성전자 중간(분기)배당락 기준가격 안내",
+      "date": "20260928",
+      "reporterName": "삼성전자",
+      "url": "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90",
+      "sentiment": "중립"
+     }
+    ],
+    "investorFlow": [
+     {
+      "date": "2026-11-11",
+      "foreignNet": 2648292,
+      "institutionNet": -629449
+     },
+     {
+      "date": "2026-11-12",
+      "foreignNet": 3611532,
+      "institutionNet": -1283117
+     },
+     {
+      "date": "2026-11-13",
+      "foreignNet": 8216,
+      "institutionNet": -328604
+     },
+     {
+      "date": "2026-11-16",
+      "foreignNet": -3105597,
+      "institutionNet": 852610
+     },
+     {
+      "date": "2026-11-17",
+      "foreignNet": -2484383,
+      "institutionNet": 875284
+     },
+     {
+      "date": "2026-11-18",
+      "foreignNet": -869394,
+      "institutionNet": 1104534
+     },
+     {
+      "date": "2026-11-19",
+      "foreignNet": -561332,
+      "institutionNet": -186318
+     },
+     {
+      "date": "2026-11-20",
+      "foreignNet": -2299994,
+      "institutionNet": -1915397
+     },
+     {
+      "date": "2026-11-23",
+      "foreignNet": -45179,
+      "institutionNet": 661271
+     },
+     {
+      "date": "2026-11-24",
+      "foreignNet": 2348072,
+      "institutionNet": 1176494
+     }
+    ],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 5.620779937455129,
+     "annualizedPct": 89.22711533236473,
+     "range90": {
+      "lowPct": -9.134761348022852,
+      "highPct": 11.081572823244567
+     },
+     "range98": {
+      "lowPct": -14.21118791237295,
+      "highPct": 16.439096226444224
+     },
+     "zQuantiles": {
+      "q05": -1.6251768348288542,
+      "q25": -0.5323934834352584,
+      "q75": 0.6671289891413993,
+      "q95": 1.9715365032173584
+     },
+     "regime": "높음",
+     "regimePercentile": 87.80991735537191,
+     "regimeRatio": 2.1039927567563885,
+     "skew": "상방",
+     "drivers": [
+      "변동성이 평소의 2.1배로 확대된 상태",
+      "전일 미 반도체지수(SOX) -7.9% 급변동 — 갭 위험 확대"
+     ]
+    },
+    "forecastPath": null,
+    "upRate": {
+     "regime": "보통/붕괴/횡보",
+     "upRatePct": 42.5,
+     "sampleN": 214,
+     "overallPct": 48.7,
+     "distinguishable": false,
+     "headline": "지금은 \"보통/붕괴/횡보\" 국면입니다. 과거 같은 국면 214일 중 42.5%가 상승 마감했지만, 전체 평균 48.7%와 통계적으로 구분되지 않습니다 — 즉 오늘의 방향은 사실상 동전던지기입니다. 방향에 베팅하지 말고 \"얼마에 사고, 얼마나 사고, 어디서 자를지\"로 판단하세요."
+    },
+    "suggestedEntryPrice": null,
+    "entryPriceBasis": null,
+    "issueImpacts": [
+     {
+      "topic": "지수",
+      "title": "삼성전자 주가, 코스피 매도 사이드카 발동 속 약 9% 급락",
+      "direction": "악재",
+      "strength": 3,
+      "why": "이 종목이 직접 언급된 기사",
+      "isBreaking": true,
+      "flipped": false
+     },
+     {
+      "topic": "실적",
+      "title": "SK하이닉스 주가, 장중 9% 급락… 뉴욕증시 반도체주 폭락 및 규제 우려 직격탄",
+      "direction": "악재",
+      "strength": 3,
+      "why": "밸류체인(TSMC·마이크론·엔비디아) 가이던스가 선행지표",
+      "isBreaking": true,
+      "flipped": false
+     },
+     {
+      "topic": "미국정책",
+      "title": "미 상무부 BIS, 원격 컴퓨팅 우회 차단하는 대중국 AI칩 통제 IFR 시행",
+      "direction": "악재",
+      "strength": 3,
+      "why": "수출규제·반도체법·對중 제재가 매출처와 투자에 직결",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "전쟁지정학",
+      "title": "이란 혁명수예대, 호르무즈 해협서 유조선 기뢰 피격 가속",
+      "direction": "악재",
+      "strength": 2,
+      "why": "리스크오프 시 외국인이 가장 먼저 파는 대형 수출주",
+      "isBreaking": true,
+      "flipped": false
+     },
+     {
+      "topic": "업황",
+      "title": "구글, HBM '2위 큰손' 부상… 엔비디아 중심 시장 재편에 삼성·SK 시험대",
+      "direction": "호재",
+      "strength": 2,
+      "why": "메모리 사이클이 곧 실적",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "실적",
+      "title": "삼성전자, HBM4E 데이터 속도 핀당 17Gbps 달성… 엔비디아 목표치 근접",
+      "direction": "호재",
+      "strength": 2,
+      "why": "이 종목이 직접 언급된 기사",
+      "isBreaking": false,
+      "flipped": false
+     }
+    ],
+    "riskOverlay": {
+     "eventRisk": false,
+     "shockRisk": true,
+     "sizeMultiplier": 0.7,
+     "notes": [
+      "쇼크 속보 — [전쟁·지정학] 이란 혁명수예대, 호르무즈 해협서 유조선 기뢰 피격 가속. 헤드라인 장세에서는 첫 반응이 뒤집히는 일이 잦으니 신규 진입은 70% 규모, VWAP 위 안착 확인 후",
+      "니케이 -2.8% — 아시아 동반 리스크오프 신호(점수 미반영, 맥락)",
+      "장 마감 뒤 이벤트 — 한국은행 기준금리 결정(내일 10:00). 단타는 마감 전에 정리하니 영향이 작지만, 들고 넘길 물량은 손절 예약을 걸어 두세요"
+     ]
+    }
+   },
+   {
+    "ticker": "000660",
+    "name": "SK하이닉스",
+    "action": "관망",
+    "score": 54,
+    "confidence": "낮음",
+    "reasons": [
+     "갭하락(-6.22%) 출발 — 5년 실측상 갭하락은 장중·익일 되돌림이 더 많았던 자리(손절선은 지킬 것)",
+     "마감 직전 당일 저가권 — 5년 실측상 저가권 마감 다음날은 반등이 더 많았음",
+     "주가가 20일선 아래 (단기 추세 약세 · 참고용·점수 미반영)",
+     "RSI 강세 다이버전스 — 가격은 이전 저점보다 낮은데 RSI는 더 높음 (하락 모멘텀 약화, 저점매수 확인 신호)",
+     "스토캐스틱 %K 19 — 과매도 구간에서 %D 상향 돌파 (단기 반등 신호)",
+     "MACD 상승 전환 유지 (참고용·점수 미반영)",
+     "전일 저가 부근 마감 — 5년 실측상 다음날 반등이 더 많았던 자리 (단기 되돌림 +)",
+     "호재(업황): 구글, HBM '2위 큰손' 부상… 엔비디아 중심 시장 재편에 삼성·SK 시험대 — 메모리 사이클이 곧 실적",
+     "공시: 임원ㆍ주요주주특정증권등소유상황보고서 (20261123) — 내용 확인 필요"
+    ],
+    "warnings": [
+     "변동성 극단 — 지금 이 종목은 하루에 평균 ±7.0%(연율 112%) 움직이고 있고, 이는 평소의 1.8배입니다. 신호가 아직 충분히 강하지 않아(점수 54) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+     "VWAP(1,060,327원) 아래 -2.48% — 당일 매도세 우위",
+     "오프닝레인지 하단(1,073,000원) 이탈 — 하락 전환 시그널",
+     "미 반도체지수(SOX) 폭락 -7.9% — 오늘 반도체주 갭하락 요인. 5년 실측상 이런 날은 갭 뒤 장중·익일에 되돌림이 더 많았으니 시가 투매는 피하고 손절선 기준으로만 판단",
+     "나스닥100 선물 -1.34% — 시가 갭에 이미 반영된 정보라 '더 오를/내릴 근거'로 쓰지 않음",
+     "VIX 26.4 (경계 구간) — 변동성 확대 유의",
+     "공포탐욕지수 17 (극단적 공포) — 투매성 변동성 구간, 손절 원칙 더 엄격히 적용",
+     "[속보] 악재 주의(실적): SK하이닉스 주가, 장중 9% 급락… 뉴욕증시 반도체주 폭락 및 규제 우려 직격탄 — 이 종목이 직접 언급된 기사",
+     "악재 주의(미국 정책): 미 상무부 BIS, 원격 컴퓨팅 우회 차단하는 대중국 AI칩 통제 IFR 시행 — 수출규제·반도체법·對중 제재가 매출처와 투자에 직결",
+     "전일(2026-11-24) 외국인+기관 순매도 119,834주(20일평균거래량 대비 -3.1%) — 수급 이탈 주의",
+     "쇼크 속보 — [전쟁·지정학] 이란 혁명수예대, 호르무즈 해협서 유조선 기뢰 피격 가속. 헤드라인 장세에서는 첫 반응이 뒤집히는 일이 잦으니 신규 진입은 70% 규모, VWAP 위 안착 확인 후",
+     "니케이 -2.8% — 아시아 동반 리스크오프 신호(점수 미반영, 맥락)",
+     "장 마감 뒤 이벤트 — 한국은행 기준금리 결정(내일 10:00). 단타는 마감 전에 정리하니 영향이 작지만, 들고 넘길 물량은 손절 예약을 걸어 두세요",
+     "손절선이 너무 가깝습니다 — 손절까지 2.6%인데 이 종목은 하루 평균 ±7.0% 움직입니다. 방향을 맞혀도 장중 흔들림만으로 손절에 걸릴 가능성이 높으니, 손절선을 더 넓히거나(그만큼 수량을 줄여서) 진입 자체를 미루세요."
+    ],
+    "targetPrice": 1088000,
+    "stopPrice": 1007000,
+    "suggestedBudget": null,
+    "suggestedQty": null,
+    "pnlPct": null,
+    "price": 1034000,
+    "indicators": {
+     "ma5": 1136600,
+     "ma20": 1254450,
+     "ma60": 1503016.6666666667,
+     "ma20SlopePct": -2.8160830492717692,
+     "rsi14": 42.267806999207565,
+     "macd": -91251.21801545052,
+     "macdSignal": -93310.76162578765,
+     "macdHist": 2059.543610337132,
+     "macdHistPrev": -2887.5350171882455,
+     "bollingerUpper": 1534922.797254921,
+     "bollingerLower": 973977.2027450791,
+     "percentB": 0.3280581914824045,
+     "atr14": 99012.1028510702,
+     "volumeZ": -0.24073660179757767,
+     "lastVolume": 3611127,
+     "avgVolume20": 3881660.1,
+     "high52w": 2987000,
+     "low52w": 501000,
+     "stochK": 18.998879651474866,
+     "stochD": 15.367075933816054,
+     "pivotPP": 1176000,
+     "pivotR1": 1194000,
+     "pivotS1": 1140000,
+     "pivotR2": 1230000,
+     "pivotS2": 1122000,
+     "adx14": 24.159987281939298,
+     "bullishDivergence": true,
+     "bearishDivergence": false,
+     "obvDivergence": false,
+     "hammerReversal": false,
+     "prevCloseLocation": -1,
+     "ret5Pct": 5.464480874316946,
+     "volatilityRatio": 0.6699437463844615
+    },
+    "intraday": {
+     "available": true,
+     "sessionDate": "2026-11-25",
+     "isToday": true,
+     "todayOpen": 1086000,
+     "todayHigh": 1094000,
+     "todayLow": 1033000,
+     "current": 1034000,
+     "vwap": 1060327.371767906,
+     "distanceFromVwapPct": -2.482947481022755,
+     "gapPct": -6.217616580310881,
+     "gapType": "갭하락",
+     "rangePositionPct": 1.639344262295082,
+     "openingRangeHigh": 1094000,
+     "openingRangeLow": 1073000,
+     "orbStatus": "하단이탈",
+     "momentum": "중립"
+    },
+    "marketPhase": {
+     "phase": "마감임박",
+     "kstTime": "14:32",
+     "note": "마감 전 50분 구간입니다. 기관·외국인 수급이 급변할 수 있어 변동성이 커집니다. 보유 포지션의 당일 청산 여부를 결정하세요."
+    },
+    "entryTriggers": [
+     "VWAP(1,060,327원) 상향 돌파 + 거래량 증가 동반 시 1차 진입",
+     "오프닝레인지 상단(1,094,000원) 돌파 후 되돌림(눌림목)에서 진입",
+     "피벗 지지선(1,140,000원) 이탈 없이 지지 확인 시 분할 진입 / 피벗 저항(1,194,000원) 돌파 시 추세 진입",
+     "당일 저가(1,033,000원) 지지 확인(이탈 없이 반등) 시 반발매수 진입"
+    ],
+    "invalidation": "오프닝레인지 하단(1,073,000원) 재이탈 또는 미 반도체지수(SOX) 선물·장중 흐름이 급격히 반전 하락 발생 시, 목표가·손절가 도달 여부와 무관하게 매매 논리 자체가 무효화된 것으로 보고 즉시 재검토·정리하세요.",
+    "scaledEntry": [],
+    "scaledExit": [],
+    "watchOrderNote": null,
+    "relativeStrengthNote": "반도체 2종목 중 등락률 최하위(-10.71%) — 상대적으로 약세, 진입 시 더 보수적으로 접근",
+    "estimatedRoundTripCostWon": null,
+    "entryBlocked": false,
+    "breakEvenPrice": null,
+    "priceLimits": {
+     "available": true,
+     "basePrice": 1158000,
+     "upperLimit": 1505000,
+     "lowerLimit": 811000,
+     "viUpper": 1273000,
+     "viLower": 1043000,
+     "note": "이미 VI 하단(1,043,000원)을 넘었습니다 — 급락으로 거래가 잠시 멈췄을 수 있습니다. 하한가는 811,000원입니다.",
+     "beyondVi": "하단"
+    },
+    "backtest": {
+     "periodStart": "2021-07-16",
+     "periodEnd": "2026-11-20",
+     "sampleSignals": 72,
+     "winRate5d": 55.6,
+     "avgReturn5d": 1.06,
+     "winRate10d": 56.9,
+     "avgReturn10d": 3.3
+    },
+    "buyStrength": 2,
+    "sellStrength": null,
+    "actionSummary": "관망 강도(매수 아님) 2/10 — 아직 근거 부족",
+    "verdict": "⚪ 지금은 매수하지 마세요 (변동성이 진정될 때까지) — 변동성 극단 — 지금 이 종목은 하루에 평균 ±7.0%(연율 112%) 움직이고 있고, 이는 평소의 1.8배입니다. 신호가 아직 충분히 강하지 않아(점수 54) 신규 진입은 보류하고 변동성이 진정될 때까지 관망하세요.",
+    "macroScore": -32,
+    "disclosures": [
+     {
+      "title": "임원ㆍ주요주주특정증권등소유상황보고서",
+      "date": "20261123",
+      "reporterName": "윤풍영",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261123000192",
+      "sentiment": "중립"
+     }
+    ],
+    "investorFlow": [
+     {
+      "date": "2026-11-11",
+      "foreignNet": 98654,
+      "institutionNet": -152520
+     },
+     {
+      "date": "2026-11-12",
+      "foreignNet": -685802,
+      "institutionNet": 393605
+     },
+     {
+      "date": "2026-11-13",
+      "foreignNet": -370341,
+      "institutionNet": 24207
+     },
+     {
+      "date": "2026-11-16",
+      "foreignNet": -159701,
+      "institutionNet": -694134
+     },
+     {
+      "date": "2026-11-17",
+      "foreignNet": -399323,
+      "institutionNet": 130072
+     },
+     {
+      "date": "2026-11-18",
+      "foreignNet": -42531,
+      "institutionNet": 27949
+     },
+     {
+      "date": "2026-11-19",
+      "foreignNet": -49813,
+      "institutionNet": -125618
+     },
+     {
+      "date": "2026-11-20",
+      "foreignNet": -167982,
+      "institutionNet": -235664
+     },
+     {
+      "date": "2026-11-23",
+      "foreignNet": -168180,
+      "institutionNet": -27323
+     },
+     {
+      "date": "2026-11-24",
+      "foreignNet": -118990,
+      "institutionNet": -844
+     }
+    ],
+    "volForecast": {
+     "available": true,
+     "sigmaDailyPct": 7.025585630022876,
+     "annualizedPct": 111.52771434977744,
+     "range90": {
+      "lowPct": -11.35174361622964,
+      "highPct": 13.35181306653464
+     },
+     "range98": {
+      "lowPct": -17.42625450568907,
+      "highPct": 18.73489502686018
+     },
+     "zQuantiles": {
+      "q05": -1.615771867859602,
+      "q25": -0.46970692171010753,
+      "q75": 0.7497076022623668,
+      "q95": 1.9004555306361224
+     },
+     "regime": "극단",
+     "regimePercentile": 91.94214876033058,
+     "regimeRatio": 1.7528471494062077,
+     "skew": "상방",
+     "drivers": [
+      "현재 변동성이 과거 2년 중 가장 심한 상위 8% 구간 — 평소의 1.8배",
+      "전일 미 반도체지수(SOX) -7.9% 급변동 — 갭 위험 확대"
+     ]
+    },
+    "forecastPath": null,
+    "upRate": {
+     "regime": "보통/붕괴/횡보",
+     "upRatePct": 42.5,
+     "sampleN": 214,
+     "overallPct": 48.7,
+     "distinguishable": false,
+     "headline": "지금은 \"보통/붕괴/횡보\" 국면입니다. 과거 같은 국면 214일 중 42.5%가 상승 마감했지만, 전체 평균 48.7%와 통계적으로 구분되지 않습니다 — 즉 오늘의 방향은 사실상 동전던지기입니다. 방향에 베팅하지 말고 \"얼마에 사고, 얼마나 사고, 어디서 자를지\"로 판단하세요."
+    },
+    "suggestedEntryPrice": null,
+    "entryPriceBasis": null,
+    "issueImpacts": [
+     {
+      "topic": "실적",
+      "title": "SK하이닉스 주가, 장중 9% 급락… 뉴욕증시 반도체주 폭락 및 규제 우려 직격탄",
+      "direction": "악재",
+      "strength": 3,
+      "why": "이 종목이 직접 언급된 기사",
+      "isBreaking": true,
+      "flipped": false
+     },
+     {
+      "topic": "미국정책",
+      "title": "미 상무부 BIS, 원격 컴퓨팅 우회 차단하는 대중국 AI칩 통제 IFR 시행",
+      "direction": "악재",
+      "strength": 3,
+      "why": "수출규제·반도체법·對중 제재가 매출처와 투자에 직결",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "전쟁지정학",
+      "title": "이란 혁명수예대, 호르무즈 해협서 유조선 기뢰 피격 가속",
+      "direction": "악재",
+      "strength": 2,
+      "why": "리스크오프 시 외국인이 가장 먼저 파는 대형 수출주",
+      "isBreaking": true,
+      "flipped": false
+     },
+     {
+      "topic": "업황",
+      "title": "구글, HBM '2위 큰손' 부상… 엔비디아 중심 시장 재편에 삼성·SK 시험대",
+      "direction": "호재",
+      "strength": 2,
+      "why": "메모리 사이클이 곧 실적",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "금리환율",
+      "title": "미 연준 12월 FOMC 25bp 금리인상 확실시 속 인플레이션 압력 지속",
+      "direction": "악재",
+      "strength": 2,
+      "why": "기술주 할인율·외국인 수급 경유",
+      "isBreaking": false,
+      "flipped": false
+     },
+     {
+      "topic": "업황",
+      "title": "마이크론, 한국서 대규모 HBM R&D 인력 채용 행사 개최… 국내 인재 블랙홀 우려",
+      "direction": "악재",
+      "strength": 2,
+      "why": "이 종목이 직접 언급된 기사",
+      "isBreaking": false,
+      "flipped": false
+     }
+    ],
+    "riskOverlay": {
+     "eventRisk": false,
+     "shockRisk": true,
+     "sizeMultiplier": 0.7,
+     "notes": [
+      "쇼크 속보 — [전쟁·지정학] 이란 혁명수예대, 호르무즈 해협서 유조선 기뢰 피격 가속. 헤드라인 장세에서는 첫 반응이 뒤집히는 일이 잦으니 신규 진입은 70% 규모, VWAP 위 안착 확인 후",
+      "니케이 -2.8% — 아시아 동반 리스크오프 신호(점수 미반영, 맥락)",
+      "장 마감 뒤 이벤트 — 한국은행 기준금리 결정(내일 10:00). 단타는 마감 전에 정리하니 영향이 작지만, 들고 넘길 물량은 손절 예약을 걸어 두세요"
+     ]
+    }
+   }
+  ],
+  "aiSummary": "🔴 **삼성전자**(182,900원) 🇰🇷\n매수강도 4/10 — 관망 유지. VWAP(190,521원) 상향 돌파 + 거래량 동반 시 첫 진입 | 손절 177,900원 | 변동성 극심(±5.4%) 중 신호 약함(62점)\n\n🔴 **SK하이닉스**(1,113,000원) 🇰🇷\n매수강도 4/10 — 관망 유지. VWAP(1,173,052원) 돌파 후 눌림목 진입 타이밍 대기 | 손절 1,073,000원 | RSI 다이버전스 약화 신호 있으나 변동성 극단(±6.9%) 경계\n\n⚠️ **공포탐욕지수 18(극단적 공포)** — 시장 심리 경계 수준 | VIX 26.2 고평가\n\n📰 **주요 리스크**: 엔비디아 미국 수출규제 위반 의혹 보도 + AI 칩 중국 수출 규제 강화 여론 + SOX 지수 -7.31% 반도체株 약세 가중",
+  "masterScore": {
+   "attractivenessPct": 51,
+   "label": "중립/관망",
+   "tone": "neutral",
+   "headline": "뚜렷한 매수·매도 신호 없이 관망 우위 — 가장 근접한 종목은 SK하이닉스(54점)",
+   "buyCount": 0,
+   "sellCount": 0,
+   "strongestTicker": "000660",
+   "strongestName": "SK하이닉스"
+  },
+  "predictions": {
+   "005930": {
+    "checkpoint": "h15",
+    "dayProb": 0.3246584091964972,
+    "swingProb": 0.5336742669171206,
+    "price": 170900
+   },
+   "000660": {
+    "checkpoint": "h15",
+    "dayProb": 0.3537869243023251,
+    "swingProb": 0.5186465025776196,
+    "price": 1034000
+   }
+  },
+  "liveNews": [
+   {
+    "title": "[공시] 삼성전자 주식선물ㆍ주식옵션 2단계 가격제한폭 확대요건 도달(하락)",
+    "summary": "기타 공시",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "topic": "기타",
+    "source": "거래소 공시",
+    "at": "2026-11-25T02:59:22.000Z",
+    "origin": "disclosure"
+   },
+   {
+    "title": "[공시] SK하이닉스 주식선물ㆍ주식옵션 2단계 가격제한폭 확대요건 도달(하락)",
+    "summary": "기타 공시",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "topic": "기타",
+    "source": "거래소 공시",
+    "at": "2026-11-25T02:53:52.000Z",
+    "origin": "disclosure"
+   },
+   {
+    "title": "[공시] SK하이닉스 주식선물ㆍ주식옵션 3단계 가격제한폭 확대요건 도달(상승)",
+    "summary": "기타 공시",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "topic": "기타",
+    "source": "거래소 공시",
+    "at": "2026-11-24T00:05:06.000Z",
+    "origin": "disclosure"
+   },
+   {
+    "title": "[공시] SK하이닉스 주식선물ㆍ주식옵션 2단계 가격제한폭 확대요건 도달(상승)",
+    "summary": "기타 공시",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "topic": "기타",
+    "source": "거래소 공시",
+    "at": "2026-11-24T00:00:06.000Z",
+    "origin": "disclosure"
+   },
+   {
+    "title": "[연합뉴스 이 시각 헤드라인] - 14:30",
+    "summary": "■ 올해 1∼9월 태어난 아기 21만9천명…증가율 역대 최고 올해 들어 3분기까지 태어난 아기가 작년보다 14% 넘게 증가하며 21만명을 넘었다. 증가율은 역대 최고 수준이다. 3분기 합계출산율(여성 1명이 평생 낳을 것으로 예상되는... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "연합뉴스",
+    "at": "2026-11-25T05:30:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/001/0016462819",
+    "origin": "naver"
+   },
+   {
+    "title": "'젠슨황 랠리' 소멸...월가, AI투자 전망 하향 [딥시그널]",
+    "summary": "전 세계 주식시장이 엔비디아의 젠슨 황 최고경영자 복귀로 반영했던 상승분을 일제히 반납했습니다. 간밤 필라델피아 반도체지수가 8% 가까이 급락한 여파에 삼성전자와 SK하이닉스를 비롯한 우리 기업들들도 낙폭을 키웠습니다. 주요... ",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "한국경제TV",
+    "at": "2026-11-25T05:28:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/215/0001273920",
+    "origin": "naver"
+   },
+   {
+    "title": "[디자인코리아 2026]AI 넘어 피지컬 AI로…디자인 혁신, 산업 경쟁력 ...",
+    "summary": "인공지능(AI)과 로봇 등 첨단 기술에 디자인을 접목해 새로운 산업 경쟁력을 확보하려는 움직임이 본격화하고 있다. 제품의 외관과 형태를 넘어 기술과 사람을 연결하고, 실제 사용 환경에서 편의성과 안전성을 높이는 디자인의 역할이 주목받고... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "전자신문",
+    "at": "2026-11-25T05:16:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/030/0003489698",
+    "origin": "naver"
+   },
+   {
+    "title": "한전, 정보유출 고객에 최대 1000만원 보상 보험",
+    "summary": "한국전력이 개인정보 유출 사고 2차 피해 예방을 위해 최대 1000만원의 금융사기 피해보상 보험을 지원한다. 명의도용 방지 서비스 무료 제공·금융기관과 이상거래 감시도 강화한다. 주민등록번호와 계좌정보 등이 유출된 가운데... ",
+    "sentiment": "긍정",
+    "impact": "높음",
+    "relatedTo": "삼성전자",
+    "source": "디지털타임스",
+    "at": "2026-11-25T05:14:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/029/0003061081",
+    "origin": "naver"
+   },
+   {
+    "title": "하루 만에 식은 ‘젠슨 황 효과’…AI 거품 우려에 아시아 증시 급락",
+    "summary": "젠슨 황 엔비디아 최고경영자(CEO)의 복귀 효과가 하루 만에 끝나는 모습입니다. 전날 뉴욕증시가 혼조세로 마감한 가운데 25일 아시아 주요 증시는 인공지능(AI) 투자 거품에 대한 우려가 재점화하면서 반도체주를 중심으로 급락했습니다. CNBC와...",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "채널A",
+    "at": "2026-11-25T05:10:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/449/0000368644",
+    "origin": "naver"
+   },
+   {
+    "title": "삼성 금융 수장들 유임 가닥…생명·화재·증권·운용 ‘안정’에 무...",
+    "summary": "삼성생명과 삼성화재, 삼성증권, 삼성자산운용 등 삼성 주요 금융계열사 최고경영자(CEO)들이 유임하는 방향으로 가닥을 잡았다. 해외 사업 확대와 신규 수익원 확보 등 중장기 과제를 추진 중인 가운데 현 경영진을 중심으로 경영 연속성을 이어갈... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "디지털타임스",
+    "at": "2026-11-25T05:10:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/029/0003061075",
+    "origin": "naver"
+   },
+   {
+    "title": "AI가 공무원 대신 보고서 쓰네...삼성SDS, 공공 AX 기술 시연",
+    "summary": "2026 대한민국 정부혁신 박람회 참가 삼성SDS가 공공기관의 인공지능 전환(AX)을 지원하는 클라우드와 인공지능(AI) 업무 플랫폼을 선보인다. 정부 부처에 적용한 AI 서비스 사례를 소개하고 공공 업무 자동화를 위한 기술을 공개한다. 삼성SDS는.",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "매일경제",
+    "at": "2026-11-25T05:09:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/009/0005768722",
+    "origin": "naver"
+   },
+   {
+    "title": "[단독] HBM 질주 브레이크 밟나…美 로펌 4곳, SK하이닉스 주주 소송 ...",
+    "summary": "SK하이닉스를 상대로 한 미국 내 주주 집단소송을 검토하는 현지 로펌이 4곳으로 늘었다. D램 구매자들이 제기한 담합 의혹 소송이 진행 중인 가운데 SK하이닉스의 소송 리스크 공시 적정성과 주가 하락 책임을 묻는 증권소송 움직임까지 겹치며... ",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "SK하이닉스",
+    "source": "마이데일리",
+    "at": "2026-11-25T05:08:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/117/0004127917",
+    "origin": "naver"
+   },
+   {
+    "title": "다올자산운용, 피지컬 AI 시장 겨냥…로봇 밸류체인 펀드 출시",
+    "summary": "다올자산운용이 국내 주요 대기업의 로봇 사업 생태계에 투자하는 채권혼합형 공모펀드를 선보인다. 반도체에 집중된 국내 증시에서 새로운 성장 동력으로 부상한 피지컬 인공지능(AI) 산업에 투자하면서 채권을 통해 주식시장 변동성에 대응하는... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "이코노미스트",
+    "at": "2026-11-25T05:07:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/243/0000106276",
+    "origin": "naver"
+   },
+   {
+    "title": "샤오미, 메모리 폭등 직격탄… 3분기 순익 70% 급감",
+    "summary": "3줄 요약 ㆍ샤오미 3분기 순이익 70% 급감 ㆍ스마트폰 출하량 30% 감소·평균가격 39.8% 상승 ㆍ애플·삼성 시장 점유율 70% 글로벌 재편 가속 세계 3위 스마트폰 업체인 중국 샤오미가 메모리 반도체 가격 급등 여파로 3분기 부진한 실적을 기록",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "삼성전자",
+    "source": "조선일보",
+    "at": "2026-11-25T05:07:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/023/0004011648",
+    "origin": "naver"
+   },
+   {
+    "title": "급락 코스피 장중 -6% 아래로…외국인 1조7000억원대 매도 폭탄[fn오후...",
+    "summary": "전날 6% 넘게 급등했던 코스피가 하루 만에 다시 5% 넘게 급락하고 있다. 엔비디아 젠슨 황 최고경영자(CEO)의 복귀 소식에 힘입은 반등 효과가 하루 만에 사라진 모습이다. 미국 기술주 급락과 인공지능(AI) 투자 수익성에 대한 우려가... ",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "파이낸셜뉴스",
+    "at": "2026-11-25T05:06:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/014/0005609575",
+    "origin": "naver"
+   },
+   {
+    "title": "박재호 중진공 이사장 \"청창사 예산 500억원으로…中企 AX 강화할 것\"",
+    "summary": "박재호 신임 중소벤처기업진흥공단 이사장이 폐지 위기에 놓였던 청년창업사관학교(청창사) 사업을 이어가고 관련 예산을 500억 원 규모로 확대하는 방안을 추진하고 있다고 밝혔다. 박 이사장은 임기 중 중소기업 인공지능 전환(AX)를 강화해... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "뉴스1",
+    "at": "2026-11-25T05:05:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/421/0009309283",
+    "origin": "naver"
+   },
+   {
+    "title": "시프트업 AI 번역 시스템, 국제학술대회서 최상위 그룹 선정",
+    "summary": "시프트업은 자체 개발한 인공지능(AI) 번역 시스템 ‘COZY’가 국제 기계번역 학술대회 ‘WMT 2026’에서 전문용어 번역 부문 최상위 그룹(프런티어)에 선정됐다고 25일 밝혔다. WMT는 2006년부터 이어져 온 기계번역 분야의 국제 학술대회다.",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "삼성전자",
+    "source": "조선비즈",
+    "at": "2026-11-25T05:04:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/366/0001207243",
+    "origin": "naver"
+   },
+   {
+    "title": "'젠슨 황 효과' 끝?‥하루 만에 '5천 선' 아래로",
+    "summary": "◀ 앵커 ▶ 어제 엔비디아 CEO 젠슨 황의 복귀로 5천 선을 회복했던 코스피가 하루 만에 다시 5% 넘게 하락하고 있습니다. 미국 반도체주가 줄줄이 급락한 영향인데, 장 초반부터 매도 사이드카가 발동됐습니다. 양소연 기자입니다. ◀ 리포트... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "MBC",
+    "at": "2026-11-25T05:04:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/214/0001537937",
+    "origin": "naver"
+   },
+   {
+    "title": "삼성 반도체 공장서 15년 일하다 혈액암 사망…유족·시민단체 산재 ...",
+    "summary": "삼성전자 반도체 공장에서 근무하다가 혈액암으로 숨진 하청노동자의 산업재해 인정을 촉구하는 기자회견이 열렸습니다. 인권단체 '반도체 노동자의 건강과 인권지킴이'(반올림)와 유족 등은 오늘(25일) 오전 서울 영등포구 근로복지공단... ",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "삼성전자",
+    "source": "KBS",
+    "at": "2026-11-25T05:04:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/056/0012300840",
+    "origin": "naver"
+   },
+   {
+    "title": "코스피, 반도체 투매 속 5%대 급락…매도→매수→매도 사이드카",
+    "summary": "25일 코스피가 미국發 관세·AI 수익성 우려 여파로 반도체 대형주를 중심으로 5%대 급락하고 있다. 코스닥도 동반 약세를 보이고 있다. 25일 서울 중구 하나은행 본점 딜링룸에서 직원이 시세 전광판 앞을 지나고 있다. 이날... ",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "삼성전자",
+    "source": "이데일리",
+    "at": "2026-11-25T05:02:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/018/0006415338",
+    "origin": "naver"
+   },
+   {
+    "title": "中企 찾은 류진 한경협 회장 \"신사업, 뚝심 있는 기업가정신 중요\"",
+    "summary": "류진 한국경제인협회(한경협) 회장이 중소기업의 신사업 전환 애로사항을 청취하고 기업가정신을 강조했다. 또 한경협 지원 프로그램 통해 중견기업으로 도약할 수 있는 발판을 마련하겠다고 했다. 류진 한경협 회장은 25일 인천 소재 자동차 실내램프... ",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "삼성전자",
+    "source": "이데일리",
+    "at": "2026-11-25T05:02:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/018/0006415334",
+    "origin": "naver"
+   },
+   {
+    "title": "블록체인 위 24시간 뚫린 ‘돈의 길’로…세계는 잰걸음, 한국은?",
+    "summary": "세계 최대 자산운용사 블랙록은 지난 8월 단기 미국 국채 등에 투자하는 머니마켓펀드(MMF)를 블록체인에서 이용할 수 있는 상품 2가지를 내놨다. 한가지는 기존 펀드의 지분을 토큰화해 승인된 적격 투자자 지갑끼리 주고받을 수 있게 했고, 또 하나는..",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "한겨레",
+    "at": "2026-11-25T05:02:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/028/0002833883",
+    "origin": "naver"
+   },
+   {
+    "title": "류재철 LG전자 사장, 대한전자공학대상 수상",
+    "summary": "류재철 LG전자(066570) 대표이사 사장이 생활가전 혁신과 미래 신사업 육성에 기여한 공로로 올해 대한전자공학대상 수상자로 선정됐다. 대한전자공학회는 삼성전자가 후원하는 ‘2026년도 대한전자공학대상’ 수상자로 류 사장을 선정했다고 25일... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "서울경제",
+    "at": "2026-11-25T05:01:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/011/0004686012",
+    "origin": "naver"
+   },
+   {
+    "title": "\"외국인 매도·V코스피 진정돼야 진짜 바닥… 증안펀드 조기 투입 시급...",
+    "summary": "국내 증시가 전날의 급등세를 하루 만에 되돌리며 큰 폭으로 하락했다. 전날 코스피 상승분을 고스란히 반납한 것이다. 특히 삼성전자와 SK하이닉스 등 반도체 대형주가 큰 낙폭을 기록하며 지수 하락을 주도했다. 염승환 LS증권 이사는 25일 KBS... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "뉴시스",
+    "at": "2026-11-25T05:00:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/003/0014344436",
+    "origin": "naver"
+   },
+   {
+    "title": "'젠슨황 랠리' 소멸...월가, AI투자 전망 하향 [딥시그널]",
+    "summary": "전 세계 주식시장이 엔비디아의 젠슨 황 최고경영자 복귀로 반영했던 상승분을 일제히 반납했습니다. 간밤 필라델피아 반도체지수가 8% 가까이 급락한 여파에 삼성전자와 SK하이닉스를 비롯한 우리 기업들들도 낙폭을 키웠습니다. 주요... ",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "한국경제TV",
+    "at": "2026-11-25T05:28:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/215/0001273920",
+    "origin": "naver"
+   },
+   {
+    "title": "'하이닉스 인수설' 떠들썩한데…손정의, 조용히 대구 찾은 까닭",
+    "summary": "SK하이닉스 인수 검토설이 돌았던 손정의 소프트뱅크 그룹 회장이 지난달 대구를 찾아 선대 묘소를 다녀간 사실이 뒤늦게 알려졌다. 25일 대구 동구 등에 따르면 손 회장은 지난달 9일 가족 2명과 비서, 통역 등 소수 인원과 함께 동구 도동에 있는 조상",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "SK하이닉스",
+    "source": "한국경제TV",
+    "at": "2026-11-25T05:19:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/215/0001273916",
+    "origin": "naver"
+   },
+   {
+    "title": "하루 만에 식은 ‘젠슨 황 효과’…AI 거품 우려에 아시아 증시 급락",
+    "summary": "젠슨 황 엔비디아 최고경영자(CEO)의 복귀 효과가 하루 만에 끝나는 모습입니다. 전날 뉴욕증시가 혼조세로 마감한 가운데 25일 아시아 주요 증시는 인공지능(AI) 투자 거품에 대한 우려가 재점화하면서 반도체주를 중심으로 급락했습니다. CNBC와...",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "채널A",
+    "at": "2026-11-25T05:10:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/449/0000368644",
+    "origin": "naver"
+   },
+   {
+    "title": "[SK·키옥시아 관계 재편]② 생산엔 제약, 기술선 가교…샌디스크 변...",
+    "summary": "SK하이닉스가 키옥시아와 낸드 제조 협력을 확대하는 데 키옥시아·샌디스크 간 장기계약이 핵심 변수로 떠올랐다. 키옥시아가 일본 공장을 운영하고 샌디스크와 생산 물량을 나누는 계약이 2034년까지 이어지는 만큼 SK하이닉스가 기존 합작공장에... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "블로터",
+    "at": "2026-11-25T05:08:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/293/0000093804",
+    "origin": "naver"
+   },
+   {
+    "title": "[단독] HBM 질주 브레이크 밟나…美 로펌 4곳, SK하이닉스 주주 소송 ...",
+    "summary": "SK하이닉스를 상대로 한 미국 내 주주 집단소송을 검토하는 현지 로펌이 4곳으로 늘었다. D램 구매자들이 제기한 담합 의혹 소송이 진행 중인 가운데 SK하이닉스의 소송 리스크 공시 적정성과 주가 하락 책임을 묻는 증권소송 움직임까지 겹치며... ",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "SK하이닉스",
+    "source": "마이데일리",
+    "at": "2026-11-25T05:08:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/117/0004127917",
+    "origin": "naver"
+   },
+   {
+    "title": "급락 코스피 장중 -6% 아래로…외국인 1조7000억원대 매도 폭탄[fn오후...",
+    "summary": "전날 6% 넘게 급등했던 코스피가 하루 만에 다시 5% 넘게 급락하고 있다. 엔비디아 젠슨 황 최고경영자(CEO)의 복귀 소식에 힘입은 반등 효과가 하루 만에 사라진 모습이다. 미국 기술주 급락과 인공지능(AI) 투자 수익성에 대한 우려가... ",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "파이낸셜뉴스",
+    "at": "2026-11-25T05:06:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/014/0005609575",
+    "origin": "naver"
+   },
+   {
+    "title": "'젠슨 황 효과' 끝?‥하루 만에 '5천 선' 아래로",
+    "summary": "◀ 앵커 ▶ 어제 엔비디아 CEO 젠슨 황의 복귀로 5천 선을 회복했던 코스피가 하루 만에 다시 5% 넘게 하락하고 있습니다. 미국 반도체주가 줄줄이 급락한 영향인데, 장 초반부터 매도 사이드카가 발동됐습니다. 양소연 기자입니다. ◀ 리포트... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "MBC",
+    "at": "2026-11-25T05:04:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/214/0001537937",
+    "origin": "naver"
+   },
+   {
+    "title": "코스피, 반도체 투매 속 5%대 급락…매도→매수→매도 사이드카",
+    "summary": "25일 코스피가 미국發 관세·AI 수익성 우려 여파로 반도체 대형주를 중심으로 5%대 급락하고 있다. 코스닥도 동반 약세를 보이고 있다. 25일 서울 중구 하나은행 본점 딜링룸에서 직원이 시세 전광판 앞을 지나고 있다. 이날... ",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "SK하이닉스",
+    "source": "이데일리",
+    "at": "2026-11-25T05:02:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/018/0006415338",
+    "origin": "naver"
+   },
+   {
+    "title": "블록체인 위 24시간 뚫린 ‘돈의 길’로…세계는 잰걸음, 한국은?",
+    "summary": "세계 최대 자산운용사 블랙록은 지난 8월 단기 미국 국채 등에 투자하는 머니마켓펀드(MMF)를 블록체인에서 이용할 수 있는 상품 2가지를 내놨다. 한가지는 기존 펀드의 지분을 토큰화해 승인된 적격 투자자 지갑끼리 주고받을 수 있게 했고, 또 하나는..",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "한겨레",
+    "at": "2026-11-25T05:02:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/028/0002833883",
+    "origin": "naver"
+   },
+   {
+    "title": "\"외국인 매도·V코스피 진정돼야 진짜 바닥… 증안펀드 조기 투입 시급...",
+    "summary": "국내 증시가 전날의 급등세를 하루 만에 되돌리며 큰 폭으로 하락했다. 전날 코스피 상승분을 고스란히 반납한 것이다. 특히 삼성전자와 SK하이닉스 등 반도체 대형주가 큰 낙폭을 기록하며 지수 하락을 주도했다. 염승환 LS증권 이사는 25일 KBS... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "뉴시스",
+    "at": "2026-11-25T05:00:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/003/0014344436",
+    "origin": "naver"
+   },
+   {
+    "title": "코스피 5천 선 회복 하루 만에 급락…매도 사이드카 발동·4,700선 추락",
+    "summary": "코스피가 4% 가까이 하락 출발하며 4,700 대까지 밀렸습니다. 어제 장중 5천 선을 회복했지만 하루 만에 다시 급락세를 보이고 있습니다. 곽우진 기자입니다. [리포트] 코스피는 개장 직후부터 큰 폭으로 하락했습니다. 전 거래일보다 3.94% 내린 ",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "SK하이닉스",
+    "source": "KBS",
+    "at": "2026-11-25T05:00:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/056/0012300845",
+    "origin": "naver"
+   },
+   {
+    "title": "현대엔지니어링, 용인·호남 발전소 연속 수주…두달 새 2.3조 규모",
+    "summary": "현대엔지니어링이 SK하이닉스 용인 반도체 클러스터에 전력과 열을 공급할 열병합발전소를 짓는다. 두 달 새 발전소 두 곳을 잇달아 따냈는데, 수주 규모는 약 2조3000억원에 달한다. 현대엔지니어링은 한국중부발전과 SK이노베이션 E&amp;S가 공동..",
+    "sentiment": "긍정",
+    "impact": "중간",
+    "relatedTo": "SK하이닉스",
+    "source": "조선일보",
+    "at": "2026-11-25T04:53:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/023/0004011645",
+    "origin": "naver"
+   },
+   {
+    "title": "\"성과급 수억씩 줘도 불안한데\"…한국까지 찾아온 마이크론",
+    "summary": "반도체 패권 경쟁이 기술과 생산시설 확보를 넘어 핵심 인재를 빼앗고 지키는 싸움으로 번지고 있다. 도널드 트럼프 미국 대통령까지 나서 젠슨 황 엔비디아 최고경영자(CEO)의 복귀를 이끌어낸 가운데, 국내외 반도체 기업들도 수억 원대 성과급을... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "한국경제TV",
+    "at": "2026-11-25T04:46:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/215/0001273905",
+    "origin": "naver"
+   },
+   {
+    "title": "[ET특징주] '젠슨 황 복귀 효과', 하루만에 끝났다…삼전·닉스 9%대 급...",
+    "summary": "뉴욕증시에서 젠슨 황 엔비디아 최고경영자(CEO) 복귀 효과가 하루만에 빠지면서, 국내 반도체 관련주도 하락하고 있다. 25일 오후 1시 35분 기준 삼성전자(005930) 주가는 전 거래일 대비 9.19% 하락한 17만 2000원에, SK하이닉스(0",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "source": "전자신문",
+    "at": "2026-11-25T04:43:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/030/0003489656",
+    "origin": "naver"
+   },
+   {
+    "title": "[시장 따라잡기] 변동성 큰 반도체주…내년 비반도체주 내 주목할 곳...",
+    "summary": "■ 용감한 토크쇼 직설 '시장 따라잡기' - 손석우 앵커 경제평론가 및 건국대 겸임교수, 박찬솔 하나증권 연구원 Q. 다이나믹 코리아입니다. 이틀 연속 매도 사이드카가 발동되며 암울했던 코스피가 젠슨황의 복귀로 하루 만에 급반전했는데요. 또 자고...",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "SK하이닉스",
+    "source": "SBS Biz",
+    "at": "2026-11-25T04:38:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/374/0000545815",
+    "origin": "naver"
+   },
+   {
+    "title": "[직설] '젠슨 황 효과', 벌써 끝났나?",
+    "summary": "■ 용감한 토크쇼 '직설' - 손석우 앵커 경제평론가 및 건국대 겸임교수, 박석현 우리은행 WM상품부 부부장, 신얼 상상인증권 투자전략팀장, 임재균 KB증권 자산배분전략부 채권·크레딧팀 팀장 젠슨 황 CEO의 엔비디아 복귀 효과를 두고 시장이... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "SBS Biz",
+    "at": "2026-11-25T04:38:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/374/0000545814",
+    "origin": "naver"
+   },
+   {
+    "title": "코스피, 하루 만에 4,700선으로...매도 사이드카 발동",
+    "summary": "젠슨 황 엔비디아 CEO 복귀 소식에 어제 5,000선을 회복했던 코스피가 하루 만에 매도 사이드카가 발동되는 등 급락세를 이어가며 4,700선에서 움직이고 있습니다. 오늘 오후 코스피 지수는 전장보다 5% 이상 내린 4,700선 초반으로 약세를 이어",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "YTN",
+    "at": "2026-11-25T04:34:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/052/0002437813",
+    "origin": "naver"
+   },
+   {
+    "title": "\"겁먹고 주식 팔았는데\"…코스피 16번 중 14번 오른 '바닥 신호' [한경...",
+    "summary": "미국 증시의 '공포지수'로 불리는 변동성지수(VIX)가 급격히 치솟았다가 내려오고 있다. 과거 VIX가 정점을 찍고 3개월이 지난 뒤 코스피는 대부분 상승한 것으로 나타났다. 증권가에서는 이번 변동성 확대가 신용·채권시장으로 번지지 않은... ",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "한국경제",
+    "at": "2026-11-25T04:31:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/015/0005357972",
+    "origin": "naver"
+   },
+   {
+    "title": "“본전 찾나 했더니” 서학개미 물렸다",
+    "summary": "젠슨 황 엔비디아 최고경영자(CEO)의 복귀 효과가 하루 만에 사라졌다. 급락장에서 엔비디아 주식을 사들였던 서학개미들도 주가가 다시 하락하면서 손실 구간에 들어섰다. 24일(현지시간) 뉴욕증시에서 엔비디아는 전 거래일보다 5.86% 내린 155...",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "한경비즈니스",
+    "at": "2026-11-25T04:09:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/050/0000113726",
+    "origin": "naver"
+   },
+   {
+    "title": "최고가에서 30% ‘뚝’ “공모주 받은 사람도 물렸다”…나흘 만에 공...",
+    "summary": "사상 최대 규모의 기업공개(IPO)로 주목받은 앤트로픽 주가가 상장 4거래일 만에 공모가 아래로 떨어졌다. 인공지능(AI) 챗봇 ‘클로드(Claude)’ 개발사인 앤트로픽의 주가는 상장 첫날 기록한 장중 최고가보다 30% 가까이 하락했다. 24일...",
+    "sentiment": "긍정",
+    "impact": "낮음",
+    "relatedTo": "SK하이닉스",
+    "source": "서울경제",
+    "at": "2026-11-25T03:52:00.000Z",
+    "url": "https://n.news.naver.com/mnews/article/011/0004685992",
+    "origin": "naver"
+   },
+   {
+    "title": "[현대경제 칼럼] 젠슨 황의 귀환, 엔비디아를 지키려는 트럼프의 승부수인가",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "www.hdnews.co.kr",
+    "at": "2026-11-25T05:05:31.000Z",
+    "url": "https://news.google.com/rss/articles/CBMia0FVX3lxTFByZDg4SFp2R0p3UlZ2NDNjX0NXYVpKV25CQjFJVUF6T2ExYzVUUVRBc09yQWRZWmktQ1BtVk9hMTJJd3dvNzFibnNsdXhnM1hUX1E5TUNWU3B4OWlvUWZ5WTBuVjViUGlFUHBV?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "‘젠슨황 복귀’ 트럼프 개입에 비판 고조…엔비디아 주가는 하락",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "KBS 뉴스",
+    "at": "2026-11-25T03:02:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE1DWENkUDY4MlUyX1M1WHhfU0VlYUdPTDZoUWJTZFc4UENqQ0RIZW4zck5rQ21fbFBHa2pOQk9oX2VhejFKNmJVVVZwU3FyZGl1aWxWcWt2Qk5NSEE?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "[만평]'엔비디아 주식 보유' 트럼프 \"젠슨 황 복귀 내 덕분\"",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "매일산업뉴스",
+    "at": "2026-11-25T02:56:17.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE9rNnd6eEZUS1dWdnFZOVVaM0liNHE3UHBoWE9VN1VDZW5PTGlFd0oxV0pkbFdxczRCR25vWDl4VzV0dmJOYktVS01NRmgtZUcyVWxJb1M1VkwxeUlocXVJd0FONA?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "트럼프, 또 추가 관세 추진…한국 2.5~5%p 인상 전망",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "미국정책",
+    "topic": "관세",
+    "source": "한겨레",
+    "at": "2026-11-25T02:49:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMib0FVX3lxTE5kZXUtS2NvWm81SW5qWk5FcWdHOVUwT1EzYVlPVUhHSFZZd2Vnd3I2SW9aUUJ5Nkxxejh5RTVFWEJSdmdZMlZ6bkNNMVdLV1VKTVl6UlZCYXgzcnY2Q3E2bjhQY2c5VFEzYU9IYzlqSQ?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "엔비디아 손댔다가 부메랑 맞는 트럼프...\"자본주의 아닌 마오주의\"",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "YTN",
+    "at": "2026-11-25T02:36:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE9kaTR5SXpEMEtKSTRiNllrRnVaQnpIMERmMlFGTzYyQ0JqdVBXd1h2a1VBbWt1bks5MG9WdjdfVVRCd1JnZFBqNXRYNVJfQ1BBS3ItT0hSa2hMUUZacFE?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "젠슨 황, 엔비디아 복귀…중국 시진핑에게는 어떤 의미일까?",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "BBC",
+    "at": "2026-11-25T02:24:23.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE1YRk5aQmNNMUtwd21YLWdrZE5RMk9EQ3F0aFpFUTlmZXV3aE5BaVd3MzZEWjhXd2R6Z3VsUjRlemlDZTlLd29fZzhhYTlUMUtnOThVa2dYcjhPalk3QkZESVpOd9IBY0FVX3lxTE1YRk5aQmNNMUtwd21YLWdrZE5RMk9EQ3F0aFpFUTlmZXV3aE5BaVd3MzZEWjhXd2R6Z3VsUjRlemlDZTlLd29fZzhhYTlUMUtnOThVa2dYcjhPalk3QkZESVpOdw?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "엔비디아 수장 복귀에도 대중 반도체 수출 규제 강화 움직임",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "토큰포스트",
+    "at": "2026-11-25T04:06:19.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiV0FVX3lxTE94SkU0WVBsRWg0ZmZ4Q2s5X2R2Skk4a1pMaW1XZThmdDhiaFBISHFJOVRRR3NVNnl3a2xMQkhUNDlINHF4WVVlX3NwVk5mMTFDTGpkcmNEb9IBXEFVX3lxTE42U1g0elVZQTd6aFlheGllM1dxZXZqUzRpaGd5OWJ1Z0RnWW0wbVU1eVR5eFlEaVFzR1lNQ09yU1VzZElNdjNSdGNUNmFZb2ctSGx1SU5xTFB2ZUtZ?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "美 \"中에 ASML 반도체 장비 더 팔지 마라\"…네덜란드 강력 반발",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "데일리안",
+    "at": "2026-11-25T02:29:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTFBrUEZGTUV3VzRxMnA4LUl1aDFUTWxlY0NtdGJ0YTI2UmNIUDFVY0dNSFFvX1NnekhLdDMtbVp4ZkE1V2dEZmhyN0w3dm1xMmxtdHEySg?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "'AI 호황' 취약성 드러낸 한국 반도체…데이터센터·中 규제 리스크 여전",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "뉴데일리 경제",
+    "at": "2026-11-25T01:29:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMie0FVX3lxTE5DUWtzamJNVFl2QU9CZjc3Tm5pMmVpWXBCQmtQLThYYnZmam1ZVG9iVEVocVhsOXpyNE5ubXpZdDhMTUEwbVRjOFJaZXFXV3pDT0ozeTZOT0c1X0VLR2Z5c3BXT2lxM1F3SUgxWWVMOFlkbXZ6c2RYeWhQa9IBgAFBVV95cUxPeTVWVWYwTExPRThvbFVYUUtseHZzNXhOc0NhZ1VRWnExYVI4MUVjdi1MZFUzSDlGQ2w0OEpRNVZGNURPbjJ6cVhiQ05LSDQ1RnZUaDFRdlg4Q0hOMG4wT0ZQUG5WYmxFSnZETnpuejA2LWplZ1g0LXJ5QklmNERMYw?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "美中 반도체 갈등에 희토류도 빨간불…LS에코에너지 부각",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "비즈워치",
+    "at": "2026-11-25T01:00:17.000Z",
+    "url": "https://news.google.com/rss/articles/CBMibEFVX3lxTE1adnpGYXNOOGpwWXBKZjdEZnZYRElKRFdLMG9BSVExQTVwY2ZsckNPZEpGa2NjQWZycHVRSTBGX0ZNdFVOaFFnakVfUG9rcEdxLUItUHdSTlV1MmdPaVNVcld1dE00c1U4LTZ3Ug?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "슈머 \"젠슨 황, 중국에 첨단 칩 공급해 수출통제법 위반\"...중국 반도체 수출 규제 압박",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "미국정책",
+    "topic": "중국",
+    "source": "알파경제",
+    "at": "2026-11-24T22:55:42.000Z",
+    "url": "https://news.google.com/rss/articles/CBMibkFVX3lxTFA2VGNCV2c4cjR4SEVCeS1seWxXYndWelBHQ1FSOGRaM3JlQlBrSTN5ZndmNVNYaW1xNzE2bFVVcW1CZHZmWkMzWE5VdDJ4empqMkdkVnRlREViN2hSenZ1MGtQV1ZzVFoydnFWU2dB?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "슈머 \"젠슨 황, 중국에 첨단 칩 공급해 수출통제법 위반\"...중국 반도체 수출 규제 압박",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "미국정책",
+    "topic": "중국",
+    "source": "메디컬투데이",
+    "at": "2026-11-24T22:55:42.000Z",
+    "url": "https://news.google.com/rss/articles/CBMibEFVX3lxTFBJUGZSUHlPTEw3d0dhMDlNaUlvMnAzYV9NTE8xOWctYmRBTVJZQ3hQb2FKQWREUXZiZmFLQ0xuOFRUSVVkU3doVE9WZ3JXVkNKSDhfeUJFODNfR2FkX1JHMG9XRFNmeGFYNlFPYg?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "샤오미, 메모리 폭등 직격탄… 3분기 순익 70% 급감",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "중국반도체",
+    "topic": "중국",
+    "source": "조선일보",
+    "at": "2026-11-25T05:06:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMigwFBVV95cUxPNkNaWWZtRC1wNGttaWNfRkdIMnpCcTVGTzEzVG0xNm91aVNTV29GWmN0TnVHbmxjbGxpSGFQaFNJbmJqWTljTnVPN3cwSC10QmlGNDZHRm1ZLTdpSmlRTGdaUnBHVjYtVnVsUmJNb0owM0NKTTYtVE5LREhFbThFUUNBdw?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "ISSCC 2027, 韓 메모리 분야 논문 12편으로 주요 기술 성과 주도",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "중국반도체",
+    "topic": "중국",
+    "source": "테크월드",
+    "at": "2026-11-25T05:05:30.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiaEFVX3lxTFBrTXY0S1JrQjVybVBJUnYzUnROdVZHdmZ5MV9YYm56XzBGOEFlZS1LekJlMUsweDF0NDg0c01jcDkyMW1kWFJTYlEwcUg2cUJqZE5MT1NkNTFhX1JlWVlmV1B5QXFaMW90?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "中샤오미, 3분기 순이익 56.8% 급감…메모리 가격 상승·전기차 부진",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "중국반도체",
+    "topic": "중국",
+    "source": "뉴시스",
+    "at": "2026-11-25T04:57:18.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE14VGhORkpXNUtTeXVnNVBkUzZ5WXNxMklrTW5EaWpOc2NmRFFmSG1ybnZfQzlYWWtvMm5aUFRpZ1F6Ny1CM0o5RXlzLWVlSWFxOEloMnJwUnRmMTZZM2VoVdIBeEFVX3lxTE00eXJRSmo0SkY3WG9ZMEo0TzIyenVNVklWaVEteHFFZFdWSjUxZHlrbWtjX0ZZY3BhSEx1Vk5ZS0RLeGIyT2NQVkJrZ2ROYlJVcXdJeEhkcEdGLUhsX0lMelNSSFltaF84RkxwQTFJRk9CdzdILU56Wg?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "외국인 1년간 221조 던졌다…91%가 반도체",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "중국반도체",
+    "topic": "중국",
+    "source": "뉴스토마토",
+    "at": "2026-11-25T04:52:56.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTFBBclJWNHMzUnZoOFV5ckl0V1NOWW14eEptc19ZNU03VV9feW9iZ0RDRURabFYxY21Yb2h5aEFtU203WFN0QXNzNjlTNHpfcDVxWFBkZzhBck1OLW8xSGhybw?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "메모리 슈퍼사이클 정점론 4가지 근거…마이크론 목표가 반토막 - 머니투데이",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "중국반도체",
+    "topic": "중국",
+    "source": "머니투데이",
+    "at": "2026-11-25T02:18:42.000Z",
+    "url": "https://news.google.com/rss/articles/CBMidkFVX3lxTE0tUVY5YVY0cHpFN2Npc1N1WEM5bDdnWHdiUU05UkIwdE4xZU53bTJIaU5oMGNJenJUZlRiU1k3MnQ4LXJXRnZDZG54TFRobzJIOVd4dnBMMG5yQTdYSEpWeFRocnFaSkZBOUF6eU5RS0dyS0ZMV1HSAXtBVV95cUxQS2VkTk4tQm9PbHBTUkg5OGJzQWJfcmZPaVRNb1VfVG1CQWFDcTN2WUk4bEJwV1FYeHNlc2w3N3FTWVlKYzNkbGw0WG1zcUNseFBtNnNqN1dRNkZmTWJIZ1hfejhFZXctMmkxV2M3SFl5RTVRUDRpdDVjd28?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "AI 반도체 호황의 역설…샤오미 이익 반토막",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "중국반도체",
+    "topic": "중국",
+    "source": "OBC 뉴스",
+    "at": "2026-11-25T01:21:40.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiakFVX3lxTE1EQVNCRm9JVWpHWE9RdUFVc2JUeU9XV2ljQllpa3dMNUlFRmpTUG9ESmFPS204bjdwM0F6bHJ3cVBKYk51UDFJV0tia1ZJZndKMXBuVjVpZkNCd1NfZGFfcExKdXhDRzR5Nnc?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "델 “AI 수요 둔화 없다…내년에도 D램·낸드 가격 상승”",
+    "summary": "",
+    "sentiment": "긍정",
+    "impact": "중간",
+    "relatedTo": "반도체업황",
+    "topic": "업황",
+    "source": "전자신문",
+    "at": "2026-11-25T05:09:10.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiTkFVX3lxTE5kUVhqdUF1UVdwbFBkdFNNa1I0VlBCRHZLalZHQlFDZ2RKRzhUQ3hhTFlGS1I4QXZYRWNJZzV4Y2NpVmc1Q1RFMzIzNDdXUQ?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "[단독] HBM 질주 브레이크 밟나…美 로펌 4곳, SK하이닉스 주주 소송 정조준",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "SK하이닉스",
+    "topic": "업황",
+    "source": "마이데일리",
+    "at": "2026-11-25T05:07:56.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE5qMlJwWHp6cFBJV3JGblpfYXI4ZktFaWVaZ1c0dW5QRWVZbGc2QlU4cVNSSFc2Xy1lRzZKdHF4aUFXeklxYmxVcmE5NEN2UDJtRC12bGN4VHlvM1pyQ1J4UQ?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "[심층분석] 엔비디아 반락에 삼성전자·SK하이닉스 급락…2028년 메모리 전망도 갈렸다",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "반도체업황",
+    "topic": "업황",
+    "source": "굿모닝경제",
+    "at": "2026-11-25T02:45:04.000Z",
+    "url": "https://news.google.com/rss/articles/CBMibEFVX3lxTE5jT2w4OHN1Q0w2QnBUUUhtekw1aFlmb3pOMjBDZWZCVFRkekY2dVBrQ0lJX2pZdHZTR29ZcnJ4YVllWkZTMTQ2THUtXzlxeVZPSkRwczdGZ252dnpaY01hTHJjWWtqc2ZBa3VkeQ?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "AI 반도체 호황의 역설…샤오미 이익 반토막",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "반도체업황",
+    "topic": "업황",
+    "source": "OBC 뉴스",
+    "at": "2026-11-25T01:21:40.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiakFVX3lxTE1EQVNCRm9JVWpHWE9RdUFVc2JUeU9XV2ljQllpa3dMNUlFRmpTUG9ESmFPS204bjdwM0F6bHJ3cVBKYk51UDFJV0tia1ZJZndKMXBuVjVpZkNCd1NfZGFfcExKdXhDRzR5Nnc?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "메모리반도체 \"2027년 중반부터 가격 하락\" 전망 나와, 삼성전자 SK하이닉스 공급 과잉 리스크",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "반도체업황",
+    "topic": "업황",
+    "source": "비즈니스포스트",
+    "at": "2026-11-25T00:41:18.000Z",
+    "url": "https://news.google.com/rss/articles/CBMic0FVX3lxTE13eTAzMVhwS1E0M1ktMXdwQW8xVWsyaWRlWER1aUlXQlN4VnRreURfWjFfME5YWW1GM012YnpnLTJvXzFYc1c5djBMWFFYLUM1UXBSZ0lyR2ZtVUxGM2dYdlJlcmd2b3lUY04wV0JIdTVjV1U?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "삼전닉스, 평택·용인·청주 공장 가동 ‘초읽기’…반도체 공급 숨통 틀까",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "반도체업황",
+    "topic": "업황",
+    "source": "SR타임스",
+    "at": "2026-11-24T23:40:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTE5abHkxR2NTWmFJcVRCRWMzTVRTalp4S3Z6b1FvQllzNERneXRrSF9TanZYTmlUWWF5MWtHWlduNHBIeWJobS1nQklST2w5Y2NZVjlhUTJCMndvclpsaGpCVGV5c0t5d03SAWtBVV95cUxOVTJwdnpCOWs2VjBrRC0xWlEydm1NdFV0S2l3XzdJTUJNcnU0ZFlCSnhBNnRrWWRJcEtJMVgxUzZ1em9NNmNxandRWEpOQkxQUkZRcTRlVlpnRlN3dUFwZ3M0RElhdjNzS1lFYw?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "삼성전자 배당·지분 매각익…삼성생명 유배당보험 배당 길 열리나",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "삼성전자",
+    "topic": "자사주",
+    "source": "더트래커",
+    "at": "2026-11-25T00:27:28.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiWEFVX3lxTFBYNjctZkQ4azR4TmJVVzNWRmNSN3EzTTA5QTlGUU9oc1dCVUQxdnpIS3k2eVFMNFRDbFp5ejVzYzlSbHJpVV93TkZFV3ZubE1HNjBJSkRtbFk?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "국내 500대기업 3분기 이익잉여금 1861조원…삼성전자·SK하이닉스, 36.9% 차지",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "자사주",
+    "topic": "자사주",
+    "source": "SR타임스",
+    "at": "2026-11-25T00:00:41.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTFBYR0hNUjZXby1RNV9TOEQ2VDZ3ZmRZVm1GdDFNVVFJdzJUUlV1MExZampZX093MmNIQjctdklBaUFQVGdXU0c4a1VjWDZYMWIwblNXYjhJbFlWRU9uZ1EtNWszX2NKeHPSAWtBVV95cUxQaFdhNk5oU2NhX09acTVsZFBqdDdIVTBtMmpvSW52bVUwQXVEOFZoWmRPVHhncEM2NTRkUlZ5MDdpOUx4QlJiNklyQk55T1NpZDVZRVhDZlk1ZzcteWxQdTlBSjhrRDhDRlFRQQ?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "국내 500대 기업 이익잉여금 1862조원 … 삼성전자·SK하이닉스가 37% 차지",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "자사주",
+    "topic": "자사주",
+    "source": "워크투데이",
+    "at": "2026-11-24T23:37:49.000Z",
+    "url": "https://news.google.com/rss/articles/CBMibEFVX3lxTE5PYkRmUkZnMGhxdWRUaS1DMGtSRTFtQThMVGJDbGIwcmdpaExZSFl4Z05wTzRjNVF4Z3NTcnZBYWhTN1BOMkl2bGRGZGtxVXpESExiOHV1T284U0RiXzhVRGZyNXVrN25scGNNUA?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "[랭킹연구소] 500대 기업 이익잉여금 순위 TOP10…삼성전자>SK하이닉스>현대차>포스코>기아>국민은행>현대모비스>신한은행>하나은행>기업은행 順",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "자사주",
+    "topic": "자사주",
+    "source": "뉴스스페이스",
+    "at": "2026-11-24T23:30:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTE1GamVUdkhCTm43OGozYUVyMUQzOFd2dGdoQlJocEE0Zzk4dFoyd3kyd1pMMVFyaG1kWFU0cGt2MWVjNjNhNVgxYzZscXY3WXJpY0tlSFpwbl9OTi10OGJWeA?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "'이재용 증여세' 연계 논란 일단락…준감위 \"삼성전자 주주환원 문제없다\"",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "삼성전자",
+    "topic": "자사주",
+    "source": "파이낸셜포스트",
+    "at": "2026-11-24T11:55:18.000Z",
+    "url": "https://news.google.com/rss/articles/CBMidEFVX3lxTE5tOXJuRUNYZGx6OXlDSEZEdWs2QkpTNkFjRXl5VkVjQmhwMjFOUXZhUXJzNmc1NXdqam1GMkVZbVZNU0dLdnhmdGt4MTRoYWFSQ29kX2VBVEt3cUV2VTFkV0pOVmU2RlpwYVpOQWRRM0tfMXBG?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "삼성전자, 주주환원 일정 검증대…준감위 이해상충 논의",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "삼성전자",
+    "topic": "자사주",
+    "source": "매일일보",
+    "at": "2026-11-24T06:07:03.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiZEFVX3lxTE82aXlXRXhLcnl4Y1BSUGxkMjg0R3pkUkRMeU1YRllBb3hDZmlPb0JmTWE4YVdmU0ZIUzFadUNVNzNsTEZfUjgzTVVDQVY1dk1RXy00cHFNX18xWXZPR19EOHYyeVk?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "코스피, 반도체 투매 속 5%대 급락…매도→매수→매도 사이드카",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "큰손동향",
+    "topic": "수급",
+    "source": "이데일리",
+    "at": "2026-11-25T05:00:22.000Z",
+    "url": "https://news.google.com/rss/articles/CBMigAFBVV95cUxQcDFudk9SLWJ0QmFVVG42aWlfeklFUlBUNkZZUVdSamxFcjR6TXdvakY5MmxGV1loVDNzYjh0UnRmR3VpYlBBSDdJN1JpLW94TnhBNGFFQmF3Z2ZHdDY0WC05b2JIclVzLU1PdmhPZHN2MnBGZ0x3MVN6NWNXM2hLbw?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "코스피, 오후에도 4700선서 급락…외국인 1.5조 매도에 삼전닉스 9%대↓",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "큰손동향",
+    "topic": "수급",
+    "source": "이투데이",
+    "at": "2026-11-25T04:01:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE4ya2hqeW1ZMmFGS1kyekpKSng4Mm83eXUydTJXTnRBRlp5cWhkUFRzVGNWOGVQczhMV3RBYm1jOXZQeHNack5Pd2tFbEttQ3loYmZiWA?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "'젠슨 황 복귀'에도 엇갈린 외국인 수급…'삼성전자' 사고 'SK하이닉스' 팔았다",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "큰손동향",
+    "topic": "수급",
+    "source": "뉴스핌",
+    "at": "2026-11-25T02:24:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiXEFVX3lxTFBoczZIZEhkUEdKTl9TNy1IZTVyRzdPbkNGZjdacDh5NWZRdlY4dGZ2bms1SmowVE9nbnhSR3ZmSGlmbXZzdkhEc2RDX0FlOHFVNWcycGhaTTdSdXZ3?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "코스피 이대로 내려앉나.. 삼성전자·SK하이닉스 일제히 급락 > 뉴스",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "높음",
+    "relatedTo": "큰손동향",
+    "topic": "수급",
+    "source": "지데일리",
+    "at": "2026-11-25T02:20:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMibEFVX3lxTE1GN3ZWbW00NEF2eENGMFgtRlBLc2ktSkNsQWdmNHA1WG1lRjRsYjEyMmlfWmdyNDRSczNQX2ItMHctU0xUV1VjUXNPWElBQjFFeXU5LTdMZkt0M2RZaHBFZmotaExteHE2RkNMRg?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "[장중시황] 코스피, 외국인 1조원 매도에 4%대 급락…삼전·하닉 동반 약세",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "삼성전자",
+    "topic": "수급",
+    "source": "브릿지경제",
+    "at": "2026-11-25T01:57:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiWkFVX3lxTE5fdmhwM010NDVnV3NRa0NpdVh3UTZYbE5VMElsam5ZQ3UxWUpveGM5dERNd1RMRjRhSlZ0WFBjMnlJV2pGU0JnaFBjR1pnS0pLSHNuRW5hdnpydw?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "코스피, 급반등 하루 만에 다시 폭락…개장 8분 만에 매도 사이드카",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "큰손동향",
+    "topic": "수급",
+    "source": "더파워",
+    "at": "2026-11-25T01:00:26.000Z",
+    "url": "https://news.google.com/rss/articles/CBMifkFVX3lxTFBZNXVVVDJhQm5XWGxaWGsweVdwdkJVa1NoSE55LW93dFBBakhQbzdfMEhIdFloYjNWRmI2eWFOQjZrS0x0U0VmSHlQWk1wWkdKa1ZVTkRmZkdyN3BXeFdORXNlV0QzQVFoUFo0OUZPQ284QVVvd3ZZSWRBNTFrdw?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "미국 국채 금리 상승…신흥시장에 미칠 영향 분석",
+    "summary": "",
+    "sentiment": "긍정",
+    "impact": "낮음",
+    "relatedTo": "매크로",
+    "topic": "금리환율",
+    "source": "토큰포스트",
+    "at": "2026-11-25T04:10:45.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiV0FVX3lxTFB5ZGNHdEY3azJmZm1TcTk4clVqOGFBRm9UamJsSEgxbG1MU1V1bzQ1VXljelYxM3ByNDd5TDdsY1ZDMk12M09CVUVoRTVSbUJ1Z29TM2plWdIBXEFVX3lxTE5jbGxTdUxQcDNKR2sxUzdnVEtza05wN3hzN1ZKMGl6cHpUSEJwT240MFFseXVaNUxFVFh0czFGLXBmT0FYY0xwZkkyTGZMcmlhN24ycHRaUnJUQ2Nl?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "피치 \"연준 12월 인상 뒤 내년 동결…채권 금리, 올해 고점보다 완화\"",
+    "summary": "",
+    "sentiment": "긍정",
+    "impact": "낮음",
+    "relatedTo": "매크로",
+    "topic": "금리환율",
+    "source": "연합인포맥스",
+    "at": "2026-11-25T03:59:14.000Z",
+    "url": "https://news.google.com/rss/articles/CBMicEFVX3lxTE1EdUFVNjdmTmpDQlp2MnZIMzlkZlJXVW1PUk91dHEwam9yaVhxa1VucXRKWXJLU21fVHJsN1ZRRWtaQ2NoU1IxSmYwaHRiZjFqd0NfVi1QWVpEa2Q5NVVQbzZkVzdtejdzcWRDMmc4V2E?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "금값 2% 급락, 금리 인상 기대감에 압박",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "매크로",
+    "topic": "금리환율",
+    "source": "IDNFinancials",
+    "at": "2026-11-25T03:20:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiiAJBVV95cUxNQmJEZkwyRTRib1h4OTA3b2hzb2tVNzJmcExPNWZwX1VxTVdVWTdHSE0wd2VobU9vVG1DeHpjbjZjOG1zSWFKandjOE1MOFl0b2Z2VTFINmFHeE5rZ1VJb2pNUXBjYi1vZWhrcVh2Qmg3R0NWRUF0U3pPWHFXLUM0akc1eDZQYS1MUjFBYVFyRjdOWTNkRDd5N0hhcC1nUENLUDJkYm1iVEVFS0g2LWhaV2p1emVaOVc5LWpHamtLU29vVXVhR05zLWR5V2dnaGdOQWxfN0ZvYWVvWlY3emhRMWlIaGxkYmNDSzRmTEVLS0xnZFhOZVl6U29YMUdOellIUHo0SEF0aFE?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "美 10년물 금리 5% 돌파는 연준 탓?...\"지정학이 만든 구조적 고금리\"",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "매크로",
+    "topic": "금리환율",
+    "source": "코인리더스",
+    "at": "2026-11-25T02:30:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiSkFVX3lxTFBRRmZWbll6YjFBRzR3ejk4LVJ4NGhUWHZtajUtTUZZd25GYVBHalBXOHpaQ3JiRTAyRW5JbVU1Vi1EbFh6Q2dYWFFB?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "국제 금값, 美 관세 인상·연준 긴축 우려에 약세…3500달러 지지선 주목",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "매크로",
+    "topic": "관세",
+    "source": "블루밍비트",
+    "at": "2026-11-25T01:37:22.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiUEFVX3lxTE1yOExJYmo5ZWNDVW5Vd1hvQ1BGLUg4YW01NXJUeDhhMkhlRU95b2NvLUVPdTBwMTRiZGI5NnN3YWNnSldsQ0RNQlcyMGRsY0hl?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "환율, 1340원대서 등락…달러 강세 주춤해도 긴축 경계감 여전",
+    "summary": "",
+    "sentiment": "긍정",
+    "impact": "낮음",
+    "relatedTo": "매크로",
+    "topic": "금리환율",
+    "source": "뉴스투데이",
+    "at": "2026-11-25T00:58:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTE9yRUU3czBYNXpkdFhyUktXbkFURlFPMGo5akRkb1lQZHlRNUg4WFJkY0RzWDdtaG5UWVBDb21YZUdMNFVOXzZRc05KeUFkMVI3QkZfbDVCVl9zWFRNZnc?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "Trump Administration to Impose Overproduction Tariffs on 16 Trading Partners, Including South Korea",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "미국정책",
+    "topic": "관세",
+    "source": "외신 · 조선일보",
+    "at": "2026-11-25T04:41:15.000Z",
+    "url": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNUFZ3NVVKcWR3ZnQwNlFXMV81emNqcEVBWWJ6eXk1alNOb2JlZDBoTXRwOEJzb2p2YXJQOGRwcjRWa2NRYllORU9QTnhmeFRWeW80eVJ4cl8ta0x1VHRtTWFiMV93a29oM1RnWUdHWVBhZ0N5T3RLTXBLYl82Z2xaT2E3Z2g3MU9LM2pUd1Nn?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "US poised to unveil new tariffs targeting S. Korea, 15 other trading partners",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "미국정책",
+    "topic": "관세",
+    "source": "외신 · The Korea Times",
+    "at": "2026-11-24T16:30:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxQNXFMUWdEV3FVMHpRQjVrRDRiLUo3NDAwUGRlbEk4M3Nmcl83VDdveHB2YW8zbWtac045clRFREdzMXQ3UXBDdEt1Z3dwY01yVW5MSlRuYThnZmVHbncxYmlkcEt1YUhJRzFRQzU2bFpSUjhDeWJBT0xmOWZyN0RRM2NWemMwTFpmNzBJTHBBUHN0RDJvcU5jMkp1dkxrazJLc0c5UjF5NUxvNW1uRC1INURlVmNzMmhQaEpJ0gHAAUFVX3lxTFB0V2dCcjdZdXE0NFh5a3VjYkJWV0RmM0x0MnlZVUlKMno4bWtZSHE3TDE1cTRERG14aEZkTk1XSVEtT1EwTWtCN08yTzlHUHlRRnZNTE8xXzRlcGtnY1RrSnFhSUlsVVlraU9PbjFKd0lOTS1oLXVsNDNVcnVtcExlWG41Y3pEbkZYNFMzVXJ2MVIwV19MSjVlemV0cWxFcm5IWWhneVBCbjBPbGMwTnRkTkg2T0JqT3dWQjZsVy1DeQ?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "Schumer Accuses Huang of Breaking Export Law by Shipping Advanced Chips to China | The Daily Letter",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "외신 · Howl.Link",
+    "at": "2026-11-25T03:58:43.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiO0FVX3lxTE9qUGVKRlRMYy1jVklDeW13N1UxbGloZ3h1VEpRQ3BlczJMSDhmNGt6Y2FHSWxpOU1pNFVJ?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "As Nvidia's 'king' returns, reports of a chip 'underworld' to China emerge",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "외신 · ABC News & Headlines – Australian Broadcasting Corporation",
+    "at": "2026-11-25T03:43:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMirAFBVV95cUxNYnpyNUF1OWdJcjg2cVdka1diYTNtNWZQd1hfeXpobjRkSnhRNGtxR21iTEVsR1dYRFc2bFFPTWFfaUtvemJuczUzQjY4WUgxQmhxZkZPWVFHbmJxZVpCelBxXzAtSzVMZy0tcWh0aTFYM1pMdGJJMTZrMHRSWjlTYm5ibHRsWlBveDM1TFQtS0p4aVRXd1VVZ2hLM19lSTNSQkZHN2h1Mjc2VE95?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "Schumer accuses Nvidia CEO of violating US export control law",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "높음",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "외신 · Awani International",
+    "at": "2026-11-25T03:20:12.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxPbXphaVJONS1UVmdCLUFKVFBZZXBOWEdRa0c0aDZOUjNPNUY5WUlaMUF5QTlTdHRVdE9DcUVkQlpXX0VDa0VhNjRqWGNIOEFySUxCZDFkUWxEQlZ4WnBrVlZnemM3Q0xzUTQxVy1ZaGJDazhGcldQakFYU3ZaS3M5aUdXVFA5Y0RCMzQ4QUpXekY2SHBCVEM2QUFVb1ludEVfNzBEb2dra0VEYWc?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "Jensen Huang’s return steadies Nvidia, but China curbs, US scrutiny remain",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "외신 · South China Morning Post",
+    "at": "2026-11-25T03:00:17.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiywFBVV95cUxNZEZJaVpiMWVXLU5zcG1Ra3ltTmg0b2xmYmdBUlhFTEt6TjJ6N0I5Nm1JTFlOTEtBeTluYjNXZFBNV25Dd21sajVjZmNyRUsyUjd3X0luMzBPTEVtQW5rQ2hyUUF3YnlSVGdmVFNGbzY3V2otME1SRUx0d3RFUGxJd1gxQ19RdkVxaXZUa0JoQzdtU245YmJGVE54T212bGtkX0lnV1NfZ2VKM3dGdkZ4NlBudS1DNEtzQk1weUVUazQ4VmZsdVlXMldmOA?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "Nvidia's Huang returns to cheers in China, but political hurdles mount",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "외신 · Awani International",
+    "at": "2026-11-25T02:05:46.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxObnBOVm9QTUNmU29CQlIzSnhqRFBmUnU2WDAyY2FOR3pfVHl4aGkwNUozZUF0R0ZqVldCYUpENktEYlg4QW9LQVdNc0htVV9Tb3RVM01mRGtRYkxMSGNWM0w4bXNDdFYtX0tnS2Rpekg5VTdHUFFOVU9jcjNSbnN0RTgyWkFMdG01Z253V3N3ZmVQRERvcV9uM0JDMTR6VWNMUnV3c1FNY2JwSzg?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "Banks Put Data Center Clients Under the Microscope on AI Chips",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "미국정책",
+    "topic": "미국정책",
+    "source": "외신 · Bloomberg.com",
+    "at": "2026-11-25T01:09:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMivwFBVV95cUxORUJzZHdsdUt1VDhNT2xRY1VSX3VQZFpET1NKVHlyNlF3V0FvbENTYkt4akxXbElMOENpZ0xwNEtJTkIyTnIxV0MzU2xjVWUwRm5qVUJvbE1Gc25rRk1fOWtCX1NtYU5qZ1VVdTF1c2hlbmwzWDgwQ0RrMUlJR0sxTEJleU1Gd3JtOXNOWHd2UkZBUV83RkwybnhLWlpjQzdhOTNxY2xqdk9lR2paWTVZRVF6YkZoYWxVV0dSaFB0OA?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "Micron Stock Falls 6.4% Before Dell Earnings",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "낮음",
+    "relatedTo": "반도체업황",
+    "topic": "업황",
+    "source": "외신 · shattered.io",
+    "at": "2026-11-25T04:31:25.000Z",
+    "url": "https://news.google.com/rss/articles/CBMikAFBVV95cUxNS3hoSWhfU0l3X1h6Yl82RG5OcllucjZJTWJ5T2JUd1RFSHQtcnRmVVg1MlhDRWtxemdoRks0a0dHRjRpdUFlWnBSMW1NQTRKZzQ2NG1HWlZ2eDRaalE0U1RKWm9iQlBvVklpeHpBSDc5ajdvRmRGRkxPT0x4S2FFUmRuQmNQZ1BLTXFCRV9fd2Y?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "SK Hynix Highs Continue to Decline Toward Recent Lows as Key $100 Support Faces Test",
+    "summary": "",
+    "sentiment": "부정",
+    "impact": "중간",
+    "relatedTo": "SK하이닉스",
+    "topic": "업황",
+    "source": "외신 · TradingKey",
+    "at": "2026-11-25T03:59:46.000Z",
+    "url": "https://news.google.com/rss/articles/CBMi5gFBVV95cUxOdVU1OHVyOXo5Y1p6NzY3aE1KR0s1QUpjNVdqb2ZRdW5Qd1dnZHI4d0RoZVA0Um1TZEZ1bzV4MnNhSUhvMHh0WkgzTmFUak40VFJMMWFIODUtTktDVkVtbTJiTGNKR3pjdFA5WWNONTNEZkJDVWFRRDk0TE1wc1FTNkY5NERPYmNHeVRGdTNlaXVjYkxOOGN3RXh3VWRFQWo3alFtQ2o3YWplTHhIM3BJQ3JhYWFPSE84cGFlcTZpeUhXcm5YeUNBSjl5RlpOckZWcjBpRU9HaVNKNXYwbVpxWTlZRjVaQQ?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "Debate Over AI Memory Boom's Peak Intensifies as Micron Price Target Halved, Chip Stocks Waver",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "반도체업황",
+    "topic": "업황",
+    "source": "외신 · BigGo Finance",
+    "at": "2026-11-25T02:55:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMidkFVX3lxTE1Ra2ZhbFNXcjh5X0hLU0Nyc1FuNXdjc0JYeFhOb2pUa3JXbkNRQ1JQRUhkRGpWYkZqOE9fbmZCYU1TR1k5djlsOVE2WG5aT280YnpkWS10WTNFLXY0cGF6OGxodFJqcm1JeXBHX0FjU21CNVNZOFE?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "Micron Stock Price Forecast: Stock May Hit $509 as AI Memory Shortage and NAND Price Cut Expectations Coexist",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "낮음",
+    "relatedTo": "반도체업황",
+    "topic": "업황",
+    "source": "외신 · TradingKey",
+    "at": "2026-11-25T02:43:47.000Z",
+    "url": "https://news.google.com/rss/articles/CBMixgFBVV95cUxOR180dnJDa2VOSTVDWTRmcEdIU1o0cHRNVkliVXVObEtIc0N2Ull0VGlncGZmNW83ZHlYRkxQVkUyZnhEdHdDdm1udDBNa0hNVnR0ZDRIUzJxTnJaMDFPcmh2UEFrTUc0bjVCcTlKaHB3SW5RX0Ruakw2VkpVdWJaNm8xcUdNeTNWMDJPZGE0eTFUSHV6ZlFrcDlWZUIwNUV4MV80d0p1Z0tGYWdxY04wMEotaXduY1RFTG9ERjhmOHkxQVZ0LXc?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "HBM Prices to More Than Double with Big Tech Entry",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "반도체업황",
+    "topic": "업황",
+    "source": "외신 · 조선일보",
+    "at": "2026-11-25T02:16:06.000Z",
+    "url": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxNVmVKN3Fsd3hJSllJSzd1dTZaUUM1RmRxY1BsTURiZjFIZ01ZTVlQRmFLM1RBeVE5MnU4cXFHUUpQMVU5Z3laUW5DTXM2QXNnUnhJaGQzRF9sNzNHVG1nN1JwekhzZDlpM3o5SFh1TUNoamRRNkxuTmphTVN3NlZRd0tDZ2FhX2xY?oc=5",
+    "origin": "google"
+   },
+   {
+    "title": "Philadelphia Semiconductor Index Plunges Nearly 8% in One Day; Nvidia Gives Back Gains From Reinstatement Rally",
+    "summary": "",
+    "sentiment": "중립",
+    "impact": "중간",
+    "relatedTo": "반도체업황",
+    "topic": "업황",
+    "source": "외신 · BigGo Finance",
+    "at": "2026-11-24T23:55:00.000Z",
+    "url": "https://news.google.com/rss/articles/CBMidkFVX3lxTFBxeS1NaEdXa2d3SmdHWTZ1QXhBVWdfQWU2RWdId05FM1JQRG9INkIwNThGTGlMM3Z4Q3dkeVcwRktsUUgtUlNMSURRUUg1UU4xck9xSm5FQlRPaXg2LThBMUxLcmxBSEtyM1R1b1d0TlZSakhxRlE?oc=5",
+    "origin": "google"
+   }
+  ]
  }
 ]
